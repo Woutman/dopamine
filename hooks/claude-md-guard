@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# The PostToolUse admission-test hook. See py-hook for the interpreter probe and
+# the reason every dopamine hook fails open.
+#
+# SCRIPT_DIR uses "${0%/*}" rather than the external `dirname` command: this
+# exec is unconditional, so a PATH stripped bare must not take dirname down
+# with it (see seal-gate for the regression this avoids). cd and pwd are
+# shell builtins; this line resolves without PATH.
+set -u
+exec "${BASH:-bash}" "$(cd "${0%/*}" && pwd)/py-hook" claude_md_guard.py
