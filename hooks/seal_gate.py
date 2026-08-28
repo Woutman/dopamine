@@ -28,10 +28,11 @@ import subprocess
 import sys
 
 # A workspace path as it appears inside a shell command, with the surrounding
-# quoting and separators excluded from the slug.
-WORKSPACE_RE = re.compile(
-    r"(?:[^\s'\";|&]*/)?\.superpowers/sdd/(?P<slug>[^/\s'\";|&]+)"
-)
+# quoting and separators excluded from the slug. No path prefix is matched:
+# only the slug is ever read, and an optional prefix group here backtracks
+# quadratically on a long delimiter-free token (a base64 blob, a data URI),
+# which would stall the user's Bash call until the hook timeout.
+WORKSPACE_RE = re.compile(r"\.superpowers/sdd/(?P<slug>[^/\s'\";|&]+)")
 DELETE_RE = re.compile(r"(?:^|[;&|]|\s)(?:rm|rmdir|trash)(?:\s|$)")
 
 SEAL_HINT = "skills/sweep/scripts/seal-ledger"
@@ -112,6 +113,8 @@ def main():
         return 0
 
     command = (event.get("tool_input") or {}).get("command") or ""
+    if not isinstance(command, str):
+        return 0
     if not DELETE_RE.search(command):
         return 0
 

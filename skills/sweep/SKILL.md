@@ -33,17 +33,17 @@ Its output is **the sweep brief**, written beside the sealed ledger as `<plans>/
 
 ### 3. Execution — one implementer, from the brief alone
 
-Dispatch one implementer with `implementer-prompt.md`. Sweep edits are many small same-shape changes across files — one brief listing every file and its change, landing as one diff.
+Dispatch one implementer with `implementer-prompt.md`. Sweep edits are many small same-shape changes across files — one brief listing every file and its change, landing as one diff. Commit its edits: stage 4 diffs commits, not the working tree.
 
 ### 4. Verification — a fresh subagent that does not trust the report
 
-Run `scripts/sweep-package PLAN_FILE BASE HEAD`. Its diff excludes the plans tier by construction, so also list any plans-tier paths that changed (`scripts/artifact-paths --tier plans | cut -f2`, then `git diff --name-only BASE HEAD --` against those paths) as the plans-touch fact — normally empty. Dispatch a fresh subagent with `verifier-prompt.md`, filling its placeholders. It returns three verdicts: **Placement**, **Discipline**, and **Drain completeness**.
+Run `scripts/sweep-package PLAN_FILE BASE HEAD`: BASE the commit before stage 3's edits, HEAD the commit after. Its diff excludes the plans tier by construction, so also list any plans-tier paths that changed (`scripts/artifact-paths --tier plans | cut -f2`, then `git diff --name-only BASE HEAD --` against those paths) as the plans-touch fact. Dispatch a fresh subagent with `verifier-prompt.md`, filling its placeholders. It returns three verdicts: **Placement**, **Discipline**, and **Drain completeness**.
 
 **Fix loop: at most two rounds.** An entry that fails review twice is usually a defect in the brief — a mis-located claim, or a document state discovery misread — not an implementer needing a stronger model. Return to whoever dispatched the sweep, naming which entries failed and the pattern they share, and let them rule. A failure parked silently leaves the living documents wrong with nothing to signal it.
 
 ## What a finished sweep leaves
 
-Four dated siblings beside the plan: the **spec** (what we meant to build), the **plan** (how we meant to build it), the **sealed ledger** (what actually happened), and the **brief** (what that changed in the documents).
+Two dated siblings beside the plan: the **sealed ledger** (what happened) and the **brief** (what that changed in the documents).
 
 The brief is the record, with two writers: discovery writes it, execution annotates outcomes onto it. Verification's verdicts come back in conversation and drive stage 4's fix loop. Nothing else is written: a separate drain record would restate the ledger, which is the failure this plugin exists to prevent.
 

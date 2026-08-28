@@ -16,7 +16,7 @@ That sweep is expensive because it is a reconstruction task whose input grows wi
 
 Superpowers already keeps a per-plan ledger at `.superpowers/sdd/<plan>/progress.md` — rulings, deviations, parked findings, recorded as they happen. It is the one genuinely unreconstructable record, and superpowers deletes it when the plan finishes.
 
-Dopamine seals that ledger before it dies, and drains it into the living documents along grep terms derived from the ledger and the diff — never by re-reading the documents in bulk.
+Dopamine seals that ledger before it dies, and drains it into the living documents along grep terms derived from the ledger — never by re-reading the documents in bulk.
 
 | Piece | What it does |
 |---|---|
@@ -50,6 +50,7 @@ bash, git, and **Python 3** — used by the seal gate and by the tests. If no Py
 - **A deletion that names the workspace only through a shell variable** (`rm -rf "$dir"`) carries no literal path, so the gate cannot see it. Superpowers' own finish step writes the path literally, which is the case that matters.
 - **`git clean -fdx` destroys the workspace** without naming it. Out of the gate's scope by design — matching on it would deny a command most repositories run for unrelated reasons.
 - **The gate's delete-verb list matches only `rm`, `rmdir` and `trash`.** A `find … -delete`, `unlink`, `shred`, or `mv` of the workspace carries a literal path but goes undetected, because none of those verbs match. This was found during implementation and ruled to stay open rather than be widened: every verb added to the list is new false-positive surface, and a false positive here means denying a user's Bash command. `mv` is the clearest case against widening — `mv .superpowers/sdd/x/progress.md /tmp/` is a copy-out, not a destroy, and matching on `mv` would deny that legitimate command too.
+- **The verb match is a word match, not a parse.** A command that merely *mentions* a workspace path after the word `rm` — `echo how do I rm .superpowers/sdd/slug1` — is denied, because the gate reads a command line rather than executing one. This is the other side of the trade above: the verb set was kept narrow precisely to keep false positives like this rare, and the ones that remain deny a command a user meant to run.
 - **No ledger outside `subagent-driven-development`.** `executing-plans` and ad-hoc work have none, so the sweep falls back to reconstruction there.
 
 ## Tests
