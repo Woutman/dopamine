@@ -19,7 +19,7 @@ source "$REPO_ROOT/tests/helpers.sh"
 # config map, the plans-touch fact and the spec, and its no-ledger branch named an
 # input no subagent could receive. A budget set against an incomplete document is not
 # evidence about a complete one. Not licence to pad: additions stay terse and measured.
-BUDGETS="artifact-map:500 sweep:700"
+BUDGETS="artifact-map:500 sweep:700 claude-md-guard:500"
 
 budget_for() {
     local name="$1" entry
@@ -194,6 +194,25 @@ if [ -f "$sweep" ]; then
     fi
 else
     fail "skills/sweep/SKILL.md exists" "not found"
+fi
+
+echo "-- claude-md-guard content"
+guard="$REPO_ROOT/skills/claude-md-guard/SKILL.md"
+if [ -f "$guard" ]; then
+    body=$(cat "$guard")
+    assert_contains "it asks the admission question, not only the staleness one" \
+        "$body" "belong here"
+    assert_contains "a rejected line is routed rather than dropped" "$body" "routed"
+    assert_contains "the lessons tier is one of the destinations" "$body" "lessons tier"
+    assert_contains "a path-scoped rule is one of the destinations" "$body" ".claude/rules/"
+    assert_contains "it links the vendored standard" "$body" "claude-md-best-practices.md"
+    assert_contains "it names the drift check" "$body" "refresh-rule-card"
+    assert_contains "it gives the admit verdict shape" "$body" "verdict: admit"
+    assert_contains "it gives the route verdict shape" "$body" "verdict: route"
+    assert_contains "it points at the artifact map rather than restating it" \
+        "$body" "dopamine:artifact-map"
+else
+    fail "skills/claude-md-guard/SKILL.md exists" "not found"
 fi
 
 finish
