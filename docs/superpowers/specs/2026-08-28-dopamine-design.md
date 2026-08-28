@@ -200,6 +200,8 @@ Scripts colocate with the skill they serve, as superpowers does.
 ### Scripts
 
 - `seal-ledger` — copies the ledger beside its plan and marks it sealed.
+- `sweep-package` — writes the sweep's diff, scoped to the living documents, to a file for the
+  verifier, so the diff never enters the controller's context.
 - `refresh-rule-card` — re-fetches the two source sections, diffs, reports drift.
 
 ### Configuration
@@ -305,19 +307,51 @@ Two rules that survive from the handoff, restated in the forms above rather than
 
 ### 9.5 How the sweep runs
 
-The sweep runs **in a subagent**, and its report is **verified** in the main session before the work
-is considered swept.
+The sweep is dopamine's own execution→verification cycle, dispatched by the session that ran the
+plan. It borrows superpowers' shape — brief, fresh implementer, fresh reviewer that does not trust
+the report — and owns every part of it.
 
-Two reasons for the subagent. Re-reading the living documents is itself part of the cost being
-attacked, so doing it in the main session spends exactly the context the discipline exists to protect.
-And a fresh context evaluates the documents on their own terms rather than on the reasoning that
-produced the changes — the same argument superpowers makes for reviewing in a subagent.
+**Ordering.** Seal, then drain. The gate (§9.2) makes workspace deletion impossible before a sealed
+copy exists, so the drain reads a file that outlives the workspace. The trigger point is the close of
+the superpowers loop; nothing breaks if it slips later.
 
-The verification step is not optional, and it is the part the improvised sweeps already did well. The
-sweeping subagent reports what it drained and where it placed each item; that report is then checked
-against the sealed ledger, so "everything was drained" is a claim that can be checked rather than one
-that has to be taken on the sweeper's word. A `nothing to drain` result is verified the same way —
-against a ledger holding no drainable entries, not against the sweeper's assurance.
+**1. Discovery — one agent, all documents at once.** Its inputs are the sealed ledger and the unit's
+diff, never the documents in bulk; it reaches into the documents only along grep terms derived from
+those inputs. That is what keeps the sweep O(change). One pass covers every living document, because
+the ledger is read once — per-document discovery would re-read it once per document for no gain.
+
+Output is the **sweep brief**: one entry per located edit (file, line, the current text quoted, the
+change required), the negative entries (a location checked and deliberately left alone, with the
+reason), and the grep terms it derived. A located, quoted entry is what makes a sweep reviewable at
+all; an unlocated instruction cannot be verified by anyone.
+
+**2. Execution — one implementer, from the brief alone.** Sweep edits are many small same-shape
+changes across files, exactly the case superpowers' batching rule covers: one brief listing every
+file and its change, reviewed as a single diff.
+
+**3. Verification — a fresh subagent that does not trust the report.** Three verdicts:
+
+- **Placement** — every brief entry has a matching hunk, nothing extra. A listed location the diff
+  never touches is a Missing finding.
+- **Discipline** — changed what changed rather than appended; landed in the right tier; no number
+  describing a run entered a living document; historical records left alone.
+- **Drain completeness** — the verdict superpowers has no need for. Its reviewer is deliberately
+  diff-scoped because a human-approved plan is the completeness authority; our brief was written
+  minutes earlier by an agent with no gate. So the verifier re-derives grep terms from the sealed
+  ledger **independently** and checks that every ledger entry is either drained or explicitly ruled
+  to have no living-document consequence.
+
+**Fix loop: two rounds.** A sweep edit that fails review twice is usually a defect in the brief — a
+mis-located claim, or a document state discovery misread — not an implementer needing a stronger
+model, so escalation by model tier buys little. The failure is **propagated, not parked**: the sweep
+returns a distinct status to the orchestrator naming which entries failed and what the pattern
+suggests, and the orchestrator rules. Parking it silently would leave the living documents wrong with
+nothing to signal it.
+
+**The record is the brief.** Discovery writes it, execution annotates outcomes onto it, verification
+appends its verdicts, and it is kept beside the sealed ledger as one artifact of one unit of work. No
+separate drain record is written: it would restate the ledger, which is the failure this plugin
+exists to prevent.
 
 ## 10. Accepted risks
 
@@ -350,13 +384,14 @@ against a ledger holding no drainable entries, not against the sweeper's assuran
 
 ## 12. Suggested decomposition
 
-Six skills, three hooks and two scripts are more than one plan should carry. Three slices, each
+Six skills, three hooks and three scripts are more than one plan should carry. Three slices, each
 independently valuable and independently verifiable — the shape `writing-roadmaps` would produce, done
 by hand because the plugin does not exist yet:
 
-- **Slice 1 — the spine.** Per-repo config, the `SessionStart` injection, the `sweep` skill, the
-  `seal-ledger` script, and the `PreToolUse` seal gate. This is the entire cost argument realised, and
-  it is usable on an existing project the day it lands.
+- **Slice 1 — the spine.** Per-repo config, the `SessionStart` injection, the `sweep` skill with all
+  three of its stages, the verifier's prompt, the `seal-ledger` and `sweep-package` scripts, and the
+  `PreToolUse` seal gate. This is the entire cost argument realised, and it is usable on an existing
+  project the day it lands.
 - **Slice 2 — the `CLAUDE.md` guard.** Skill, vendored rule card, `refresh-rule-card`, and the
   `PostToolUse` verdict. Orthogonal to slice 1; touches nothing it built.
 - **Slice 3 — the authoring skills.** `brainstorm-design`, `brainstorm-architecture`,
