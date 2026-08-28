@@ -104,7 +104,7 @@ second set of instructions about their file, which would risk agents logging the
 |---|---|---|
 | **Living** — describes the present | `DESIGN.md`, `ARCHITECTURE.md`, `ROADMAP.md` | Drained **and verified** |
 | **Instructions** — highest read frequency | `CLAUDE.md` | Drained, verified, **plus an admission test** |
-| **Append-mostly** — describes the past, permanently true | `LESSONS.md` | Drained, **never verified**; growth unbounded by design |
+| **Append-mostly** — dated observations, reached by grep | `LESSONS.md` | Drained, **never verified**; growth unbounded by design |
 | **Immutable** — intent and actuality | `specs/`, `plans/`, sealed ledgers | Never touched |
 | **Consumed** — deleted when discharged | handoffs (a supported kind, not a mandate) | n/a |
 
@@ -113,9 +113,10 @@ re-read and re-verified, so the discipline pushes content out of them wherever i
 
 Notes that follow from the model:
 
-- **A lesson never goes stale.** "We tried X, it failed because Y" is a claim about a past event and
-  is permanently true, so `LESSONS.md` is drained into but never verified. Cost stays
-  O(new lessons).
+- **A dated observation never goes stale; a prescription does.** "We tried X on this date, it failed
+  because Y" is a claim about a past event and stays true. "Do not use X" stops being true when the
+  library is fixed or the constraint lifts. The never-verified tier is therefore sound only for
+  entries written as dated observations — see §9.6. Cost stays O(new lessons).
 - **A number that describes the system now** — the current retrieval gate, the current backfill cost
   — lives in a living document as a bounded set, **replaced** rather than appended. **A number that
   describes a run** stays in the sealed ledger and is cited. This gives the "same figure restated in
@@ -258,6 +259,11 @@ The second is what matters. The demo's 516 lines were not false, they were **mis
 rationale reads perfectly well in `CLAUDE.md` and is simply being paid for on every session while
 duplicating `DESIGN.md`. Staleness checking would never have caught it.
 
+Content that fails the test is **routed, not discarded** — it lands in `LESSONS.md` (§9.6). The
+guard's weak point is that an agent holding a true fact with nowhere to put it will argue to keep it
+in `CLAUDE.md`; a destination turns the test from a rejection into a routing decision and removes the
+incentive to fight it.
+
 The standard is Anthropic's own, distilled into the vendored rule card: the per-line test *"Would
 removing this cause Claude to make mistakes? If not, cut it"*, the include/exclude table, the
 200-line target, "sometimes-relevant belongs in a skill", and the `/doctor` trim pass.
@@ -320,10 +326,15 @@ diff, never the documents in bulk; it reaches into the documents only along grep
 those inputs. That is what keeps the sweep O(change). One pass covers every living document, because
 the ledger is read once — per-document discovery would re-read it once per document for no gain.
 
-Output is the **sweep brief**: one entry per located edit (file, line, the current text quoted, the
-change required), the negative entries (a location checked and deliberately left alone, with the
-reason), and the grep terms it derived. A located, quoted entry is what makes a sweep reviewable at
-all; an unlocated instruction cannot be verified by anyone.
+Output is the **sweep brief**, whose entries come in three kinds, plus the grep terms discovery
+derived:
+
+- **Edits** — file, line, the current text quoted, the change required.
+- **Negatives** — a location checked and deliberately left alone, with the reason.
+- **Promotions** — a claim that has recurred, with the `CLAUDE.md` line proposed for it (§9.6).
+
+A located, quoted entry is what makes a sweep reviewable at all; an unlocated instruction cannot be
+verified by anyone.
 
 **2. Execution — one implementer, from the brief alone.** Sweep edits are many small same-shape
 changes across files, exactly the case superpowers' batching rule covers: one brief listing every
@@ -352,6 +363,41 @@ nothing to signal it.
 appends its verdicts, and it is kept beside the sealed ledger as one artifact of one unit of work. No
 separate drain record is written: it would restate the ledger, which is the failure this plugin
 exists to prevent.
+
+### 9.6 `LESSONS.md`
+
+**What it is.** The destination for content that fails the `CLAUDE.md` admission test but is still
+true and worth keeping. That definition is derived from a mechanism that already exists rather than
+asserted, and it earns the tier: nothing consults the file as current truth, so staleness costs
+nothing and never-verified is honest. Its growth is the price of `CLAUDE.md` staying small, which is
+the trade this plugin wants.
+
+**It is reached by grep, not by loading.** So an entry must carry what a future agent would actually
+search for: the error text, the symbol, the version number.
+
+**Entry shape.** A dated observation *and* a transferable claim — one to three sentences carrying the
+claim, the condition it holds under, the mechanism, and why the obvious move is wrong. That last
+clause is what makes it a lesson rather than a note. The demo's own gotchas are the model: a
+`footnoteBackLabel` must be a string on the installed `mdast-util-to-hast` 12.3.0, because a function
+silently emits no `aria-label` while later majors take one — so current upstream documentation tempts
+you exactly wrong.
+
+**Headings are the index, not decoration.** They make discovery's read O(section) rather than O(file),
+and are created lazily by whatever files the first entry beneath them.
+
+**No consolidation pass.** Duplicates cost one extra grep hit and staleness costs nothing, so a pass
+priced at O(file) has almost nothing to buy — and it could not be expressed as a located brief entry
+in any case, leaving the verifier no claim to check.
+
+**Recurrence is the exception, and it is free.** A lesson learned twice is evidence that a line in
+`CLAUDE.md` would have prevented the second occurrence, converting repeated future mistakes into one
+always-loaded line. Discovery is already reading the destination section to decide append-or-merge, so
+a near-identical entry sitting there *is* the recurrence signal, in hand, with no extra read. It
+becomes a promotion entry in the brief.
+
+**A promotion is subject to the guard like anything else.** One the admission test rejects stays in
+`LESSONS.md`, and the brief records that it was proposed and refused, so the next recurrence does not
+re-litigate it.
 
 ## 10. Accepted risks
 
@@ -393,16 +439,16 @@ by hand because the plugin does not exist yet:
   `PreToolUse` seal gate. This is the entire cost argument realised, and it is usable on an existing
   project the day it lands.
 - **Slice 2 — the `CLAUDE.md` guard.** Skill, vendored rule card, `refresh-rule-card`, and the
-  `PostToolUse` verdict. Orthogonal to slice 1; touches nothing it built.
+  `PostToolUse` verdict. It touches nothing slice 1 built, but slice 1's promotion entries (§9.6) are
+  proposals with no test to pass until this lands — so until then a promotion is recorded and left
+  unapplied rather than written into `CLAUDE.md` ungated.
 - **Slice 3 — the authoring skills.** `brainstorm-design`, `brainstorm-architecture`,
   `writing-roadmaps`, `adopting-a-repo`. Needed when a project starts or is adopted, so it is last
   despite being first in the layer model.
 
 ## 13. Open questions
 
-1. **The name.** `dopamine` is provisional.
-2. **`LESSONS.md`'s entry shape** — what keeps it from decaying into a diary, and when several small
-   lessons should be consolidated into one general one.
+1. **The name.** `dopamine` is settled for now and not blocking; it is still open to a better one.
 
 ## 14. What this document deliberately does not contain
 
