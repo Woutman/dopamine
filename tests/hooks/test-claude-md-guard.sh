@@ -181,4 +181,17 @@ OUT=$(printf '{"tool_input": []}' | (cd "$repo" && CLAUDE_PLUGIN_ROOT="$REPO_ROO
 assert_eq "a tool_input of the wrong type exits 0" 0 "$RC"
 assert_eq "and injects nothing" "" "$OUT"
 
+echo "-- a non-UTF-8 byte in .dopamine/config is a silent no-op, never a crash"
+badrepo=$(make_repo nonutf8)
+printf 'instructions: CLAUDE.md\n' > "$badrepo/.dopamine/config"
+printf '\xff\xfe garbage\n' >> "$badrepo/.dopamine/config"
+stderr_file="$TEST_ROOT/nonutf8.stderr"
+RC=0
+OUT=$(printf '%s' "$(event Edit "$badrepo" "$badrepo/CLAUDE.md")" \
+    | (cd "$badrepo" && CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$UNDER_TEST") 2>"$stderr_file") || RC=$?
+ERR=$(cat "$stderr_file")
+assert_eq "the guard exits 0 rather than crashing" 0 "$RC"
+assert_not_contains "and prints no traceback" "$ERR" "Traceback"
+assert_eq "and injects nothing, since a config it cannot read has declared nothing" "" "$OUT"
+
 finish

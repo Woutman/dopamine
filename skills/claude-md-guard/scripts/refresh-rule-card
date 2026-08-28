@@ -2,11 +2,12 @@
 # Re-fetch the source sections behind the vendored CLAUDE.md rule card and report
 # drift against the snapshots kept beside it.
 #
-# This runs off the edit path, never on it. Measured 2026-08-28: the two source
-# pages are 40,068 and 36,894 bytes and the CLAUDE.md guidance is 8.1% and 7.1%
-# of them — roughly 900 usable words inside ~19,000 tokens. Fetching them at the
-# moment someone edits a CLAUDE.md would be the wrong mechanism. The card is
-# vendored instead, and this script is what keeps vendoring honest.
+# This runs off the edit path, never on it. As of the card's stated distillation
+# date, the two source pages measured 40,076 and 36,982 bytes and the CLAUDE.md
+# guidance is 8.1% and 7.1% of them — roughly 900 usable words inside ~19,000
+# tokens. Fetching them at the moment someone edits a CLAUDE.md would be the
+# wrong mechanism. The card is vendored instead, and this script is what keeps
+# vendoring honest.
 #
 # Usage: refresh-rule-card [--update] [CARD]
 #   --update  rewrite each snapshot from what was fetched, so the diff can be

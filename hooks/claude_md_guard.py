@@ -193,4 +193,7 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception:  # a hook that cannot run must not break the session
+        sys.exit(0)

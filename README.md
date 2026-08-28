@@ -45,7 +45,7 @@ A declared document that does not exist yet is reported `absent`, not as an erro
 
 ## Requirements
 
-bash, git, and **Python 3** — used by the seal gate and by the tests. If no Python 3 is found the gate prints one line to stderr and exits 0: a gate that cannot run must not block every command in the session.
+bash, git, and **Python 3** — used by the seal gate, the `CLAUDE.md` guard, and the tests. If no Python 3 is found, the affected hook prints one line to stderr and exits 0: a hook that cannot run must never break the session it exists to help.
 
 `skills/claude-md-guard/scripts/refresh-rule-card` also needs **curl or wget**, and network access. It is a maintenance script that runs off the edit path; nothing else in the plugin makes a network request.
 

@@ -77,7 +77,12 @@ echo "-- the shipped card, extractor and snapshots agree, with no network"
 # testing. Extracting a section from a file that *is* that section must return the
 # file unchanged, so a clean run proves the shipped snapshots are exactly what the
 # shipped extractor produces -- the property that makes the real drift check
-# trustworthy.
+# trustworthy. The heading each rebuilt source line searches for comes from the
+# card's own declared field, not from the snapshot being searched -- searching a
+# snapshot for a heading read off itself would trivially match even if the
+# card's declared heading had drifted from what the snapshot actually starts
+# with, which is exactly the card<->snapshot contract this offline check exists
+# to catch.
 mkdir -p "$TEST_ROOT/card/sources"
 cp "$GUARD_DIR"/sources/*.md "$TEST_ROOT/card/sources/"
 local_card="$TEST_ROOT/card/claude-md-best-practices.md"
@@ -85,9 +90,15 @@ local_card="$TEST_ROOT/card/claude-md-best-practices.md"
 count=0
 while IFS= read -r line; do
     trimmed=${line#*source:}
-    snap=$(printf '%s' "${trimmed#*|}" | sed 's/.*|//' | tr -d ' ')
-    [ -f "$GUARD_DIR/$snap" ] || { fail "declared snapshot exists" "missing: $snap"; continue; }
-    heading=$(head -1 "$GUARD_DIR/$snap")
+    rest=${trimmed#*|}
+    heading=$(printf '%s' "${rest%|*}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    snap=$(printf '%s' "${rest#*|}" | tr -d ' ')
+    if [ -f "$GUARD_DIR/$snap" ]; then
+        pass "declared snapshot exists ($snap)"
+    else
+        fail "declared snapshot exists" "missing: $snap"
+        continue
+    fi
     printf 'source: file://%s | %s | %s\n' "$TEST_ROOT/card/$snap" "$heading" "$snap" >> "$local_card"
     count=$((count + 1))
 done < <(grep -E '^[[:space:]]*source:' "$GUARD_DIR/claude-md-best-practices.md")

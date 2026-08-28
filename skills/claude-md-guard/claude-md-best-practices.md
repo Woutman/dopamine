@@ -65,4 +65,4 @@ source: https://code.claude.com/docs/en/memory.md | ### When to add to CLAUDE.md
 source: https://code.claude.com/docs/en/memory.md | ### Write effective instructions | sources/memory-write-effective-instructions.md
 ```
 
-**Why vendored rather than fetched.** Measured 2026-08-28: the two pages are 40,068 and 36,894 bytes, and these three sections are 3,256 + 824 + 1,818 bytes of them — 8.1% and 7.1%, 818 words in total. Fetching whole pages on every `CLAUDE.md` edit would pay roughly 19,000 tokens for roughly 900 usable words, so the card is vendored and the drift check runs off the edit path instead.
+**Why vendored rather than fetched.** As of the distillation date above, the two pages measured 40,076 and 36,982 bytes, and these three sections are 3,256 + 824 + 1,818 bytes of them — 8.1% and 7.1%, 818 words in total. Fetching whole pages on every `CLAUDE.md` edit would pay roughly 19,000 tokens for roughly 900 usable words, so the card is vendored and the drift check runs off the edit path instead.

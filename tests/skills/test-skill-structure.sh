@@ -165,6 +165,9 @@ if [ -f "$sweep" ]; then
             assert_contains "the brief defines the $kind entry kind" "$dbody" "$kind"
         done
         assert_contains "an edit entry is located and quoted" "$dbody" "Current text, quoted"
+        edits_section=$(awk '/^### Edits$/{flag=1; next} /^### Negatives$/{flag=0} flag' "$discovery")
+        assert_contains "an Edit into the instructions tier is gated too, not only a Promotion" \
+            "$edits_section" "verdict:"
         assert_contains "discovery reads documents only along grep terms" "$dbody" "grepped six times"
         assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
         assert_contains "a promotion is put through the admission test" \
@@ -188,7 +191,7 @@ if [ -f "$sweep" ]; then
         assert_contains "the verifier does not trust the report" "$vbody" "not trust"
         assert_contains "a listed location the diff never touches is Missing" "$vbody" "Missing"
         assert_contains "an ungated promotion is a finding" "$vbody" "Ungated"
-        assert_contains "the verifier knows promotions carry a verdict" "$vbody" "verdict"
+        assert_contains "the verifier knows promotions carry a verdict" "$vbody" "verdict: admit"
     else
         fail "skills/sweep/verifier-prompt.md exists" "not found"
     fi

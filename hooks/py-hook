@@ -10,7 +10,14 @@
 set -u
 export PYTHONUTF8=1
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# SCRIPT_DIR is resolved with shell builtins only, never the external `dirname`
+# command: this runs before the interpreter probe below finds anything, so a
+# PATH stripped bare would take dirname down with it too (see seal-gate and
+# claude-md-guard for the regression this matches). The explicit "$sd" = "$0"
+# fallback restores dirname's POSIX-defined "." result for a bare name with no
+# "/" — "${0%/*}" alone would leave $0 unchanged there.
+sd="${0%/*}"; [ "$sd" = "$0" ] && sd="."
+SCRIPT_DIR="$(cd "$sd" && pwd)"
 TARGET="${1:-}"
 
 if [ -z "$TARGET" ]; then

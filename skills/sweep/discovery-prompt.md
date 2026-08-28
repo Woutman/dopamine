@@ -39,6 +39,7 @@ One per change. Each is:
 - **Target heading** — the heading the change lands under, created if it does not exist yet
 - **Current text, quoted** — verbatim, enough to locate it unambiguously; for a genuinely new entry, write **"new entry"** in its place — there is nothing existing to cite
 - **The change required** — the replacement text, or the text to add and exactly where
+- **Verdict, when the Tier is `instructions`** — carries the same `verdict:` line a promotion does. Load the dopamine:claude-md-guard skill by name, put the candidate through the admission test, and record `verdict: admit` or `verdict: route <destination>` in the entry.
 
 A located, quoted entry is what makes a sweep reviewable at all. An unlocated instruction cannot be verified by anyone, including you.
 
