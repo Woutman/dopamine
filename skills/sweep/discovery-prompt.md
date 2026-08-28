@@ -2,7 +2,7 @@
 
 Fill the placeholders and dispatch one subagent with the result.
 
-**Placeholders:** `{SEALED_LEDGER}` `{DIFF_PACKAGE}` `{CONFIG_MAP}` `{BRIEF_PATH}` `{SPEC}` `{PLAN}`
+**Placeholders:** `{SEALED_LEDGER}` `{CONFIG_MAP}` `{BRIEF_PATH}` `{SPEC}` `{PLAN}`
 
 ---
 
@@ -11,11 +11,12 @@ You are writing a **sweep brief**: the located, checkable list of changes that c
 ## Your inputs, and their order
 
 1. `{SEALED_LEDGER}` — what actually happened during execution: rulings, deviations, parked findings. Read it in full. It is the one unreconstructable record.
-2. `{DIFF_PACKAGE}` — what the code now does.
-3. `{CONFIG_MAP}` — the output of `artifact-paths`: which paths hold which tier, and which are absent.
-4. `{SPEC}` and `{PLAN}` — read only to resolve a claim you cannot place from the first two.
+2. `{CONFIG_MAP}` — the output of `artifact-paths`: which paths hold which tier, and which are absent.
+3. `{SPEC}` and `{PLAN}` — read only to resolve a claim you cannot place from the first two.
 
-**You do not read the living documents in bulk.** From the ledger and the diff, derive a list of **grep terms** — the symbols, filenames, numbers, component names and phrases a claim would be written with — and reach into the documents only along those terms. A document you have grepped six times you have still not read, and that is the intended cost.
+You have no diff of your own. The sealed ledger is the sweep's one journal, so you work from it; current text is quoted by reading the living documents directly, not from a diff. The diff you might otherwise want covers this unit's own work — a different git range than the one verification's diff covers, its own sweep — so the two are never the same package.
+
+**You do not read the living documents in bulk.** From the ledger, derive a list of **grep terms** — the symbols, filenames, numbers, component names and phrases a claim would be written with — and reach into the documents only along those terms. A document you have grepped six times you have still not read, and that is the intended cost.
 
 Read the destination section before writing any entry there. That is how you decide append-or-merge, and it is also how recurrence surfaces for free.
 

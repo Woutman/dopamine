@@ -8,7 +8,7 @@ Read `{BRIEF_PATH}` and make every change in its **Edits** section. The brief is
 
 ## How each edit lands
 
-**Change what changed.** Where the brief quotes current text, that text is replaced — the document should read afterwards as though the new state had always been the case. Append only where the brief says the thing is genuinely new.
+**Change what changed.** Where the brief quotes current text, that text is replaced — the document should read afterwards as though the new state had always been the case. Where the Current text field reads **"new entry"** instead of a quote, there is nothing to locate: append the change text under the Target heading the brief names — that marker is how the brief tells you this one is genuinely new, not a location to find.
 
 **Land it in the tier the brief names.** If an entry's destination is the append-mostly tier, it goes there whole, under the heading the brief names, created if it does not exist yet.
 
@@ -17,6 +17,8 @@ Read `{BRIEF_PATH}` and make every change in its **Edits** section. The brief is
 ## A brief entry you cannot carry out
 
 If the quoted text is not at the given location, or the document does not say what the brief claims, **stop on that entry and record the discrepancy**: the entry, the location, and what you found there instead. Then continue with the rest. A mis-located entry is a defect in the brief, and reporting it is how the fix loop learns that.
+
+This does not apply to an entry marked **"new entry"** — finding nothing at the location is exactly what that marker predicts, not a discrepancy.
 
 Do not go looking for the right place yourself. Searching the document to repair an entry is how a sweep becomes O(project).
 
