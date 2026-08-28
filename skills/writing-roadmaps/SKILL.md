@@ -15,9 +15,9 @@ description: Use when a design and an architecture are settled and the order of 
 
 ## The recipe
 
-### 1. Read the two inputs
+### 1. Locate the output and read the two inputs
 
-`skills/sweep/scripts/artifact-paths --tier living`. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first.
+`skills/sweep/scripts/artifact-paths --tier living` gives all three. The roadmap is the declared path whose basename is `ROADMAP.md`; where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first.
 
 ### 2. Order by dependency and risk, and say which one placed each phase
 
@@ -52,7 +52,7 @@ A closed phase is **deleted**. Its outcome moves to where that outcome belongs: 
 
 | The inputs hold | This recipe produces |
 |---|---|
-| A settled design and architecture | `ROADMAP.md`: what drives the order, the phases, and the external asks |
+| A settled design and architecture | `ROADMAP.md` at the declared path: what drives the order, the phases, and the external asks |
 | An architecture still open on one component | The phases up to that question, and the question named as what unblocks the rest |
 | A phase that has just closed | It is deleted and its outcome placed, and the remaining order re-decided if what closed changed it |
 

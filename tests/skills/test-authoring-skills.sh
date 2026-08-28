@@ -93,5 +93,7 @@ assert_contains "dates are excluded as a metric that moves without the system" \
     "$body" "Dates and durations"
 assert_contains "it points at the artifact map rather than restating it" \
     "$body" "dopamine:artifact-map"
+assert_contains "it locates its own output at the declared path" \
+    "$body" "The roadmap is the declared path whose basename is"
 
 finish
