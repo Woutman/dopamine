@@ -30,7 +30,7 @@ plans: docs/superpowers/plans
 
 Declare the paths this project will use, not only the ones it already has — a declared document that does not exist is reported `absent`, which is how the remaining work stays visible without any machinery to nag about it. Confirm the paths with the human before writing: this is the file every other component reads.
 
-Verify with `skills/sweep/scripts/artifact-paths`. Exit 0, with one row per declared path, means adoption can go on.
+Verify with `${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths`. Exit 0, with one row per declared path, means adoption can go on.
 
 ### 2. Decide whether there is anything to reconstruct
 
@@ -41,9 +41,9 @@ The source tree answers it.
 
 ### 3. Survey — one subagent per document, dispatched in parallel
 
-For each absent `living:` document, dispatch one subagent with `survey-prompt.md`, naming which document it is surveying for. They read disjoint parts of the repository — entry points and history for the design, module boundaries and data flow for the architecture, unfinished work for the roadmap — so there is no shared expensive read that one pass would save.
+For each `living:` document that is absent — and, when the human confirms a present one has drifted from the code, for that one too, since re-surveying a document already written is a second O(project) read and is theirs to authorise, dispatch one subagent with `survey-prompt.md`, naming which document it is surveying for. They read disjoint parts of the repository — entry points and history for the design, module boundaries and data flow for the architecture, unfinished work for the roadmap — so there is no shared expensive read that one pass would save.
 
-Each returns a findings file. The repository's contents never enter this session.
+Fill `{FINDINGS_PATH}` with `<plans>/adoption-<document-basename>.survey.md`, taking `<plans>` from the `plans:` tier. Each returns that findings file, which is consumed when stage 4 walks its `Reconstructed, unconfirmed` section and is deleted after. The repository's contents never enter this session.
 
 ### 4. Write, and mark what was inferred
 

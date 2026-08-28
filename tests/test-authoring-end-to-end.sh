@@ -22,7 +22,7 @@ unresolved=""
 while IFS= read -r ref; do
     [ -n "$ref" ] || continue
     [ -f "$REPO_ROOT/skills/$ref/SKILL.md" ] || unresolved="$unresolved $ref"
-done < <(grep -rhoE 'dopamine:[a-z][a-z-]*' "$REPO_ROOT/skills" "$REPO_ROOT/hooks" "$REPO_ROOT/README.md" \
+done < <(grep -rhoE 'dopamine:[a-z][a-z-]*' "$REPO_ROOT/skills" "$REPO_ROOT/hooks" "$REPO_ROOT/README.md" "$REPO_ROOT/.dopamine/config" \
     | sed 's/^dopamine://' | sort -u)
 if [ -z "$unresolved" ]; then
     pass "every dopamine:<skill> reference resolves"
@@ -43,7 +43,13 @@ assert_contains "architecture names the design as its predecessor" \
     "$(cat "$arch")" "dopamine:brainstorm-design"
 assert_contains "the roadmap names both of its inputs" \
     "$(cat "$road")" "dopamine:brainstorm-architecture"
+assert_contains "the roadmap names its other input too" \
+    "$(cat "$road")" "dopamine:brainstorm-design"
 assert_contains "adoption reaches every authoring recipe" \
+    "$(cat "$adopt")" "dopamine:writing-roadmaps"
+assert_contains "adoption reaches the architecture recipe" \
+    "$(cat "$adopt")" "dopamine:brainstorm-architecture"
+assert_contains "adoption reaches the roadmap recipe" \
     "$(cat "$adopt")" "dopamine:writing-roadmaps"
 
 echo "-- every root-relative reference to artifact-paths points at the real script"

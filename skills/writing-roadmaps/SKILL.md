@@ -17,7 +17,7 @@ description: Use when a design and an architecture are settled and the order of 
 
 ### 1. Locate the output and read the two inputs
 
-`skills/sweep/scripts/artifact-paths --tier living` gives all three. The roadmap is the declared path whose basename is `ROADMAP.md`; where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first.
+`${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths --tier living` gives all three. The roadmap is the declared path whose basename is `ROADMAP.md`; where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first. Exit 3 means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
 
 ### 2. Order by dependency and risk, and say which one placed each phase
 
@@ -46,7 +46,7 @@ Anything the work waits on from outside — an access grant, an approval, a deci
 
 ### 5. Keep it consumed, not accumulated
 
-A closed phase is **deleted**. Its outcome moves to where that outcome belongs: what changed the system goes to `DESIGN.md` or `ARCHITECTURE.md`, what a run measured stays in the sealed ledger and is cited. The sweep does this at each phase close, and it is why a roadmap describes the remaining work rather than growing into a history of the project.
+A closed phase is **deleted**. Its outcome moves to where that outcome belongs: what changed the system goes to `DESIGN.md` or `ARCHITECTURE.md`, what a run measured stays in the sealed ledger and is cited. Re-running this recipe at each phase close is what deletes it — `dopamine:sweep` drains ledger facts into living documents but has no concept of a phase. That is why a roadmap describes the remaining work rather than growing into a history of the project.
 
 ## Outcomes
 
