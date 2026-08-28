@@ -83,7 +83,16 @@ for skill_md in "$REPO_ROOT"/skills/*/SKILL.md; do
         fail "$name: within its $max-word budget" "got: $words words"
     fi
 
-    if grep -qE '^\s*@[a-zA-Z./]' "$skill_md"; then
+    # An @-link force-loads whether it opens the line or sits inline in prose
+    # or a bullet, so match an @ preceded by line-start or whitespace (not by
+    # a word character or a backtick) and followed by a path-like character.
+    # This lets an email address (`user@example.com`, preceded by a letter)
+    # and a code-formatted scoped package name (`` `@anthropic-ai/... ` ``,
+    # preceded by a backtick) through correctly. Residual cost: a scoped
+    # package name written bare after whitespace, with no backticks, still
+    # false-positives — the fix there is to backtick it, which is correct
+    # formatting anyway.
+    if grep -qE '(^|[[:space:]])@[a-zA-Z./]' "$skill_md"; then
         fail "$name: uses no @-link force-loads" "found an @ link"
     else
         pass "$name: uses no @-link force-loads"
