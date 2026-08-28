@@ -39,6 +39,7 @@ One per change. Each is:
 - **Target heading** — the heading the change lands under, created if it does not exist yet
 - **Current text, quoted** — verbatim, enough to locate it unambiguously; for a genuinely new entry, write **"new entry"** in its place — there is nothing existing to cite
 - **The change required** — the replacement text, or the text to add and exactly where
+- **Verdict, when the Tier is `instructions`** — carries the same `verdict:` line a promotion does. Load the dopamine:claude-md-guard skill by name, put the candidate through the admission test, and record `verdict: admit` or `verdict: route <destination>` in the entry.
 
 A located, quoted entry is what makes a sweep reviewable at all. An unlocated instruction cannot be verified by anyone, including you.
 
@@ -50,9 +51,14 @@ Historical records — specs, plans, sealed ledgers, previous briefs — are lef
 
 ### Promotions
 
-A claim that has recurred: you found a near-identical entry already in the append-mostly tier. A lesson learned twice is evidence that one always-loaded line would have prevented the second occurrence. Give the `CLAUDE.md` line you propose, and the two occurrences that justify it.
+A claim that has recurred: you found a near-identical entry already in the append-mostly tier. A lesson learned twice is evidence that one always-loaded line would have prevented the second occurrence. Give the line you propose for the instructions tier, and the two occurrences that justify it.
 
-A promotion is a proposal. Until this project has the `CLAUDE.md` admission guard, record it and leave it unapplied.
+Then put it through the admission test. Load the dopamine:claude-md-guard skill by name and record its verdict on the entry, in the form that skill gives:
+
+- **`verdict: admit`** — the promotion also becomes an **Edit** against the instructions-tier path, located and quoted like every other edit.
+- **`verdict: route <destination>`** — the claim stays where it is. The recorded verdict and its reason are what stop the next recurrence re-litigating a decision already made.
+
+A promotion carrying no verdict is an incomplete entry.
 
 ## Where each fact goes
 

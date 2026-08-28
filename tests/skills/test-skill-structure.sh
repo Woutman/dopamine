@@ -19,7 +19,7 @@ source "$REPO_ROOT/tests/helpers.sh"
 # config map, the plans-touch fact and the spec, and its no-ledger branch named an
 # input no subagent could receive. A budget set against an incomplete document is not
 # evidence about a complete one. Not licence to pad: additions stay terse and measured.
-BUDGETS="artifact-map:500 sweep:700"
+BUDGETS="artifact-map:500 sweep:700 claude-md-guard:500"
 
 budget_for() {
     local name="$1" entry
@@ -165,8 +165,18 @@ if [ -f "$sweep" ]; then
             assert_contains "the brief defines the $kind entry kind" "$dbody" "$kind"
         done
         assert_contains "an edit entry is located and quoted" "$dbody" "Current text, quoted"
+        edits_section=$(awk '/^### Edits$/{flag=1; next} /^### Negatives$/{flag=0} flag' "$discovery")
+        assert_contains "an Edit into the instructions tier is gated too, not only a Promotion" \
+            "$edits_section" "verdict:"
         assert_contains "discovery reads documents only along grep terms" "$dbody" "grepped six times"
         assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
+        assert_contains "a promotion is put through the admission test" \
+            "$dbody" "dopamine:claude-md-guard"
+        assert_contains "an admitted promotion becomes an Edit" "$dbody" "verdict: admit"
+        assert_contains "a routed promotion records where it went instead" \
+            "$dbody" "verdict: route"
+        assert_not_contains "the promotion is no longer parked unapplied" \
+            "$dbody" "leave it unapplied"
     else
         fail "skills/sweep/discovery-prompt.md exists" "not found"
     fi
@@ -180,6 +190,8 @@ if [ -f "$sweep" ]; then
         assert_contains "the verifier re-derives its own grep terms" "$vbody" "independently"
         assert_contains "the verifier does not trust the report" "$vbody" "not trust"
         assert_contains "a listed location the diff never touches is Missing" "$vbody" "Missing"
+        assert_contains "an ungated promotion is a finding" "$vbody" "Ungated"
+        assert_contains "the verifier knows promotions carry a verdict" "$vbody" "verdict: admit"
     else
         fail "skills/sweep/verifier-prompt.md exists" "not found"
     fi
@@ -194,6 +206,25 @@ if [ -f "$sweep" ]; then
     fi
 else
     fail "skills/sweep/SKILL.md exists" "not found"
+fi
+
+echo "-- claude-md-guard content"
+guard="$REPO_ROOT/skills/claude-md-guard/SKILL.md"
+if [ -f "$guard" ]; then
+    body=$(cat "$guard")
+    assert_contains "it asks the admission question, not only the staleness one" \
+        "$body" "belong here"
+    assert_contains "a rejected line is routed rather than dropped" "$body" "routed"
+    assert_contains "the lessons tier is one of the destinations" "$body" "lessons tier"
+    assert_contains "a path-scoped rule is one of the destinations" "$body" ".claude/rules/"
+    assert_contains "it links the vendored standard" "$body" "claude-md-best-practices.md"
+    assert_contains "it names the drift check" "$body" "refresh-rule-card"
+    assert_contains "it gives the admit verdict shape" "$body" "verdict: admit"
+    assert_contains "it gives the route verdict shape" "$body" "verdict: route"
+    assert_contains "it points at the artifact map rather than restating it" \
+        "$body" "dopamine:artifact-map"
+else
+    fail "skills/claude-md-guard/SKILL.md exists" "not found"
 fi
 
 finish

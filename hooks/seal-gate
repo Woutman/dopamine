@@ -1,30 +1,21 @@
 #!/usr/bin/env bash
-# Locate a Python 3 interpreter and hand it the seal gate.
+# The PreToolUse seal gate. Its interpreter probe is shared with every other
+# Python hook in this plugin and lives in py-hook; this file keeps its name
+# because hooks.json registers it and the gate's tests invoke it by this path.
 #
-# Python 3 is dopamine's only runtime dependency beyond bash and git. If none is
-# present the gate exits 0 with a note on stderr rather than failing: the gate is
-# a backstop, and a gate that cannot run must never block every Bash call in the
-# session. Failing open loses the guarantee; failing closed loses the session.
+# "$BASH" is the absolute path of the shell already running this script, so the
+# hand-off needs neither a PATH lookup nor an executable bit on py-hook.
+#
+# SCRIPT_DIR is resolved with shell builtins only, never the external `dirname`
+# command: this exec is unconditional (unlike py-hook's own probe loop, which
+# only reaches its exec once an interpreter is found), so a PATH stripped bare
+# — the same degraded environment slice 1's tests exercise — must not take
+# dirname down with it. "${0%/*}" alone is not quite dirname's equivalent,
+# though: dirname is POSIX-defined to return "." for a bare name with no "/",
+# and cd "." resolves to $PWD, whereas "${0%/*}" performs no substitution on a
+# bare name and returns $0 unchanged — turning a same-directory invocation like
+# `cd hooks && bash seal-gate` into a `cd seal-gate` that fails. The explicit
+# fallback below restores that POSIX behaviour without shelling out.
 set -u
-export PYTHONUTF8=1
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-for cmd in python3 python "py -3"; do
-    # shellcheck disable=SC2086
-    if $cmd -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
-        # shellcheck disable=SC2086
-        exec $cmd "$SCRIPT_DIR/seal_gate.py"
-    fi
-done
-
-# Drain whatever the caller wrote to stdin before bailing out: nothing past
-# this point reads it, and leaving it unread hands the caller (Claude Code
-# itself, in production; a test harness's `printf | ...` in development) a
-# broken pipe on its own write instead of a clean, silent no-op. A bash
-# builtin, not `cat`: this branch runs precisely when the environment is
-# too broken to trust an external command to resolve at all.
-IFS= read -r -d '' _ 2>/dev/null
-
-echo "dopamine: no Python 3 interpreter found; the seal gate is inactive this session." >&2
-exit 0
+sd="${0%/*}"; [ "$sd" = "$0" ] && sd="."
+exec "${BASH:-bash}" "$(cd "$sd" && pwd)/py-hook" seal_gate.py
