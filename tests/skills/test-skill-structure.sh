@@ -167,6 +167,13 @@ if [ -f "$sweep" ]; then
         assert_contains "an edit entry is located and quoted" "$dbody" "Current text, quoted"
         assert_contains "discovery reads documents only along grep terms" "$dbody" "grepped six times"
         assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
+        assert_contains "a promotion is put through the admission test" \
+            "$dbody" "dopamine:claude-md-guard"
+        assert_contains "an admitted promotion becomes an Edit" "$dbody" "verdict: admit"
+        assert_contains "a routed promotion records where it went instead" \
+            "$dbody" "verdict: route"
+        assert_not_contains "the promotion is no longer parked unapplied" \
+            "$dbody" "leave it unapplied"
     else
         fail "skills/sweep/discovery-prompt.md exists" "not found"
     fi
@@ -180,6 +187,8 @@ if [ -f "$sweep" ]; then
         assert_contains "the verifier re-derives its own grep terms" "$vbody" "independently"
         assert_contains "the verifier does not trust the report" "$vbody" "not trust"
         assert_contains "a listed location the diff never touches is Missing" "$vbody" "Missing"
+        assert_contains "an ungated promotion is a finding" "$vbody" "Ungated"
+        assert_contains "the verifier knows promotions carry a verdict" "$vbody" "verdict"
     else
         fail "skills/sweep/verifier-prompt.md exists" "not found"
     fi
