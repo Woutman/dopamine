@@ -43,7 +43,7 @@ Run `scripts/sweep-package PLAN_FILE BASE HEAD`. Its diff excludes the plans tie
 
 Four dated siblings beside the plan: the **spec** (what we meant to build), the **plan** (how we meant to build it), the **sealed ledger** (what actually happened), and the **brief** (what that changed in the documents).
 
-The brief is the record. Discovery writes it, execution annotates outcomes onto it, verification appends its verdicts. Nothing else is written: a separate drain record would restate the ledger, which is the failure this plugin exists to prevent.
+The brief is the record, with two writers: discovery writes it, execution annotates outcomes onto it. Verification's verdicts come back in conversation and drive stage 4's fix loop. Nothing else is written: a separate drain record would restate the ledger, which is the failure this plugin exists to prevent.
 
 ## Outcomes
 
