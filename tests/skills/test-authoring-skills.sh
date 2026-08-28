@@ -54,4 +54,24 @@ assert_contains "the document has an open-questions slot" "$body" "Open question
 assert_contains "it names the successor that answers what it defers" \
     "$body" "dopamine:brainstorm-architecture"
 
+echo "-- brainstorm-architecture"
+assert_skill_exists brainstorm-architecture
+body=$(read_skill brainstorm-architecture)
+assert_contains "it points at the wrapper contract instead of restating it" \
+    "$body" "dopamine:brainstorm-design"
+assert_contains "the design document is its input" "$body" "DESIGN.md"
+assert_contains "it reads its output path from the config" "$body" "artifact-paths"
+assert_contains "the document says where state lives" "$body" "Where state lives"
+assert_contains "the document says what failure looks like from outside" \
+    "$body" "When it fails"
+assert_contains "the document records the assemblies rejected" "$body" "Not this"
+assert_contains "a number describing a run is cited, not copied in" \
+    "$body" "sealed ledger"
+assert_contains "it names the successor that orders the work" \
+    "$body" "dopamine:writing-roadmaps"
+assert_contains "a wrong requirement is a finding for the design, not a quiet re-decision" \
+    "$body" "not something this brainstorm quietly redecides"
+assert_contains "it points at the artifact map rather than restating it" \
+    "$body" "dopamine:artifact-map"
+
 finish
