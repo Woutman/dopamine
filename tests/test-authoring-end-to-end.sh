@@ -45,12 +45,12 @@ assert_contains "the roadmap names both of its inputs" \
     "$(cat "$road")" "dopamine:brainstorm-architecture"
 assert_contains "the roadmap names its other input too" \
     "$(cat "$road")" "dopamine:brainstorm-design"
-assert_contains "adoption reaches every authoring recipe" \
+assert_contains "adoption reaches the roadmap recipe" \
     "$(cat "$adopt")" "dopamine:writing-roadmaps"
 assert_contains "adoption reaches the architecture recipe" \
     "$(cat "$adopt")" "dopamine:brainstorm-architecture"
-assert_contains "adoption reaches the roadmap recipe" \
-    "$(cat "$adopt")" "dopamine:writing-roadmaps"
+assert_contains "adoption reaches the design recipe" \
+    "$(cat "$adopt")" "dopamine:brainstorm-design"
 
 echo "-- every root-relative reference to artifact-paths points at the real script"
 # The sweep names it `scripts/artifact-paths`, relative to itself; every other

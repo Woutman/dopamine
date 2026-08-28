@@ -93,11 +93,11 @@ These are rulings. Each is recorded here with its cost so a reviewer meets a dec
 | Skill | Budget | Draft in this plan, measured | Headroom |
 |---|---|---|---|
 | `brainstorm-design` | 700 | 618 body words | 82 |
-| `brainstorm-architecture` | 600 | 519 body words | 81 |
+| `brainstorm-architecture` | 600 | 532 body words | 68 |
 | `writing-roadmaps` | 800 | 736 body words | 64 |
-| `adopting-a-repo` | 700 | 587 body words | 113 |
+| `adopting-a-repo` | 700 | 648 body words | 52 |
 
-The `writing-roadmaps` row was corrected after the whole-branch review: commit `0773138` took the draft to 706 words, and the review's fix wave both raised the budget to 800 and added words that took the shipped file to 736, so the row above reflects the shipped file rather than this plan's original draft.
+Three rows were corrected after the whole-branch review, and each for a different reason: `writing-roadmaps` because commit `0773138` took the draft to 706 words and the review's fix wave then raised the budget to 800 and added words that took the shipped file to 736; `brainstorm-architecture` and `adopting-a-repo` because that same fix wave added the `${CLAUDE_PLUGIN_ROOT}` path fragment and other corrective sentences to their shipped files, taking them from 519 to 532 and from 587 to 648 words respectively, with headroom recalculated against their unchanged 600 and 700 budgets. All three rows above reflect the shipped files rather than this plan's original drafts.
 
 The drafts were measured, not estimated, and the budgets were then set above them. The alternative — fitting the budget to the draft — is how `sweep` reached **699 of 700**, which is why slice 2 could not add a sentence to it without first raising a number. A budget with no headroom converts every later correction into a second decision.
 
