@@ -21,9 +21,9 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | Piece | What it does |
 |---|---|
 | `.dopamine/config` | Declares which paths hold which artifact tier. The plugin hard-codes no project's document set |
-| `SessionStart` hook | ~110 words positioning dopamine relative to superpowers. Silent in a repo with no config |
+| `SessionStart` hook | ~94 words positioning dopamine relative to superpowers. Silent in a repo with no config |
 | `PreToolUse` seal gate | Denies deleting an SDD workspace whose ledger is not sealed |
-| `dopamine:sweep` | Seal → discovery → execution → verification, each stage its own subagent |
+| `dopamine:sweep` | Seal → discovery → execution → verification, each of the last three stages its own subagent |
 | `dopamine:artifact-map` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 
 ## Install

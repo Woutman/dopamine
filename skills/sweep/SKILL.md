@@ -37,7 +37,7 @@ Dispatch one implementer with `implementer-prompt.md`. Sweep edits are many smal
 
 ### 4. Verification — a fresh subagent that does not trust the report
 
-Run `scripts/sweep-package PLAN_FILE BASE HEAD`. Its diff excludes the plans tier by construction, so also list any plans-tier paths that changed (`scripts/artifact-paths --tier plans | cut -f2`, then `git diff --name-only BASE HEAD --` against those paths) as the plans-touch fact — normally empty. Dispatch a fresh subagent with `verifier-prompt.md`, filling both. It returns three verdicts: **Placement**, **Discipline**, and **Drain completeness**.
+Run `scripts/sweep-package PLAN_FILE BASE HEAD`. Its diff excludes the plans tier by construction, so also list any plans-tier paths that changed (`scripts/artifact-paths --tier plans | cut -f2`, then `git diff --name-only BASE HEAD --` against those paths) as the plans-touch fact — normally empty. Dispatch a fresh subagent with `verifier-prompt.md`, filling its placeholders. It returns three verdicts: **Placement**, **Discipline**, and **Drain completeness**.
 
 **Fix loop: at most two rounds.** An entry that fails review twice is usually a defect in the brief — a mis-located claim, or a document state discovery misread — not an implementer needing a stronger model. Return to whoever dispatched the sweep, naming which entries failed and the pattern they share, and let them rule. A failure parked silently leaves the living documents wrong with nothing to signal it.
 
