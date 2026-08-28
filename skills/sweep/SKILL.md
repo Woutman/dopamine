@@ -9,7 +9,7 @@ description: Use when a superpowers plan or an ad-hoc unit of work is finished a
 
 A sweep carries what actually happened during one unit of work back into the documents that describe the present.
 
-Its inputs are the **sealed ledger** and the **unit's diff** — never the documents in bulk. It reaches into a document only along grep terms derived from those two inputs. That is the whole cost argument: a sweep's work tracks the change, not the size of the project.
+Its input is the **sealed ledger** — never the documents in bulk. It reaches into a document only along grep terms derived from it. That is the whole cost argument: a sweep's work tracks the change, not the size of the project.
 
 **REQUIRED BACKGROUND:** Use dopamine:artifact-map — which tier a fact belongs to decides where every edit lands.
 
@@ -21,7 +21,7 @@ Seal, then drain. Four stages, in order.
 
 Run `scripts/seal-ledger PLAN_FILE`. It copies superpowers' ledger out of its workspace and into the plan's own directory. Until it has run, the seal gate refuses to let the workspace be deleted.
 
-If the unit had no ledger — ad-hoc work, or `superpowers:executing-plans` — say so in one line and run discovery from the diff and this conversation instead. That is a weaker input, and naming it is how the reader knows.
+If the unit had no ledger — ad-hoc work, or `superpowers:executing-plans` — say so in one line and run discovery from this conversation instead. That is a weaker input, and naming it is how the reader knows.
 
 ### 2. Discovery — one subagent, every document at once
 

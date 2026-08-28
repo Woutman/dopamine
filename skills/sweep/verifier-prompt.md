@@ -31,7 +31,7 @@ Every entry in the brief's **Edits** section has a matching hunk, and the diff c
 - **Changed what changed.** A hunk that appends a new paragraph where the brief quoted existing text to replace is a finding, even when the added text is true.
 - **Right tier.** Check each change's Tier and Target heading against `{CONFIG_MAP}` and the artifact map.
 - **No number describing a run entered a living document.** A figure produced by one execution belongs in the sealed ledger and is cited from there. This is the single most common way these documents start drifting.
-- **Historical records untouched.** `{DIFF_PACKAGE}` cannot show this — it excludes the plans tier by construction, so a hunk inside a spec, plan, sealed ledger or previous brief would otherwise be invisible to you. Read `{PLANS_TOUCHED}` instead: the name-only list of plans-tier paths that changed between BASE and HEAD, normally empty. Any path listed there is a finding — except this sweep's own brief and the ledger sealed in stage 1, which are expected to change and are not a violation.
+- **Historical records untouched.** `{DIFF_PACKAGE}` cannot show this — it excludes the plans tier by construction, so a hunk inside a spec, plan, sealed ledger or previous brief would otherwise be invisible to you. Read `{PLANS_TOUCHED}` instead: the name-only list of plans-tier paths that changed between BASE and HEAD, normally empty. Any path listed there is a finding — except the paths `{BRIEF_PATH}` and `{SEALED_LEDGER}`, which are expected to change and are not a violation.
 
 ## 3. Drain completeness
 
