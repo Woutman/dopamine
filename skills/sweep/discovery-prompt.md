@@ -10,7 +10,7 @@ You are writing a **sweep brief**: the located, checkable list of changes that c
 
 ## Your inputs, and their order
 
-1. `{SEALED_LEDGER}` — what actually happened during execution: rulings, deviations, parked findings. Read it in full. It is the one unreconstructable record.
+1. `{SEALED_LEDGER}` — what actually happened during execution: rulings, deviations, parked findings. Read it in full. Sealed from a superpowers run, it is the one record that cannot be rebuilt afterwards; where its opening line announces a reconstruction instead, it is the same kind of record, read the same way and weighed as the weaker one it says it is.
 2. `{CONFIG_MAP}` — the output of `artifact-paths`: which paths hold which tier, and which are absent.
 3. `{SPEC}` and `{PLAN}` — read only to resolve a claim you cannot place from the first two.
 

@@ -14,7 +14,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$REPO_ROOT/tests/helpers.sh"
 
 # skill-name:max-words
-BUDGETS="artifact-map:500 sweep:600"
+# sweep was raised 600 -> 700 (2026-08-28). The 600 was calibrated against a 540-word
+# first draft that later review found incomplete: it was missing producers for the
+# config map, the plans-touch fact and the spec, and its no-ledger branch named an
+# input no subagent could receive. A budget set against an incomplete document is not
+# evidence about a complete one. Not licence to pad: additions stay terse and measured.
+BUDGETS="artifact-map:500 sweep:700"
 
 budget_for() {
     local name="$1" entry
