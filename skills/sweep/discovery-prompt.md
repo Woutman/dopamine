@@ -19,6 +19,8 @@ You are writing a **sweep brief**: the located, checkable list of changes that c
 
 Read the destination section before writing any entry there. That is how you decide append-or-merge, and it is also how recurrence surfaces for free.
 
+Load the dopamine:artifact-map skill by name before you place anything — it defines the tiers `{CONFIG_MAP}` and this prompt both refer to.
+
 ## The output
 
 Write `{BRIEF_PATH}`. It has exactly these sections.
@@ -31,15 +33,17 @@ The terms you derived, and the input each came from. This is what the verifier r
 
 One per change. Each is:
 
-- **File and line** — `docs/DESIGN.md:214`
-- **Current text, quoted** — verbatim, enough to locate it unambiguously
+- **File and line** — `docs/DESIGN.md:214`, or for a genuinely new append-mostly entry, the file and the heading it lands under
+- **Tier** — the artifact-map tier the destination belongs to
+- **Target heading** — the heading the change lands under, created if it does not exist yet
+- **Current text, quoted** — verbatim, enough to locate it unambiguously; for a genuinely new entry, write **"new entry"** in its place — there is nothing existing to cite
 - **The change required** — the replacement text, or the text to add and exactly where
 
 A located, quoted entry is what makes a sweep reviewable at all. An unlocated instruction cannot be verified by anyone, including you.
 
 ### Negatives
 
-Every location you checked and deliberately left alone, with the reason. A negative is a first-class entry: it is the evidence that coverage happened, and it is what stops the next sweep re-checking the same ground.
+Every location you checked and deliberately left alone, and every ledger entry you judged to have no living-document consequence — each with the reason. A negative is a first-class entry: it is the evidence that coverage happened, and it is what stops the next sweep re-checking the same ground.
 
 Historical records — specs, plans, sealed ledgers, previous briefs — are left alone by rule. A grep hit inside one is a negative, never an edit.
 

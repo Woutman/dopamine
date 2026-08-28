@@ -144,9 +144,9 @@ echo "-- sweep content"
 sweep="$REPO_ROOT/skills/sweep/SKILL.md"
 if [ -f "$sweep" ]; then
     body=$(cat "$sweep")
-    assert_contains "the recipe seals before it drains" "$body" "seal-ledger"
-    assert_contains "discovery covers every document in one pass" "$body" "discovery-prompt.md"
-    assert_contains "execution works from the brief alone" "$body" "implementer-prompt.md"
+    assert_contains "the recipe names seal-ledger" "$body" "seal-ledger"
+    assert_contains "the recipe names discovery-prompt.md" "$body" "discovery-prompt.md"
+    assert_contains "the recipe names implementer-prompt.md" "$body" "implementer-prompt.md"
     assert_contains "verification runs against a scoped package" "$body" "sweep-package"
     assert_contains "the verifier prompt is referenced" "$body" "verifier-prompt.md"
     assert_contains "the fix loop is capped" "$body" "two rounds"
@@ -159,8 +159,8 @@ if [ -f "$sweep" ]; then
         for kind in Edits Negatives Promotions; do
             assert_contains "the brief defines the $kind entry kind" "$dbody" "$kind"
         done
-        assert_contains "an edit entry is located and quoted" "$dbody" "quoted"
-        assert_contains "discovery reads documents only along grep terms" "$dbody" "grep"
+        assert_contains "an edit entry is located and quoted" "$dbody" "Current text, quoted"
+        assert_contains "discovery reads documents only along grep terms" "$dbody" "grepped six times"
         assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
     else
         fail "skills/sweep/discovery-prompt.md exists" "not found"
