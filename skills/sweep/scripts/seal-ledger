@@ -44,17 +44,21 @@ ledger="$root/.superpowers/sdd/$slug/progress.md"
 #   # SDD ledger — plan: <plan file path>
 # Match on the plan's basename rather than the whole path: the recorded path may
 # be relative to a different directory than the one we were invoked from, and a
-# false mismatch here would block a legitimate seal.
+# false mismatch here would block a legitimate seal. The match is anchored on
+# exact equality of the basename to prevent accepting ledgers from plans whose
+# names contain the slug as a substring (e.g., 2026-08-28-widget-redux must not
+# seal under 2026-08-28-widget).
 first=$(head -1 "$ledger")
-case "$first" in
-    *"$slug"*) ;;
-    *)
-        echo "the ledger at $ledger names another plan:" >&2
-        echo "  $first" >&2
-        echo "  leave it alone and seal it from its own plan file" >&2
-        exit 2
-        ;;
-esac
+recorded_plan=$(printf '%s' "$first" | sed -e 's/.*plan: //' -e 's/[[:space:]]*$//')
+recorded_basename=$(basename "$recorded_plan" .md)
+if [ "$recorded_basename" = "$slug" ]; then
+    :  # identity matches, proceed
+else
+    echo "the ledger at $ledger names another plan:" >&2
+    echo "  $first" >&2
+    echo "  leave it alone and seal it from its own plan file" >&2
+    exit 2
+fi
 
 out="$plan_dir/$slug.ledger.md"
 verb=created

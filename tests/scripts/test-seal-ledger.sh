@@ -85,4 +85,45 @@ assert_contains "the sealed copy picks up the new line" "$(cat "$sealed")" "def5
 assert_eq "there is still exactly one sealed ledger" 1 \
     "$(find "$repo/docs/superpowers/plans" -name '*.ledger.md' | wc -l | tr -d ' ')"
 
+echo "-- identity check: prefix collision regression (2026-08-28-widget vs redux)"
+repo=$(make_repo redux)
+plan="$repo/docs/superpowers/plans/2026-08-28-widget.md"
+write_ledger "$repo" "# SDD ledger — plan: docs/superpowers/plans/2026-08-28-widget-redux.md" >/dev/null
+out=$("$UNDER_TEST" "$plan" 2>&1) && rc=0 || rc=$?
+assert_eq "exits 2 when ledger basename does not match exactly" 2 "$rc"
+assert_eq "no sealed file is created on identity mismatch" "no" "$([ -f "$repo/docs/superpowers/plans/2026-08-28-widget.ledger.md" ] && echo yes || echo no)"
+assert_contains "error message identifies the wrong plan's ledger" "$out" "2026-08-28-widget-redux"
+
+echo "-- identity check: suffix/containment case in opposite direction"
+repo=$(make_repo suffix)
+# Plan is "foo-long" but ledger is recorded for just "foo"
+plan="$repo/docs/superpowers/plans/foo-long.md"
+mkdir -p "$repo/docs/superpowers/plans"
+printf '# A plan\n' > "$plan"
+git init -q "$repo"
+write_ledger "$repo" "# SDD ledger — plan: docs/superpowers/plans/foo.md" >/dev/null
+out=$("$UNDER_TEST" "$plan" 2>&1) && rc=0 || rc=$?
+assert_eq "exits 2 when ledger is for a shorter name" 2 "$rc"
+assert_eq "no sealed file created" "no" "$([ -f "$repo/docs/superpowers/plans/foo-long.ledger.md" ] && echo yes || echo no)"
+
+echo "-- identity check: recorded path in different directory (positive regression)"
+repo=$(make_repo diffdir)
+mkdir -p "$repo/docs/superpowers/plans"
+git init -q "$repo"
+plan="$repo/docs/superpowers/plans/2026-08-28-widget.md"
+printf '# A plan\n' > "$plan"
+# Create ledger as if the plan path was recorded differently
+ws="$repo/.superpowers/sdd/2026-08-28-widget"
+mkdir -p "$ws"
+{
+    printf '# SDD ledger — plan: ./docs/superpowers/plans/2026-08-28-widget.md\n'
+    printf '\n'
+    printf 'Task 1: complete — abc1234\n'
+} > "$ws/progress.md"
+out=$("$UNDER_TEST" "$plan") && rc=0 || rc=$?
+assert_eq "exits 0 when recorded path is relative but basename matches" 0 "$rc"
+sealed="$repo/docs/superpowers/plans/2026-08-28-widget.ledger.md"
+assert_eq "sealed copy is created" "yes" "$([ -f "$sealed" ] && echo yes || echo no)"
+assert_contains "succeeds despite path format difference" "$out" "created"
+
 finish
