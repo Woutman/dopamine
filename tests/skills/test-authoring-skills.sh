@@ -96,4 +96,44 @@ assert_contains "it points at the artifact map rather than restating it" \
 assert_contains "it locates its own output at the declared path" \
     "$body" "The roadmap is the declared path whose basename is"
 
+echo "-- adopting-a-repo"
+assert_skill_exists adopting-a-repo
+body=$(read_skill adopting-a-repo)
+assert_contains "adoption is named as the one O(project) cost, paid once" \
+    "$body" "O(project)"
+assert_contains "everything after adoption is O(change)" "$body" "O(change)"
+assert_contains "it writes the config that every other component reads" \
+    "$body" ".dopamine/config"
+assert_contains "it verifies the config it wrote" "$body" "artifact-paths"
+assert_contains "the no-code branch routes to the brainstorm instead" \
+    "$body" "dopamine:brainstorm-design"
+assert_contains "the survey is dispatched, not read into this session" \
+    "$body" "survey-prompt.md"
+assert_contains "what the code states and what it implies are never mixed" \
+    "$body" "Reconstructed, unconfirmed"
+assert_contains "the reason a component exists is named as unreadable from code" \
+    "$body" "Code carries what, not why"
+assert_contains "an instructions-tier candidate goes through the admission test" \
+    "$body" "dopamine:claude-md-guard"
+assert_contains "it points at the artifact map rather than restating it" \
+    "$body" "dopamine:artifact-map"
+
+echo "-- adopting-a-repo survey prompt"
+survey="$REPO_ROOT/skills/adopting-a-repo/survey-prompt.md"
+if [ -f "$survey" ]; then
+    sbody=$(cat "$survey")
+    assert_contains "the prompt documents its placeholders" "$sbody" "Placeholders:"
+    assert_contains "which document is being surveyed decides what is read" \
+        "$sbody" "{DOCUMENT}"
+    assert_contains "a read fact carries the path it was read at" "$sbody" "path:line"
+    assert_contains "an inference is labelled as one" "$sbody" "Inferred"
+    assert_contains "a question the code cannot answer is returned, not answered" \
+        "$sbody" "Questions"
+    assert_contains "what was not read is reported too" "$sbody" "Not surveyed"
+    assert_contains "the survey returns a file rather than prose" \
+        "$sbody" "{FINDINGS_PATH}"
+else
+    fail "skills/adopting-a-repo/survey-prompt.md exists" "not found"
+fi
+
 finish
