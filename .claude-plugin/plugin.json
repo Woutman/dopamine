@@ -1,0 +1,18 @@
+{
+  "name": "dopamine",
+  "description": "Documentation discipline for long-horizon work: seals superpowers' execution ledger and drains it back into the living documents at a cost that tracks the change",
+  "version": "0.1.0",
+  "author": {
+    "name": "Wout Gijsbers"
+  },
+  "homepage": "https://github.com/Woutman/dopamine",
+  "repository": "https://github.com/Woutman/dopamine",
+  "license": "MIT",
+  "keywords": [
+    "documentation",
+    "skills",
+    "long-horizon",
+    "superpowers",
+    "sweep"
+  ]
+}

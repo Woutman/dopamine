@@ -1,0 +1,4 @@
+# dopamine's own scratch: sweep diffs and other per-run artifacts.
+# The sealed ledger and the sweep brief are NOT here — they are committed
+# records that live beside their plan.
+.dopamine/run/
