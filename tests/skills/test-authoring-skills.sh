@@ -16,16 +16,25 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../helpers.sh
 source "$REPO_ROOT/tests/helpers.sh"
 
-read_skill() {
-    local name="$1" path="$REPO_ROOT/skills/$1/SKILL.md"
-    if [ -f "$path" ]; then
-        cat "$path"
+# Existence is asserted here, not inside read_skill: read_skill runs in a
+# command substitution, where fail()'s FAILURES increment dies with the
+# subshell and its message would be captured as the body under test.
+assert_skill_exists() {
+    local name="$1"
+    if [ -f "$REPO_ROOT/skills/$name/SKILL.md" ]; then
+        pass "skills/$name/SKILL.md exists"
     else
         fail "skills/$name/SKILL.md exists" "not found"
     fi
 }
 
+read_skill() {
+    local path="$REPO_ROOT/skills/$1/SKILL.md"
+    [ -f "$path" ] && cat "$path"
+}
+
 echo "-- brainstorm-design"
+assert_skill_exists brainstorm-design
 body=$(read_skill brainstorm-design)
 assert_contains "it wraps superpowers' brainstorming rather than replacing it" \
     "$body" "superpowers:brainstorming"
