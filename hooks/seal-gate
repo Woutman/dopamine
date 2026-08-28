@@ -6,10 +6,16 @@
 # "$BASH" is the absolute path of the shell already running this script, so the
 # hand-off needs neither a PATH lookup nor an executable bit on py-hook.
 #
-# SCRIPT_DIR uses "${0%/*}" rather than the external `dirname` command: this
-# exec is unconditional (unlike py-hook's own probe loop, which only reaches
-# its exec once an interpreter is found), so a PATH stripped bare — the same
-# degraded environment slice 1's tests exercise — must not take dirname down
-# with it. cd and pwd are shell builtins; this line resolves without PATH.
+# SCRIPT_DIR is resolved with shell builtins only, never the external `dirname`
+# command: this exec is unconditional (unlike py-hook's own probe loop, which
+# only reaches its exec once an interpreter is found), so a PATH stripped bare
+# — the same degraded environment slice 1's tests exercise — must not take
+# dirname down with it. "${0%/*}" alone is not quite dirname's equivalent,
+# though: dirname is POSIX-defined to return "." for a bare name with no "/",
+# and cd "." resolves to $PWD, whereas "${0%/*}" performs no substitution on a
+# bare name and returns $0 unchanged — turning a same-directory invocation like
+# `cd hooks && bash seal-gate` into a `cd seal-gate` that fails. The explicit
+# fallback below restores that POSIX behaviour without shelling out.
 set -u
-exec "${BASH:-bash}" "$(cd "${0%/*}" && pwd)/py-hook" seal_gate.py
+sd="${0%/*}"; [ "$sd" = "$0" ] && sd="."
+exec "${BASH:-bash}" "$(cd "$sd" && pwd)/py-hook" seal_gate.py
