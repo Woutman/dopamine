@@ -74,4 +74,24 @@ assert_contains "a wrong requirement is a finding for the design, not a quiet re
 assert_contains "it points at the artifact map rather than restating it" \
     "$body" "dopamine:artifact-map"
 
+echo "-- writing-roadmaps"
+assert_skill_exists writing-roadmaps
+body=$(read_skill writing-roadmaps)
+assert_contains "a phase is defined by analogy to a superpowers plan" \
+    "$body" "smallest unit that makes one good plan"
+assert_contains "it names the loop a phase maps onto" "$body" "superpowers:writing-plans"
+assert_contains "both living documents are its inputs" "$body" "ARCHITECTURE.md"
+assert_contains "order comes from dependency and from risk" "$body" "Risk"
+assert_contains "each phase says what exists at the end" "$body" "Lands"
+assert_contains "each phase says why it sits where it does" "$body" "Why here"
+assert_contains "an exit criterion is observed, not asserted" \
+    "$body" "Observations, not assertions"
+assert_contains "external asks are named with the phase that needs them" \
+    "$body" "critical path"
+assert_contains "a closed phase is deleted rather than struck through" "$body" "deleted"
+assert_contains "dates are excluded as a metric that moves without the system" \
+    "$body" "Dates and durations"
+assert_contains "it points at the artifact map rather than restating it" \
+    "$body" "dopamine:artifact-map"
+
 finish
