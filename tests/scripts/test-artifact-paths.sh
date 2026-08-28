@@ -58,6 +58,22 @@ out=$("$UNDER_TEST" --tier plans "$repo")
 assert_eq "--tier returns only that tier" \
     "$(printf 'plans\tdocs/superpowers/plans\tpresent')" "$out"
 
+echo "-- an unrecognized --tier value"
+out=$("$UNDER_TEST" --tier livng "$repo" 2>&1) && rc=0 || rc=$?
+assert_eq "exits 2 on an unrecognized --tier value" 2 "$rc"
+assert_contains "names the offending --tier value" "$out" "livng"
+assert_contains "names the valid tier set" "$out" "living"
+
+echo "-- a valid --tier that this config declares nothing under"
+sparse=$(make_repo sparse <<'CONFIG'
+living: docs/DESIGN.md
+plans: docs/superpowers/plans
+CONFIG
+)
+out=$("$UNDER_TEST" --tier lessons "$sparse") && rc=0 || rc=$?
+assert_eq "exits 0 for a valid but undeclared tier" 0 "$rc"
+assert_eq "prints nothing for a valid but undeclared tier" "" "$out"
+
 echo "-- malformed configs"
 repo=$(make_repo unknown_tier <<'CONFIG'
 living: docs/DESIGN.md

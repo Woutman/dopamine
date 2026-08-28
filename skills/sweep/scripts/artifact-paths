@@ -33,6 +33,13 @@ if [ "${1:-}" = "--tier" ]; then
 fi
 [ $# -le 1 ] || usage
 
+if [ -n "$tier_filter" ]; then
+    case " $VALID_TIERS " in
+        *" $tier_filter "*) ;;
+        *) echo "invalid --tier '$tier_filter' (valid: $VALID_TIERS)" >&2; exit 2 ;;
+    esac
+fi
+
 root=${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}
 [ -d "$root" ] || { echo "no such directory: $root" >&2; exit 2; }
 
