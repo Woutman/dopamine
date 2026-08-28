@@ -140,4 +140,55 @@ else
     fail "skills/artifact-map/SKILL.md exists" "not found"
 fi
 
+echo "-- sweep content"
+sweep="$REPO_ROOT/skills/sweep/SKILL.md"
+if [ -f "$sweep" ]; then
+    body=$(cat "$sweep")
+    assert_contains "the recipe seals before it drains" "$body" "seal-ledger"
+    assert_contains "discovery covers every document in one pass" "$body" "discovery-prompt.md"
+    assert_contains "execution works from the brief alone" "$body" "implementer-prompt.md"
+    assert_contains "verification runs against a scoped package" "$body" "sweep-package"
+    assert_contains "the verifier prompt is referenced" "$body" "verifier-prompt.md"
+    assert_contains "the fix loop is capped" "$body" "two rounds"
+    assert_contains "nothing to drain is a legitimate outcome" "$body" "nothing to drain"
+    assert_contains "it points at the artifact map rather than restating it" "$body" "dopamine:artifact-map"
+
+    discovery="$REPO_ROOT/skills/sweep/discovery-prompt.md"
+    if [ -f "$discovery" ]; then
+        dbody=$(cat "$discovery")
+        for kind in Edits Negatives Promotions; do
+            assert_contains "the brief defines the $kind entry kind" "$dbody" "$kind"
+        done
+        assert_contains "an edit entry is located and quoted" "$dbody" "quoted"
+        assert_contains "discovery reads documents only along grep terms" "$dbody" "grep"
+        assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
+    else
+        fail "skills/sweep/discovery-prompt.md exists" "not found"
+    fi
+
+    verifier="$REPO_ROOT/skills/sweep/verifier-prompt.md"
+    if [ -f "$verifier" ]; then
+        vbody=$(cat "$verifier")
+        for verdict in Placement Discipline "Drain completeness"; do
+            assert_contains "the verifier returns a $verdict verdict" "$vbody" "$verdict"
+        done
+        assert_contains "the verifier re-derives its own grep terms" "$vbody" "independently"
+        assert_contains "the verifier does not trust the report" "$vbody" "not trust"
+        assert_contains "a listed location the diff never touches is Missing" "$vbody" "Missing"
+    else
+        fail "skills/sweep/verifier-prompt.md exists" "not found"
+    fi
+
+    impl="$REPO_ROOT/skills/sweep/implementer-prompt.md"
+    if [ -f "$impl" ]; then
+        ibody=$(cat "$impl")
+        assert_contains "the implementer changes what changed" "$ibody" "Change what changed"
+        assert_contains "the implementer leaves historical records alone" "$ibody" "historical"
+    else
+        fail "skills/sweep/implementer-prompt.md exists" "not found"
+    fi
+else
+    fail "skills/sweep/SKILL.md exists" "not found"
+fi
+
 finish
