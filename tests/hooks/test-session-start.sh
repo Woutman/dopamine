@@ -35,6 +35,15 @@ for part in os.environ["FIELD"].split("."):
 print(node)'
 }
 
+# keys JSON -- prints the sorted, comma-joined top-level keys
+keys() {
+    printf '%s' "$1" | python3 -c '
+import json, sys
+raw = sys.stdin.read().strip()
+node = json.loads(raw)
+print(",".join(sorted(node.keys())))'
+}
+
 echo "-- inert where dopamine has not been adopted"
 RC=0
 out=$( (cd "$plain" && CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$UNDER_TEST") ) || RC=$?
@@ -51,8 +60,13 @@ assert_not_contains "and not Cursor's flat shape" "$out" "additional_context"
 echo "-- Cursor and SDK shapes"
 out=$( (cd "$adopted" && CURSOR_PLUGIN_ROOT="$REPO_ROOT" CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$UNDER_TEST") )
 assert_not_contains "Cursor gets additional_context only" "$out" "hookSpecificOutput"
+assert_eq "Cursor's top-level key is exactly additional_context" \
+    "additional_context" "$(keys "$out")"
+
 out=$( (cd "$adopted" && COPILOT_CLI=1 CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$UNDER_TEST") )
 assert_not_contains "Copilot CLI gets the flat SDK shape" "$out" "hookSpecificOutput"
+assert_eq "Copilot's top-level key is exactly additionalContext" \
+    "additionalContext" "$(keys "$out")"
 
 echo "-- what the injection actually says"
 assert_contains "names the sweep skill, so the agent can find it" "$ctx" "sweep"
