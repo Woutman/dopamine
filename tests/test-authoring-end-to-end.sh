@@ -41,9 +41,9 @@ assert_contains "architecture hands off to the roadmap" \
     "$(cat "$arch")" "dopamine:writing-roadmaps"
 assert_contains "architecture names the design as its predecessor" \
     "$(cat "$arch")" "dopamine:brainstorm-design"
-assert_contains "the roadmap names both of its inputs" \
+assert_contains "the roadmap names its architecture input" \
     "$(cat "$road")" "dopamine:brainstorm-architecture"
-assert_contains "the roadmap names its other input too" \
+assert_contains "the roadmap names its design input" \
     "$(cat "$road")" "dopamine:brainstorm-design"
 assert_contains "adoption reaches the roadmap recipe" \
     "$(cat "$adopt")" "dopamine:writing-roadmaps"

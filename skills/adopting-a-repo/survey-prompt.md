@@ -1,6 +1,6 @@
 # Adoption survey prompt
 
-Fill the placeholders and dispatch one subagent per absent living document.
+Fill the placeholders and dispatch one subagent per living document being surveyed — every absent one, and any present one the human has confirmed has drifted.
 
 **Placeholders:** `{DOCUMENT}` `{FINDINGS_PATH}` `{REPO_ROOT}`
 

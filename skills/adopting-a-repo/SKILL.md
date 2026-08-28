@@ -43,7 +43,7 @@ The source tree answers it.
 
 For each `living:` document that is absent — and, when the human confirms a present one has drifted from the code, for that one too, since re-surveying a document already written is a second O(project) read and is theirs to authorise, dispatch one subagent with `survey-prompt.md`, naming which document it is surveying for. They read disjoint parts of the repository — entry points and history for the design, module boundaries and data flow for the architecture, unfinished work for the roadmap — so there is no shared expensive read that one pass would save.
 
-Fill `{FINDINGS_PATH}` with `<plans>/adoption-<document-basename>.survey.md`, taking `<plans>` from the `plans:` tier. Each returns that findings file, which is consumed when stage 4 walks its `Reconstructed, unconfirmed` section and is deleted after. The repository's contents never enter this session.
+Fill `{FINDINGS_PATH}` with `<plans>/adoption-<document-basename>.survey.md`, taking `<plans>` from the `plans:` tier. Each returns that findings file, which stage 4 consumes when it fills the document's slots, and which is deleted once it has. The repository's contents never enter this session.
 
 ### 4. Write, and mark what was inferred
 
