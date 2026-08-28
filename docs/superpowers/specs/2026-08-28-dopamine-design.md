@@ -104,7 +104,7 @@ second set of instructions about their file, which would risk agents logging the
 |---|---|---|
 | **Living** — describes the present | `DESIGN.md`, `ARCHITECTURE.md`, `ROADMAP.md` | Drained **and verified** |
 | **Instructions** — highest read frequency | `CLAUDE.md` | Drained, verified, **plus an admission test** |
-| **Append-mostly** — describes the past, permanently true | the lessons file | Drained, **never verified**; growth unbounded by design |
+| **Append-mostly** — describes the past, permanently true | `LESSONS.md` | Drained, **never verified**; growth unbounded by design |
 | **Immutable** — intent and actuality | `specs/`, `plans/`, sealed ledgers | Never touched |
 | **Consumed** — deleted when discharged | handoffs (a supported kind, not a mandate) | n/a |
 
@@ -114,7 +114,8 @@ re-read and re-verified, so the discipline pushes content out of them wherever i
 Notes that follow from the model:
 
 - **A lesson never goes stale.** "We tried X, it failed because Y" is a claim about a past event and
-  is permanently true, so it is drained into but never verified. Cost stays O(new lessons).
+  is permanently true, so `LESSONS.md` is drained into but never verified. Cost stays
+  O(new lessons).
 - **A number that describes the system now** — the current retrieval gate, the current backfill cost
   — lives in a living document as a bounded set, **replaced** rather than appended. **A number that
   describes a run** stays in the sealed ledger and is cited. This gives the "same figure restated in
@@ -138,6 +139,10 @@ Notes that follow from the model:
 
 The loop closes: dopamine sequences the project, superpowers executes each phase, the sweep carries
 actuality back up.
+
+**Order.** `brainstorm-design` → `brainstorm-architecture` → `writing-roadmaps`. The roadmap comes
+last because phase order is driven by technical dependency — what proves what, which prerequisite
+gates which slice — and that is knowable only once the assembly is designed.
 
 **Phase sizing, by analogy.** `writing-plans` defines a task as *"the smallest unit that carries its
 own test cycle and is worth a fresh reviewer's gate"* and requires each plan to *"produce working,
@@ -164,7 +169,7 @@ code diverges from the plan that made it.
 |---|---|---|
 | `brainstorm-design` | Recipe | Wraps `superpowers:brainstorming` at system scope; derives `DESIGN.md` |
 | `brainstorm-architecture` | Recipe | Wraps `superpowers:brainstorming` at assembly scope; derives `ARCHITECTURE.md` |
-| `writing-roadmaps` | Recipe | Breaks design and architecture into phases sized for superpowers loops; produces `ROADMAP.md` |
+| `writing-roadmaps` | Recipe | Runs after `brainstorm-architecture`; breaks design and architecture into phases sized for superpowers loops; produces `ROADMAP.md` |
 | `sweep` | Recipe | Seals the ledger and drains it into the living documents |
 | `claude-md-guard` | Reference | Admission test for anything entering `CLAUDE.md` |
 | `adopting-a-repo` | Recipe | Brownfield: reconstruct living documents from existing code |
@@ -298,6 +303,22 @@ Two rules that survive from the handoff, restated in the forms above rather than
 - **No metric that changes without the system changing** — the general form of "no test counts",
   sourced from Anthropic's own exclusion of *information that changes frequently*.
 
+### 9.5 How the sweep runs
+
+The sweep runs **in a subagent**, and its report is **verified** in the main session before the work
+is considered swept.
+
+Two reasons for the subagent. Re-reading the living documents is itself part of the cost being
+attacked, so doing it in the main session spends exactly the context the discipline exists to protect.
+And a fresh context evaluates the documents on their own terms rather than on the reasoning that
+produced the changes — the same argument superpowers makes for reviewing in a subagent.
+
+The verification step is not optional, and it is the part the improvised sweeps already did well. The
+sweeping subagent reports what it drained and where it placed each item; that report is then checked
+against the sealed ledger, so "everything was drained" is a claim that can be checked rather than one
+that has to be taken on the sweeper's word. A `nothing to drain` result is verified the same way —
+against a ledger holding no drainable entries, not against the sweeper's assurance.
+
 ## 10. Accepted risks
 
 - **The Iron Law is skipped.** `writing-skills` requires baseline pressure scenarios before writing
@@ -345,12 +366,8 @@ by hand because the plugin does not exist yet:
 ## 13. Open questions
 
 1. **The name.** `dopamine` is provisional.
-2. **Where `ROADMAP.md` is produced.** `writing-roadmaps` is its own skill, but whether it runs after
-   `brainstorm-design`, after `brainstorm-architecture`, or draws on both is unsettled. This project's
-   roadmap is ordered almost entirely by technical dependency, which argues for the second.
-3. **The lessons file's name and location**, and the entry shape that keeps it from becoming a diary.
-4. **Whether the sweep runs inline or in a subagent.** Inline keeps it simple; a subagent keeps the
-   re-read out of the main context, which is itself part of the cost being attacked.
+2. **`LESSONS.md`'s entry shape** — what keeps it from decaying into a diary, and when several small
+   lessons should be consolidated into one general one.
 
 ## 14. What this document deliberately does not contain
 
