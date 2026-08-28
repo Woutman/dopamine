@@ -67,10 +67,25 @@ assert_eq "run/ carries a self-ignoring .gitignore" \
 assert_eq "so the package never shows up in git status" \
     "" "$(git -C "$repo" status --porcelain -- .dopamine/run)"
 
-echo "-- an explicit OUTFILE"
+echo "-- an explicit OUTFILE whose parent directory exists"
 alt="$TEST_ROOT/explicit.diff"
-"$UNDER_TEST" "$plan" "$BASE" "$HEAD_REV" "$alt" >/dev/null
+"$UNDER_TEST" "$plan" "$BASE" "$HEAD_REV" "$alt" >/dev/null && rc=0 || rc=$?
+assert_eq "still exits 0" 0 "$rc"
 assert_eq "writes where it was told" "yes" "$([ -f "$alt" ] && echo yes || echo no)"
+
+echo "-- an explicit OUTFILE whose parent directory does not exist"
+missing="$TEST_ROOT/nosuchdir/out.diff"
+err=$("$UNDER_TEST" "$plan" "$BASE" "$HEAD_REV" "$missing" 2>&1 >/dev/null) && rc=0 || rc=$?
+assert_eq "exits 2 rather than a raw shell error" 2 "$rc"
+assert_contains "names the offending directory" "$err" "$TEST_ROOT/nosuchdir"
+assert_eq "no file is created" "no" "$([ -f "$missing" ] && echo yes || echo no)"
+
+echo "-- a malformed but present dopamine config"
+cp "$repo/.dopamine/config" "$TEST_ROOT/config.bak"
+printf 'not a tier line\n' > "$repo/.dopamine/config"
+assert_exit "propagates artifact-paths' exit 2, not 3" 2 \
+    "$UNDER_TEST" "$plan" "$BASE" "$HEAD_REV"
+cp "$TEST_ROOT/config.bak" "$repo/.dopamine/config"
 
 echo "-- a repository with no dopamine config"
 rm "$repo/.dopamine/config"

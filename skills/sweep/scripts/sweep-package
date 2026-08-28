@@ -56,7 +56,16 @@ done <<< "$map"
 
 if [ $# -eq 4 ]; then
     out=$4
+    # An explicit OUTFILE is the caller stating exactly where they want the file.
+    # Silently building a directory tree they typo'd is worse than telling them,
+    # so — unlike the default path below — this directory is never created here:
+    # it must already exist and be writable, or we exit 2 naming it.
+    outdir=$(dirname -- "$out")
+    [ -d "$outdir" ] && [ -w "$outdir" ] \
+        || { echo "no such writable directory: $outdir" >&2; exit 2; }
 else
+    # The default path is dopamine's own directory (.dopamine/run/), so creating
+    # it — unlike an explicit OUTFILE's parent — is correct.
     dir="$root/.dopamine/run"
     mkdir -p "$dir"
     printf '*\n' > "$dir/.gitignore"
