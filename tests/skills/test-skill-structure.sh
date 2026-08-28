@@ -90,13 +90,24 @@ for skill_md in "$REPO_ROOT"/skills/*/SKILL.md; do
     fi
 
     # Every relative markdown link and backticked sibling file must exist.
+    #
+    # A backticked `*.md` name in a skill body is ambiguous: it may be a sibling
+    # artifact the skill ships (a prompt file it hands to a subagent) or it may
+    # simply be a document the skill is *talking about* (an example filename from
+    # some other, unrelated repo). Only the first kind can be checked for
+    # existence, so the backtick arm is narrowed to `*-prompt.md` — the naming
+    # convention this plugin's skills use for the sibling prompt files they ship.
+    # The markdown-link arm is unrestricted, since a relative link is never used
+    # for a mere mention. Accepted cost: a future skill that ships a sibling
+    # artifact not named `*-prompt.md` and refers to it only in backticks, not as
+    # a markdown link, will not be checked by either arm.
     missing=""
     while IFS= read -r ref; do
         [ -n "$ref" ] || continue
         [ -e "$dir/$ref" ] || missing="$missing $ref"
     done < <({
         grep -oE '\[[^]]*\]\(([a-zA-Z0-9._/-]+\.md)\)' "$skill_md" | sed -E 's/.*\((.*)\)/\1/'
-        grep -oE '`[a-zA-Z0-9._-]+\.md`' "$skill_md" | tr -d '`'
+        grep -oE '`[a-zA-Z0-9._-]+-prompt\.md`' "$skill_md" | tr -d '`'
     } | sort -u)
     if [ -z "$missing" ]; then
         pass "$name: every referenced file exists"
