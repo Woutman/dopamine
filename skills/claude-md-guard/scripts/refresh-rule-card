@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# Re-fetch the source sections behind the vendored CLAUDE.md rule card and report
+# drift against the snapshots kept beside it.
+#
+# This runs off the edit path, never on it. Measured 2026-08-28: the two source
+# pages are 40,068 and 36,894 bytes and the CLAUDE.md guidance is 8.1% and 7.1%
+# of them — roughly 900 usable words inside ~19,000 tokens. Fetching them at the
+# moment someone edits a CLAUDE.md would be the wrong mechanism. The card is
+# vendored instead, and this script is what keeps vendoring honest.
+#
+# Usage: refresh-rule-card [--update] [CARD]
+#   --update  rewrite each snapshot from what was fetched, so the diff can be
+#             reviewed once and the card re-distilled against it
+#   CARD      the rule card (default: the card beside this script's skill)
+#
+# The card declares its own sources, one per line:
+#   source: <url> | <heading> | <snapshot path, relative to the card>
+#
+# Exits: 0 no drift
+#        1 drift, a heading that vanished upstream, or a snapshot not yet created
+#        2 usage, or a card that declares no parseable sources
+#        3 a source could not be fetched
+#
+# --update exits 1 even when it succeeds: rewriting a snapshot does not
+# re-distil the card body, and that is the work the diff is asking for.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEFAULT_CARD="$SKILL_DIR/claude-md-best-practices.md"
+
+usage() {
+    echo "usage: refresh-rule-card [--update] [CARD]" >&2
+    exit 2
+}
+
+update=0
+if [ "${1:-}" = "--update" ]; then
+    update=1
+    shift
+fi
+[ $# -le 1 ] || usage
+
+card=${1:-$DEFAULT_CARD}
+[ -f "$card" ] || { echo "no rule card at $card" >&2; exit 2; }
+card_dir=$(cd "$(dirname "$card")" && pwd)
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+trim() { printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+
+# fetch URL DEST — file:// is read directly rather than handed to curl, so the
+# tests are hermetic and need no network and no curl file:// support.
+fetch() {
+    local url=$1 dest=$2
+    case "$url" in
+        file://*)
+            cat "${url#file://}" > "$dest" 2>/dev/null
+            ;;
+        *)
+            if command -v curl >/dev/null 2>&1; then
+                curl -fsSL --max-time 30 "$url" -o "$dest"
+            elif command -v wget >/dev/null 2>&1; then
+                wget -q -O "$dest" "$url"
+            else
+                echo "neither curl nor wget is available" >&2
+                return 1
+            fi
+            ;;
+    esac
+}
+
+# extract SRC HEADING — prints the section; exits 4 if the heading is not there.
+#
+# Fence-aware by necessity: the best-practices section contains a fenced example
+# CLAUDE.md whose body has depth-1 headings (`# Code style`, `# Workflow`). An
+# extractor that treats those as headings captures a third of the section and
+# reports drift forever after.
+extract() {
+    SRC="$1" HEADING="$2" python3 - <<'PY'
+import os
+import sys
+
+heading = os.environ["HEADING"].strip()
+depth = len(heading) - len(heading.lstrip("#"))
+out = []
+capture = False
+fence = None
+
+with open(os.environ["SRC"], encoding="utf-8") as handle:
+    for line in handle:
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            marker = stripped[:3]
+            if fence is None:
+                fence = marker
+            elif fence == marker:
+                fence = None
+        elif fence is None and stripped.startswith("#"):
+            level = len(stripped) - len(stripped.lstrip("#"))
+            if capture and level <= depth:
+                break
+            if not capture and stripped == heading:
+                capture = True
+        if capture:
+            out.append(line)
+
+if not capture:
+    sys.exit(4)
+sys.stdout.write("".join(out).rstrip() + "\n")
+PY
+}
+
+drift=0
+sources=0
+lineno=0
+
+while IFS= read -r raw || [ -n "$raw" ]; do
+    lineno=$((lineno + 1))
+    line=$(trim "$raw")
+    case "$line" in
+        source:*) ;;
+        *) continue ;;
+    esac
+
+    pipes=${line//[^|]/}
+    if [ "${#pipes}" -ne 2 ]; then
+        echo "$card:$lineno: a source line needs 'url | heading | snapshot': $line" >&2
+        exit 2
+    fi
+
+    rest=${line#source:}
+    url=$(trim "${rest%%|*}")
+    rest=${rest#*|}
+    headline=$(trim "${rest%%|*}")
+    snapshot=$(trim "${rest#*|}")
+
+    if [ -z "$url" ] || [ -z "$headline" ] || [ -z "$snapshot" ]; then
+        echo "$card:$lineno: a source line needs 'url | heading | snapshot': $line" >&2
+        exit 2
+    fi
+    case "$snapshot" in
+        /*|*..*) echo "$card:$lineno: snapshot must be relative to the card: $snapshot" >&2; exit 2 ;;
+    esac
+
+    sources=$((sources + 1))
+
+    if ! fetch "$url" "$tmp/fetched.md"; then
+        echo "FETCH-FAILED  $url" >&2
+        exit 3
+    fi
+
+    rc=0
+    extract "$tmp/fetched.md" "$headline" > "$tmp/section.md" || rc=$?
+    if [ "$rc" -eq 4 ]; then
+        echo "HEADING-GONE  $snapshot"
+        echo "              '$headline' is no longer a heading at $url"
+        drift=1
+        continue
+    fi
+    [ "$rc" -eq 0 ] || exit "$rc"
+
+    target="$card_dir/$snapshot"
+    if [ ! -f "$target" ]; then
+        if [ "$update" -eq 1 ]; then
+            mkdir -p "$(dirname "$target")"
+            cp "$tmp/section.md" "$target"
+            echo "CREATED       $snapshot"
+        else
+            echo "NO-SNAPSHOT   $snapshot — run with --update to create it"
+        fi
+        drift=1
+        continue
+    fi
+
+    if diff -u "$target" "$tmp/section.md" > "$tmp/diff.txt"; then
+        echo "ok            $snapshot"
+        continue
+    fi
+
+    drift=1
+    if [ "$update" -eq 1 ]; then
+        cp "$tmp/section.md" "$target"
+        echo "UPDATED       $snapshot"
+    else
+        echo "DRIFT         $snapshot"
+    fi
+    sed -e 's/^/    /' "$tmp/diff.txt"
+done < "$card"
+
+if [ "$sources" -eq 0 ]; then
+    echo "$card: declares no 'source:' lines" >&2
+    exit 2
+fi
+
+if [ "$drift" -eq 0 ]; then
+    echo "no drift in $sources source section(s)"
+    exit 0
+fi
+
+if [ "$update" -eq 1 ]; then
+    echo "$sources section(s) checked; snapshots rewritten — re-distil the card against the diffs above"
+else
+    echo "$sources section(s) checked; drift found — review the diffs, then re-run with --update"
+fi
+exit 1
