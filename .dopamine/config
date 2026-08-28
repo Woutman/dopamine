@@ -1,0 +1,12 @@
+# dopamine's own artifact map.
+#
+# DESIGN.md and ARCHITECTURE.md are declared and do not exist yet: deriving them
+# from the spec is a job for this plugin once it can do it. `artifact-paths`
+# reports them absent, which is how that pending work stays visible without any
+# nagging machinery.
+living: docs/DESIGN.md
+living: docs/ARCHITECTURE.md
+living: docs/ROADMAP.md
+instructions: CLAUDE.md
+lessons: docs/LESSONS.md
+plans: docs/superpowers/plans
