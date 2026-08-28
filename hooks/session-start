@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# SessionStart hook for the dopamine plugin.
+#
+# Silent in a repository that has not adopted dopamine. With no .dopamine/config
+# there are no living documents to name, and injecting instructions about
+# documents that do not exist is how a plugin earns being disabled.
+#
+# The JSON shapes below mirror superpowers' session-start: Claude Code reads both
+# additional_context and hookSpecificOutput without deduplication, so exactly one
+# field is emitted per platform.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+[ -n "$root" ] || exit 0
+[ -f "$root/.dopamine/config" ] || exit 0
+
+context_file="${PLUGIN_ROOT}/hooks/session-start-context.md"
+[ -f "$context_file" ] || exit 0
+content=$(cat "$context_file")
+
+# Escape for JSON embedding using bash parameter substitution — each ${s//old/new}
+# is a single C-level pass.
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+escaped=$(escape_for_json "$content")
+
+# printf rather than a heredoc: bash 5.3+ hangs on heredocs in this position.
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{\n  "additional_context": "%s"\n}\n' "$escaped" | cat
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$escaped" | cat
+else
+    printf '{\n  "additionalContext": "%s"\n}\n' "$escaped" | cat
+fi
+
+exit 0
