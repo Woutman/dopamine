@@ -24,13 +24,17 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | `SessionStart` hook | ~94 words positioning dopamine relative to superpowers. Silent in a repo with no config |
 | `PreToolUse` seal gate | Denies deleting an SDD workspace whose ledger is not sealed |
 | `PostToolUse` guard | Fires when a file in the `instructions` tier is edited. Reports its length against the 200-line target and hands the admission test to the agent |
+| `dopamine:adopting-a-repo` | Writes the config, surveys existing code, and reconstructs the living documents — marking what was inferred |
+| `dopamine:brainstorm-design` | Wraps superpowers' brainstorming at system scope and derives `DESIGN.md` |
+| `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` |
+| `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` |
 | `dopamine:claude-md-guard` | The admission test, the routing table for what fails it, and the vendored standard behind both |
 | `dopamine:sweep` | Seal → discovery → execution → verification, each of the last three stages its own subagent |
 | `dopamine:artifact-map` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 
 ## Install
 
-Add this repository as a Claude Code plugin, then create `.dopamine/config` in the project you want it to work on:
+Add this repository as a Claude Code plugin, then run `dopamine:adopting-a-repo` in the project you want it to work on. It writes `.dopamine/config` and, where there is already code, reconstructs the living documents from it. To adopt by hand instead, the config is six lines:
 
 ```
 living: docs/DESIGN.md
@@ -58,6 +62,8 @@ bash, git, and **Python 3** — used by the seal gate, the `CLAUDE.md` guard, an
 - **No ledger outside `subagent-driven-development`.** `executing-plans` and ad-hoc work have none, so the sweep falls back to reconstruction there.
 - **A `CLAUDE.md` rewritten by a Bash command does not fire the guard.** Claude Code runs a `PostToolUse` hook matching `Edit|Write` only for those tools, so `cat >> CLAUDE.md` bypasses the admission test. The sweep's own draining of the instructions tier is the backstop, and `FileChanged` is the escalation if this proves common.
 - **Only Claude Code's `PostToolUse` output shape is documented.** The guard emits the nested `hookSpecificOutput` shape there and a flat `additionalContext` object everywhere else. Cursor documents its own field name for `SessionStart` but not for `PostToolUse`, so it receives the flat shape rather than an invented one.
+- **The `living:` tier does not say which path plays which role.** The authoring recipes take the declared path whose basename matches the document they own — `DESIGN.md` for `dopamine:brainstorm-design`, and so on — and ask the human where no path matches. A project using different filenames therefore answers one question per recipe, once. A `role:` field in the config is the escalation if that proves annoying.
+- **`skills/sweep/` and `skills/artifact-map/` spell their script paths relative to the plugin, not through `${CLAUDE_PLUGIN_ROOT}`.** A skill runs with the user's repository as its working directory, so those spellings do not resolve there. The four authoring skills use the correct form; fixing the two earlier ones means fixing their `seal-ledger` and `sweep-package` references in the same pass, which is a change to already-merged slices.
 
 ## Tests
 
@@ -67,4 +73,6 @@ bash tests/run-tests.sh
 
 ## Status
 
-Slices 1 and 2 of three. The authoring skills — `brainstorm-design`, `brainstorm-architecture`, `writing-roadmaps` and `adopting-a-repo` — are not built yet; see `docs/superpowers/specs/2026-08-28-dopamine-design.md` §12.
+All three slices are built: the spine, the `CLAUDE.md` guard, and the authoring skills. The design they implement is `docs/superpowers/specs/2026-08-28-dopamine-design.md`.
+
+This repository has not yet run its own authoring recipes on itself: `docs/DESIGN.md`, `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` are declared in `.dopamine/config` and reported absent, which is the mechanism working rather than a gap in it.
