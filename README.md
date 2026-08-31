@@ -34,7 +34,16 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 
 ## Install
 
-Add this repository as a Claude Code plugin, then run `dopamine:adopting-a-repo` in the project you want it to work on. It writes `.dopamine/config` and, where there is already code, reconstructs the living documents from it. To adopt by hand instead, the config is six lines:
+```bash
+claude plugin marketplace add Woutman/dopamine
+claude plugin install dopamine@dopamine
+```
+
+The repository serves itself: `.claude-plugin/marketplace.json` lists this one plugin at the repository root, so `marketplace add` takes the GitHub repo as `owner/repo`, an `https://` URL, or a path to a local clone, and `install` reads the plugin from it. Both default to user scope — every project on the machine. Pass `--scope project` to bind it to one repository instead. To try it for a single session without installing anything, `claude --plugin-dir /path/to/dopamine`.
+
+The marketplace entry deliberately carries no version: `.claude-plugin/plugin.json` holds the only one, so the two cannot drift.
+
+Then run `dopamine:adopting-a-repo` in the project you want it to work on. It writes `.dopamine/config` and, where there is already code, reconstructs the living documents from it. To adopt by hand instead, the config is six lines:
 
 ```
 living: docs/DESIGN.md
