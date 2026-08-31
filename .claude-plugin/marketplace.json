@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dopamine",
+  "description": "The dopamine plugin, served from its own repository",
+  "owner": {
+    "name": "Wout Gijsbers"
+  },
+  "plugins": [
+    {
+      "name": "dopamine",
+      "description": "Documentation discipline for long-horizon work: authors a project's living documents, then seals superpowers' execution ledger and drains it back into them at a cost that tracks the change",
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/Woutman/dopamine"
+    }
+  ]
+}
