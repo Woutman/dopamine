@@ -44,9 +44,15 @@ An exit criterion is something that happens: a command that returns, a number th
 
 Anything the work waits on from outside — an access grant, an approval, a decision by another team — gets a row: what is being asked, which phase needs it, and why it belongs to them. Asked early it is off the critical path; asked late it is the critical path.
 
-### 5. Keep it consumed, not accumulated
+### 5. Strike a closed phase, and leave a pointer
 
-A closed phase is **deleted**. Its outcome moves to where that outcome belongs: what changed the system goes to `DESIGN.md` or `ARCHITECTURE.md`, what a run measured stays in the sealed ledger and is cited. Re-running this recipe at each phase close is what deletes it — `dopamine:sweep` drains ledger facts into living documents but has no concept of a phase. That is why a roadmap describes the remaining work rather than growing into a history of the project.
+A closed phase stays, **struck through**, its body replaced by one link to its sealed ledger under the `plans:` tier, written relative to the roadmap's own directory so it survives the docs moving as a unit:
+
+`~~**Phase 2 — The spine**~~ — [ledger](<plans>/2026-08-28-dopamine-spine.ledger.md)`
+
+The ledger is immutable, so the trail cannot rot; its header names the plan, which names the spec, and the sweep brief sits beside it. `dopamine:sweep` has no concept of a phase, so re-running this recipe at each close is what strikes it.
+
+**The struck line holds the name and the link, and nothing else** — no `Lands`, no `Exit`, no measured number: what asserts something about the present is defended at every sweep, and a bare pointer asserts nothing. What changed the system goes to `DESIGN.md` or `ARCHITECTURE.md`; what a run measured stays in the ledger, cited.
 
 ## Outcomes
 
@@ -54,7 +60,7 @@ A closed phase is **deleted**. Its outcome moves to where that outcome belongs: 
 |---|---|
 | A settled design and architecture | `ROADMAP.md` at the declared path: what drives the order, the phases, and the external asks |
 | An architecture still open on one component | The phases up to that question, and the question named as what unblocks the rest |
-| A phase that has just closed | It is deleted and its outcome placed, and the remaining order re-decided if what closed changed it |
+| A phase that has just closed | It is struck through above its ledger pointer, its outcome placed, and the remaining order re-decided if what closed changed it |
 
 ## Common mistakes
 
