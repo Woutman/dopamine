@@ -21,7 +21,7 @@ source "$REPO_ROOT/tests/helpers.sh"
 # evidence about a complete one. Not licence to pad: additions stay terse and measured.
 BUDGETS="artifact-map:500 sweep:700 claude-md-guard:500
          brainstorm-design:700 brainstorm-architecture:600
-         writing-roadmaps:800 adopting-a-repo:700"
+         writing-roadmaps:850 adopting-a-repo:700"
 
 budget_for() {
     local name="$1" entry

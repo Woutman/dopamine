@@ -88,7 +88,12 @@ assert_contains "an exit criterion is observed, not asserted" \
     "$body" "Observations, not assertions"
 assert_contains "external asks are named with the phase that needs them" \
     "$body" "critical path"
-assert_contains "a closed phase is deleted rather than struck through" "$body" "deleted"
+assert_contains "a closed phase is struck through rather than deleted" \
+    "$body" "struck through"
+assert_contains "a struck phase points at the sealed ledger as its audit trail" \
+    "$body" "sealed ledger"
+assert_contains "the struck line carries the pointer and no claim about the present" \
+    "$body" "and nothing else"
 assert_contains "dates are excluded as a metric that moves without the system" \
     "$body" "Dates and durations"
 assert_contains "it points at the artifact map rather than restating it" \
