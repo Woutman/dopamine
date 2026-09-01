@@ -21,16 +21,15 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | Piece | What it does |
 |---|---|
 | `.dopamine/config` | Declares which paths hold which artifact tier. The plugin hard-codes no project's document set |
-| `SessionStart` hook | ~94 words positioning dopamine relative to superpowers. Silent in a repo with no config |
-| `PreToolUse` seal gate | Denies deleting an SDD workspace whose ledger is not sealed |
-| `PostToolUse` guard | Fires when a file in the `instructions` tier is edited. Reports its length against the 200-line target and hands the admission test to the agent |
+| `SessionStart` hook | ~120 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules. Silent in a repo with no config |
 | `dopamine:adopting-a-repo` | Writes the config, surveys existing code, and reconstructs the living documents — marking what was inferred |
 | `dopamine:brainstorm-design` | Wraps superpowers' brainstorming at system scope and derives `DESIGN.md` |
 | `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` |
 | `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` |
-| `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |
-| `dopamine:finishing-work` | Seal → discovery → execution → verification, each of the last three stages its own subagent |
 | `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
+| `dopamine:writing-living-documents` | The slots each living document has, one schema file per document, and the rules for writing into them |
+| `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |
+| `dopamine:finishing-work` | Seal the ledger, drain it along terms derived from it, commit, and report the line counts |
 
 ## Install
 
@@ -58,21 +57,18 @@ A declared document that does not exist yet is reported `absent`, not as an erro
 
 ## Requirements
 
-bash, git, and **Python 3** — used by the seal gate, the `CLAUDE.md` guard, and the tests. If no Python 3 is found, the affected hook prints one line to stderr and exits 0: a hook that cannot run must never break the session it exists to help.
+**bash and git.** That is the whole runtime: one `SessionStart` hook and a set of skills.
+
+Python 3 is used by the **test suite** — `tests/` parses JSON and skill frontmatter with it — and by nothing the plugin ships.
 
 `skills/writing-claude-md/scripts/refresh-rule-card` also needs **curl or wget**, and network access. It is a maintenance script that runs off the edit path; nothing else in the plugin makes a network request.
 
 ## Known gaps
 
-- **A deletion that names the workspace only through a shell variable** (`rm -rf "$dir"`) carries no literal path, so the gate cannot see it. Superpowers' own finish step writes the path literally, which is the case that matters.
-- **`git clean -fdx` destroys the workspace** without naming it. Out of the gate's scope by design — matching on it would deny a command most repositories run for unrelated reasons.
-- **The gate's delete-verb list matches only `rm`, `rmdir` and `trash`.** A `find … -delete`, `unlink`, `shred`, or `mv` of the workspace carries a literal path but goes undetected, because none of those verbs match. This was found during implementation and ruled to stay open rather than be widened: every verb added to the list is new false-positive surface, and a false positive here means denying a user's Bash command. `mv` is the clearest case against widening — `mv .superpowers/sdd/x/progress.md /tmp/` is a copy-out, not a destroy, and matching on `mv` would deny that legitimate command too.
-- **The verb match is a word match, not a parse.** A command that merely *mentions* a workspace path after the word `rm` — `echo how do I rm .superpowers/sdd/slug1` — is denied, because the gate reads a command line rather than executing one. This is the other side of the trade above: the verb set was kept narrow precisely to keep false positives like this rare, and the ones that remain deny a command a user meant to run.
-- **No ledger outside `subagent-driven-development`.** `executing-plans` and ad-hoc work have none, so the sweep falls back to reconstruction there.
-- **A `CLAUDE.md` rewritten by a Bash command does not fire the guard.** Claude Code runs a `PostToolUse` hook matching `Edit|Write` only for those tools, so `cat >> CLAUDE.md` bypasses the admission test. The sweep's own draining of the instructions tier is the backstop, and `FileChanged` is the escalation if this proves common.
-- **Only Claude Code's `PostToolUse` output shape is documented.** The guard emits the nested `hookSpecificOutput` shape there and a flat `additionalContext` object everywhere else. Cursor documents its own field name for `SessionStart` but not for `PostToolUse`, so it receives the flat shape rather than an invented one.
+- **Nothing enforces that a writing skill is loaded before a governed document changes.** The `SessionStart` injection names `dopamine:writing-living-documents` and `dopamine:writing-claude-md`, and `dopamine:finishing-work`'s exit gate catches a promotion that arrived without an admission verdict — but on the ad-hoc path an edit can land unexamined. This is the first place the rules-over-mechanism bet would visibly fail, and the first candidate for escalation back to a hook.
+- **No ledger outside `subagent-driven-development`.** `executing-plans` and ad-hoc work have none, so the sweep falls back to reconstruction there. A reconstruction opens with a line saying so, which is how later readers know it is the weaker record.
 - **The `living:` tier does not say which path plays which role.** The authoring recipes take the declared path whose basename matches the document they own — `DESIGN.md` for `dopamine:brainstorm-design`, and so on — and ask the human where no path matches. A project using different filenames therefore answers one question per recipe, once. A `role:` field in the config is the escalation if that proves annoying.
-- **`skills/sweep/` and `skills/routing-documentation-updates/` spell their script paths relative to the plugin, not through `${CLAUDE_PLUGIN_ROOT}`.** A skill runs with the user's repository as its working directory, so those spellings do not resolve there. The four authoring skills use the correct form; fixing the two earlier ones means fixing their `seal-ledger` and `sweep-package` references in the same pass, which is a change to already-merged slices.
+- **Whether sweeps happen at all is answered only after the fact.** `git log --grep='^sweep:'` shows which units of work closed with one; nothing prompts for the ones that did not. Line-count growth in the commit messages is the signal that routing is being skipped, and it has to be read by a human.
 
 ## Tests
 
@@ -82,6 +78,6 @@ bash tests/run-tests.sh
 
 ## Status
 
-All three slices are built: the spine, the `CLAUDE.md` guard, and the authoring skills. The design they implement is `docs/superpowers/specs/2026-08-28-dopamine-design.md`.
+All three original slices were built — the spine, the `CLAUDE.md` guard, and the authoring skills — and the first two have since been replaced by rules. The design they now implement is `docs/superpowers/specs/2026-09-01-dopamine-rules-over-mechanism-design.md`, which supersedes the hooks and the sweep pipeline in `docs/superpowers/specs/2026-08-28-dopamine-design.md` while leaving its artifact model intact.
 
-This repository has not yet run its own authoring recipes on itself: `docs/DESIGN.md`, `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` are declared in `.dopamine/config` and reported absent, which is the mechanism working rather than a gap in it.
+This repository has not yet run its own authoring recipes on itself: `docs/DESIGN.md`, `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` are declared in `.dopamine/config` and are absent, which is the mechanism working rather than a gap in it.

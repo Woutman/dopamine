@@ -1,7 +1,7 @@
 {
   "name": "dopamine",
-  "description": "Documentation discipline for long-horizon work: authors a project's living documents, then seals superpowers' execution ledger and drains it back into them at a cost that tracks the change",
-  "version": "0.1.1",
+  "description": "Documentation discipline for long-horizon work: authors a project's living documents, then carries each finished unit of work back into them at a cost that tracks the change",
+  "version": "0.2.0",
   "author": {
     "name": "Wout Gijsbers"
   },
