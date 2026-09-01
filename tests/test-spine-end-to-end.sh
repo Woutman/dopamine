@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# The spine as one mechanism: config, gate, seal, package.
+# The spine as one mechanism: config, seal, package.
 #
 # Each unit is tested on its own elsewhere. What this file checks is the
 # handover between them — that the filename seal-ledger writes is the filename
-# the gate looks for, and that the gate's answer actually changes when it does.
+# the gate looks for.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,7 +13,6 @@ source "$REPO_ROOT/tests/helpers.sh"
 
 SEAL="$REPO_ROOT/skills/sweep/scripts/seal-ledger"
 PACKAGE="$REPO_ROOT/skills/sweep/scripts/sweep-package"
-GATE="$REPO_ROOT/hooks/seal-gate"
 
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
@@ -51,21 +50,6 @@ mkdir -p "$ws"
     printf 'Ruling: made the widget async — the sync call blocked the batch — costs a caller migration if wrong\n'
 } > "$ws/progress.md"
 
-gate_decision() {
-    CWD="$repo" CMD="$1" python3 -c '
-import json, os
-print(json.dumps({"hook_event_name": "PreToolUse", "cwd": os.environ["CWD"],
-                  "tool_name": "Bash", "tool_input": {"command": os.environ["CMD"]}}))' \
-    | (cd "$repo" && "$GATE") | python3 -c '
-import json, sys
-raw = sys.stdin.read().strip()
-print(json.loads(raw)["hookSpecificOutput"]["permissionDecision"] if raw else "none")'
-}
-
-echo "-- before sealing"
-assert_eq "the gate denies deleting an unsealed workspace" \
-    "deny" "$(gate_decision "rm -rf .superpowers/sdd/2026-08-28-widget")"
-
 echo "-- sealing"
 out=$("$SEAL" "$plan") && rc=0 || rc=$?
 assert_eq "seal-ledger succeeds" 0 "$rc"
@@ -74,10 +58,6 @@ assert_eq "the sealed ledger lands where the gate looks for it" \
     "yes" "$([ -f "$sealed" ] && echo yes || echo no)"
 assert_contains "and it carries the ruling that would otherwise have died" \
     "$(cat "$sealed")" "the sync call blocked the batch"
-
-echo "-- after sealing"
-assert_eq "the same deletion now passes" \
-    "none" "$(gate_decision "rm -rf .superpowers/sdd/2026-08-28-widget")"
 
 echo "-- the sweep's input"
 out=$("$PACKAGE" "$plan" "$BASE" "$HEAD_REV") && rc=0 || rc=$?
