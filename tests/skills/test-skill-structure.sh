@@ -25,7 +25,13 @@ source "$REPO_ROOT/tests/helpers.sh"
 # adopting-a-repo was 700 and is raised to 750: its verification step traded a
 # one-line pointer at an 87-line parser for the prose the parser's output used
 # to convey, which is the cost of removing the script.
-BUDGETS="routing-documentation-updates:600 writing-claude-md:550 sweep:700
+# finishing-work carries the 600-to-700 raise sweep was given: 600 was
+# calibrated against a 540-word first draft that later review found
+# incomplete -- missing producers for the config map, the plans-touch fact
+# and the spec, and its no-ledger branch named an input no subagent could
+# receive. A budget set against an incomplete document is not evidence about
+# a complete one. Not licence to pad.
+BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:700
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          writing-roadmaps:850 adopting-a-repo:750"
@@ -159,67 +165,52 @@ else
     fail "skills/routing-documentation-updates/SKILL.md exists" "not found"
 fi
 
-echo "-- sweep content"
-sweep="$REPO_ROOT/skills/sweep/SKILL.md"
-if [ -f "$sweep" ]; then
-    body=$(cat "$sweep")
-    assert_contains "the recipe names seal-ledger" "$body" "seal-ledger"
-    assert_contains "the recipe names discovery-prompt.md" "$body" "discovery-prompt.md"
-    assert_contains "the recipe names implementer-prompt.md" "$body" "implementer-prompt.md"
-    assert_contains "verification runs against a scoped package" "$body" "sweep-package"
-    assert_contains "the verifier prompt is referenced" "$body" "verifier-prompt.md"
-    assert_contains "the fix loop is capped" "$body" "two rounds"
+echo "-- finishing-work content"
+fw="$REPO_ROOT/skills/finishing-work/SKILL.md"
+if [ -f "$fw" ]; then
+    body=$(cat "$fw")
+    assert_contains "the input is the sealed ledger, not the documents" \
+        "$body" "sealed ledger"
+    assert_contains "documents are reached along terms derived from it" "$body" "grep terms"
+    assert_contains "and never read in bulk" "$body" "in bulk"
+    assert_contains "sealing is one copy, not a script" "$body" "cp .superpowers/sdd/"
+    assert_contains "an absent ledger is reconstructed rather than skipped" \
+        "$body" "reconstruction"
+    assert_contains "the commit convention survives the rename" "$body" "sweep: <slug>"
     assert_contains "nothing to drain is a legitimate outcome" "$body" "nothing to drain"
-    assert_contains "it points at the artifact map rather than restating it" "$body" "dopamine:routing-documentation-updates"
+    assert_contains "the close reports the line counts that make failure visible" \
+        "$body" "wc -l"
+    assert_contains "it says where it sits relative to branch integration" \
+        "$body" "finishing-a-development-branch"
+    assert_contains "it points at the routing skill rather than restating it" \
+        "$body" "dopamine:routing-documentation-updates"
+    assert_contains "it hands each edit to the schema skill" \
+        "$body" "dopamine:writing-living-documents"
+    assert_contains "an instructions-tier candidate goes through the admission test" \
+        "$body" "dopamine:writing-claude-md"
 
-    discovery="$REPO_ROOT/skills/sweep/discovery-prompt.md"
-    if [ -f "$discovery" ]; then
-        dbody=$(cat "$discovery")
-        for kind in Edits Negatives Promotions; do
-            assert_contains "the brief defines the $kind entry kind" "$dbody" "$kind"
-        done
-        assert_contains "an edit entry is located and quoted" "$dbody" "Current text, quoted"
-        edits_section=$(awk '/^### Edits$/{flag=1; next} /^### Negatives$/{flag=0} flag' "$discovery")
-        assert_contains "an Edit into the instructions tier is gated too, not only a Promotion" \
-            "$edits_section" "verdict:"
-        assert_contains "discovery reads documents only along grep terms" "$dbody" "grepped six times"
-        assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
-        assert_contains "a promotion is put through the admission test" \
-            "$dbody" "dopamine:writing-claude-md"
-        assert_contains "an admitted promotion becomes an Edit" "$dbody" "verdict: admit"
-        assert_contains "a routed promotion records where it went instead" \
-            "$dbody" "verdict: route"
-        assert_not_contains "the promotion is no longer parked unapplied" \
-            "$dbody" "leave it unapplied"
-    else
-        fail "skills/sweep/discovery-prompt.md exists" "not found"
-    fi
+    echo "-- finishing-work's exit gate"
+    gate=$(awk '/^## Exit gate$/{flag=1; next} /^## /{flag=0} flag' "$fw")
+    assert_contains "right tier" "$gate" "Right tier"
+    assert_contains "changed what changed" "$gate" "Changed what changed"
+    assert_contains "no run number entered a living document" "$gate" "describing a run"
+    assert_contains "every promotion carries an admission verdict" "$gate" "verdict"
+    assert_contains "historical records untouched" "$gate" "Historical records"
+    assert_contains "the gate is a self-review, not a subagent dispatch" \
+        "$gate" "fresh eyes"
 
-    verifier="$REPO_ROOT/skills/sweep/verifier-prompt.md"
-    if [ -f "$verifier" ]; then
-        vbody=$(cat "$verifier")
-        for verdict in Placement Discipline "Drain completeness"; do
-            assert_contains "the verifier returns a $verdict verdict" "$vbody" "$verdict"
-        done
-        assert_contains "the verifier re-derives its own grep terms" "$vbody" "independently"
-        assert_contains "the verifier does not trust the report" "$vbody" "not trust"
-        assert_contains "a listed location the diff never touches is Missing" "$vbody" "Missing"
-        assert_contains "an ungated promotion is a finding" "$vbody" "Ungated"
-        assert_contains "the verifier knows promotions carry a verdict" "$vbody" "verdict: admit"
-    else
-        fail "skills/sweep/verifier-prompt.md exists" "not found"
-    fi
-
-    impl="$REPO_ROOT/skills/sweep/implementer-prompt.md"
-    if [ -f "$impl" ]; then
-        ibody=$(cat "$impl")
-        assert_contains "the implementer changes what changed" "$ibody" "Change what changed"
-        assert_contains "the implementer leaves historical records alone" "$ibody" "historical"
-    else
-        fail "skills/sweep/implementer-prompt.md exists" "not found"
-    fi
+    echo "-- the pipeline's files are gone"
+    for gone in discovery-prompt.md implementer-prompt.md verifier-prompt.md \
+                scripts/artifact-paths scripts/seal-ledger scripts/sweep-package; do
+        if [ -e "$REPO_ROOT/skills/finishing-work/$gone" ]; then
+            fail "$gone is deleted" "still present"
+        else
+            pass "$gone is deleted"
+        fi
+    done
+    assert_not_contains "the recipe prescribes no agent count" "$body" "one subagent"
 else
-    fail "skills/sweep/SKILL.md exists" "not found"
+    fail "skills/finishing-work/SKILL.md exists" "not found"
 fi
 
 echo "-- writing-claude-md content"

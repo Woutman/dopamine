@@ -15,21 +15,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$REPO_ROOT/tests/helpers.sh"
 
 echo "-- every dopamine:<skill> reference resolves to a skill that exists"
-# writing-claude-md (Task 3 of the rules-over-mechanism plan) names a skill
-# this plan commits to but has not written yet: dopamine:finishing-work, the
-# exit gate that backstops it, does not exist until Task 6 renames sweep. That
-# is a forward declaration, not a typo a rename left dangling, so it is
-# allowed here until that task lands — remove this allowlist once the
-# directory exists.
-FORWARD_DECLARED="finishing-work"
 unresolved=""
 while IFS= read -r ref; do
     [ -n "$ref" ] || continue
-    [ -f "$REPO_ROOT/skills/$ref/SKILL.md" ] && continue
-    case " $FORWARD_DECLARED " in
-        *" $ref "*) continue ;;
-    esac
-    unresolved="$unresolved $ref"
+    [ -f "$REPO_ROOT/skills/$ref/SKILL.md" ] || unresolved="$unresolved $ref"
 done < <(grep -rhoE 'dopamine:[a-z][a-z-]*' "$REPO_ROOT/skills" "$REPO_ROOT/hooks" "$REPO_ROOT/README.md" "$REPO_ROOT/.dopamine/config" \
     | sed 's/^dopamine://' | sort -u)
 if [ -z "$unresolved" ]; then
@@ -76,6 +65,11 @@ if [ -z "$missing" ]; then
 else
     fail "every \${CLAUDE_PLUGIN_ROOT} path resolves" "missing:$missing"
 fi
+
+echo "-- no skill names a script this change deleted"
+leftover=$(grep -rhoE '(artifact-paths|seal-ledger|sweep-package)' "$REPO_ROOT/skills" | sort -u)
+assert_eq "artifact-paths, seal-ledger and sweep-package are gone from the skills" \
+    "" "$leftover"
 
 echo "-- the documented config is one config, in both places that show it"
 extract_config() {

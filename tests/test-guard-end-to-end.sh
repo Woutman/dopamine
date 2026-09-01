@@ -72,12 +72,12 @@ out=$("$GUARD_DIR/scripts/refresh-rule-card" "$local_card" 2>&1) || RC=$?
 assert_eq "the extractor round-trips every shipped snapshot" 0 "$RC"
 assert_contains "and says so" "$out" "no drift"
 
-echo "-- the sweep now gates promotions on the guard"
-disc="$REPO_ROOT/skills/sweep/discovery-prompt.md"
-assert_contains "discovery names the guard" "$(cat "$disc")" "dopamine:writing-claude-md"
-assert_not_contains "and no longer parks promotions" "$(cat "$disc")" "leave it unapplied"
-assert_contains "the verifier can find an ungated promotion" \
-    "$(cat "$REPO_ROOT/skills/sweep/verifier-prompt.md")" "Ungated"
+echo "-- the close still gates promotions on the admission test"
+fw=$(cat "$REPO_ROOT/skills/finishing-work/SKILL.md")
+assert_contains "finishing-work routes instructions-tier candidates through the test" \
+    "$fw" "dopamine:writing-claude-md"
+assert_contains "and its exit gate catches a promotion that arrived without a verdict" \
+    "$fw" "admission verdict"
 
 echo "-- SessionStart is the only hook event left"
 events=$(python3 -c "

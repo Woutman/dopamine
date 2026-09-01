@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# The spine as one mechanism: config, seal, package.
+# The spine as one mechanism: config, injection, skill.
 #
-# Each unit is tested on its own elsewhere. What this file checks is the
-# handover between them — that the filename seal-ledger writes is the filename
-# the gate looks for.
+# What is left of the spine after the hooks and scripts came out is a chain of
+# names: a repository declares .dopamine/config, the SessionStart hook notices
+# and injects, the injection names dopamine:finishing-work, and that skill names
+# the three skills it delegates to. Every unit test here reads one file by its
+# own path, so all of them keep passing after a rename that leaves the shipped
+# plugin pointing at nothing. This file is what catches that.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,66 +14,57 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=helpers.sh
 source "$REPO_ROOT/tests/helpers.sh"
 
-SEAL="$REPO_ROOT/skills/sweep/scripts/seal-ledger"
-PACKAGE="$REPO_ROOT/skills/sweep/scripts/sweep-package"
-
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 repo="$TEST_ROOT/project"
-mkdir -p "$repo/docs/superpowers/plans" "$repo/src" "$repo/.dopamine"
+mkdir -p "$repo/.dopamine" "$repo/docs/superpowers/plans"
 git init -q "$repo"
-git -C "$repo" config user.email dev@example.com
-git -C "$repo" config user.name "Dev"
-
-printf 'living: docs/DESIGN.md\nliving: docs/ARCHITECTURE.md\nlessons: docs/LESSONS.md\nplans: docs/superpowers/plans\n' \
+printf 'living: docs/DESIGN.md\ninstructions: CLAUDE.md\nplans: docs/superpowers/plans\n' \
     > "$repo/.dopamine/config"
-plan="$repo/docs/superpowers/plans/2026-08-28-widget.md"
-printf '# Widget plan\n' > "$plan"
-printf 'The widget is synchronous.\n' > "$repo/docs/DESIGN.md"
-printf 'no lessons yet\n' > "$repo/docs/LESSONS.md"
-printf 'def widget(): pass\n' > "$repo/src/widget.py"
-git -C "$repo" add -A
-git -C "$repo" commit -qm "before"
-BASE=$(git -C "$repo" rev-parse HEAD)
 
-# The unit of work: code changed, and so did a living document.
-printf 'The widget is asynchronous.\n' > "$repo/docs/DESIGN.md"
-printf 'def widget(): await go()  # SOURCE_ONLY\n' > "$repo/src/widget.py"
-git -C "$repo" add -A
-git -C "$repo" commit -qm "make the widget async"
-HEAD_REV=$(git -C "$repo" rev-parse HEAD)
+echo "-- an adopted repository gets the injection"
+out=$( (cd "$repo" && CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$REPO_ROOT/hooks/session-start") )
+ctx=$(printf '%s' "$out" | python3 -c '
+import json, sys
+raw = sys.stdin.read().strip()
+print(json.loads(raw)["hookSpecificOutput"]["additionalContext"] if raw else "")')
+assert_contains "the injection arrived" "$ctx" "living document"
 
-# superpowers' workspace and ledger, as subagent-driven-development leaves them.
-ws="$repo/.superpowers/sdd/2026-08-28-widget"
-mkdir -p "$ws"
-{
-    printf '# SDD ledger — plan: docs/superpowers/plans/2026-08-28-widget.md\n\n'
-    printf 'Task 1: complete — %s\n' "$(git -C "$repo" rev-parse --short HEAD)"
-    printf 'Ruling: made the widget async — the sync call blocked the batch — costs a caller migration if wrong\n'
-} > "$ws/progress.md"
+echo "-- the injection names skills that exist"
+unresolved=""
+while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    [ -f "$REPO_ROOT/skills/$ref/SKILL.md" ] || unresolved="$unresolved $ref"
+done < <(printf '%s' "$ctx" | grep -oE 'dopamine:[a-z][a-z-]*' | sed 's/^dopamine://' | sort -u)
+if [ -z "$unresolved" ]; then
+    pass "every skill the injection names resolves"
+else
+    fail "every skill the injection names resolves" "unresolved:$unresolved"
+fi
+assert_contains "it names the skill that closes a unit of work" \
+    "$ctx" "dopamine:finishing-work"
 
-echo "-- sealing"
-out=$("$SEAL" "$plan") && rc=0 || rc=$?
-assert_eq "seal-ledger succeeds" 0 "$rc"
-sealed="$repo/docs/superpowers/plans/2026-08-28-widget.ledger.md"
-assert_eq "the sealed ledger lands where the gate looks for it" \
-    "yes" "$([ -f "$sealed" ] && echo yes || echo no)"
-assert_contains "and it carries the ruling that would otherwise have died" \
-    "$(cat "$sealed")" "the sync call blocked the batch"
+echo "-- and that skill names the three it delegates to"
+fw=$(cat "$REPO_ROOT/skills/finishing-work/SKILL.md")
+for dep in routing-documentation-updates writing-living-documents writing-claude-md; do
+    assert_contains "finishing-work reaches dopamine:$dep" "$fw" "dopamine:$dep"
+    assert_eq "and dopamine:$dep exists" "yes" \
+        "$([ -f "$REPO_ROOT/skills/$dep/SKILL.md" ] && echo yes || echo no)"
+done
 
-echo "-- the sweep's input"
-out=$("$PACKAGE" "$plan" "$BASE" "$HEAD_REV") && rc=0 || rc=$?
-assert_eq "sweep-package succeeds" 0 "$rc"
-pkg=${out#wrote }
-pkg=${pkg%% (*}
-body=$(cat "$pkg")
-assert_contains "the package carries the living document's change" "$body" "asynchronous"
-assert_not_contains "and not the source file the sweep does not own" "$body" "SOURCE_ONLY"
+echo "-- the sweep's own record is the sealed ledger, and nothing beside it"
+assert_contains "sealing is a copy the recipe spells out" "$fw" "cp .superpowers/sdd/"
+assert_contains "the commit prefix that makes sweeps greppable is stated" \
+    "$fw" "git log --grep='^sweep:'"
 
-echo "-- the ledger outlived the workspace"
-rm -rf "$ws"
-assert_eq "the sealed copy survives workspace deletion" \
-    "yes" "$([ -f "$sealed" ] && echo yes || echo no)"
+echo "-- an unadopted repository is silent"
+plain="$TEST_ROOT/plain"
+mkdir -p "$plain"
+git init -q "$plain"
+RC=0
+out=$( (cd "$plain" && CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$REPO_ROOT/hooks/session-start") ) || RC=$?
+assert_eq "exits 0" 0 "$RC"
+assert_eq "and injects nothing" "" "$out"
 
 finish

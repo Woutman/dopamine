@@ -44,7 +44,7 @@ A closed phase stays, **struck through**, its body replaced by one link to its s
 
 `~~**Phase 2 — The spine**~~ — [ledger](<plans>/2026-08-28-dopamine-spine.ledger.md)`
 
-The ledger is immutable, so the trail cannot rot; its header names the plan, which names the spec, and the sweep brief sits beside it. `dopamine:sweep` has no concept of a phase, so re-running this recipe at each close is what strikes it.
+The ledger is immutable, so the trail cannot rot; its header names the plan, which names the spec. `dopamine:finishing-work` has no concept of a phase, so re-running this recipe at each close is what strikes it.
 
 **The struck line holds the name and the link, and nothing else** — no `Lands`, no `Exit`, no measured number: what asserts something about the present is defended at every sweep, and a bare pointer asserts nothing. What changed the system goes to `DESIGN.md` or `ARCHITECTURE.md`; what a run measured stays in the ledger, cited.
 

@@ -29,7 +29,7 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` |
 | `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` |
 | `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |
-| `dopamine:sweep` | Seal → discovery → execution → verification, each of the last three stages its own subagent |
+| `dopamine:finishing-work` | Seal → discovery → execution → verification, each of the last three stages its own subagent |
 | `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 
 ## Install
