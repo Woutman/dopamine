@@ -14,12 +14,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$REPO_ROOT/tests/helpers.sh"
 
 # skill-name:max-words
-# sweep was raised 600 -> 700 (2026-08-28). The 600 was calibrated against a 540-word
-# first draft that later review found incomplete: it was missing producers for the
-# config map, the plans-touch fact and the spec, and its no-ledger branch named an
-# input no subagent could receive. A budget set against an incomplete document is not
-# evidence about a complete one. Not licence to pad: additions stay terse and measured.
-BUDGETS="artifact-map:500 sweep:700 claude-md-guard:500
+# These are ratchets, not targets. A budget is raised only with a recorded reason.
+# artifact-map was 500 and is raised to 600 here: it gains a paragraph describing
+# the config format, which was an 87-line script the skill could point at instead.
+# The four authoring skills keep the budgets they were merged with even though this
+# change moves their slot tables out, so the headroom stays visible rather than spent.
+BUDGETS="routing-documentation-updates:600 claude-md-guard:500 sweep:700
          brainstorm-design:700 brainstorm-architecture:600
          writing-roadmaps:850 adopting-a-repo:700"
 
@@ -134,8 +134,8 @@ done
 
 assert_eq "at least one skill was checked" "yes" "$([ "$found" -gt 0 ] && echo yes || echo no)"
 
-echo "-- artifact-map content"
-map="$REPO_ROOT/skills/artifact-map/SKILL.md"
+echo "-- routing-documentation-updates content"
+map="$REPO_ROOT/skills/routing-documentation-updates/SKILL.md"
 if [ -f "$map" ]; then
     body=$(cat "$map")
     for tier in Living Instructions Append-mostly Immutable Consumed; do
@@ -143,8 +143,13 @@ if [ -f "$map" ]; then
     done
     assert_contains "the map says which tiers are verified" "$body" "verified"
     assert_contains "the map routes a number describing a run to the ledger" "$body" "sealed ledger"
+    assert_contains "it describes the config format rather than naming a parser" \
+        "$body" "tier: path"
+    assert_contains "an unadopted repository is routed to adoption" \
+        "$body" "dopamine:adopting-a-repo"
+    assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 else
-    fail "skills/artifact-map/SKILL.md exists" "not found"
+    fail "skills/routing-documentation-updates/SKILL.md exists" "not found"
 fi
 
 echo "-- sweep content"
@@ -158,7 +163,7 @@ if [ -f "$sweep" ]; then
     assert_contains "the verifier prompt is referenced" "$body" "verifier-prompt.md"
     assert_contains "the fix loop is capped" "$body" "two rounds"
     assert_contains "nothing to drain is a legitimate outcome" "$body" "nothing to drain"
-    assert_contains "it points at the artifact map rather than restating it" "$body" "dopamine:artifact-map"
+    assert_contains "it points at the artifact map rather than restating it" "$body" "dopamine:routing-documentation-updates"
 
     discovery="$REPO_ROOT/skills/sweep/discovery-prompt.md"
     if [ -f "$discovery" ]; then
@@ -224,7 +229,7 @@ if [ -f "$guard" ]; then
     assert_contains "it gives the admit verdict shape" "$body" "verdict: admit"
     assert_contains "it gives the route verdict shape" "$body" "verdict: route"
     assert_contains "it points at the artifact map rather than restating it" \
-        "$body" "dopamine:artifact-map"
+        "$body" "dopamine:routing-documentation-updates"
 else
     fail "skills/claude-md-guard/SKILL.md exists" "not found"
 fi

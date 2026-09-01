@@ -48,7 +48,7 @@ assert_contains "it reads its output path from the config" "$body" "artifact-pat
 assert_contains "an unadopted repository is routed, not guessed at" \
     "$body" "dopamine:adopting-a-repo"
 assert_contains "it points at the artifact map rather than restating it" \
-    "$body" "dopamine:artifact-map"
+    "$body" "dopamine:routing-documentation-updates"
 assert_contains "the document has a non-goals slot" "$body" "Not this"
 assert_contains "the document has an open-questions slot" "$body" "Open questions"
 assert_contains "it names the successor that answers what it defers" \
@@ -72,7 +72,7 @@ assert_contains "it names the successor that orders the work" \
 assert_contains "a wrong requirement is a finding for the design, not a quiet re-decision" \
     "$body" "not something this brainstorm quietly redecides"
 assert_contains "it points at the artifact map rather than restating it" \
-    "$body" "dopamine:artifact-map"
+    "$body" "dopamine:routing-documentation-updates"
 
 echo "-- writing-roadmaps"
 assert_skill_exists writing-roadmaps
@@ -97,7 +97,7 @@ assert_contains "the struck line carries the pointer and no claim about the pres
 assert_contains "dates are excluded as a metric that moves without the system" \
     "$body" "Dates and durations"
 assert_contains "it points at the artifact map rather than restating it" \
-    "$body" "dopamine:artifact-map"
+    "$body" "dopamine:routing-documentation-updates"
 assert_contains "it locates its own output at the declared path" \
     "$body" "The roadmap is the declared path whose basename is"
 
@@ -121,7 +121,7 @@ assert_contains "the reason a component exists is named as unreadable from code"
 assert_contains "an instructions-tier candidate goes through the admission test" \
     "$body" "dopamine:claude-md-guard"
 assert_contains "it points at the artifact map rather than restating it" \
-    "$body" "dopamine:artifact-map"
+    "$body" "dopamine:routing-documentation-updates"
 
 echo "-- adopting-a-repo survey prompt"
 survey="$REPO_ROOT/skills/adopting-a-repo/survey-prompt.md"

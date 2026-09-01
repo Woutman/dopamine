@@ -14,7 +14,7 @@ description: Use when a line is about to be added to CLAUDE.md, when a sweep is 
 
 The second is the one that pays. A predecessor project carried 516 lines of `CLAUDE.md` that were not false; they were **misfiled**. Design rationale reads perfectly well there, and is then paid for on every session while duplicating the design document. Staleness checking would never have caught it.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — it holds the tier each destination below belongs to.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — it holds the tier each destination below belongs to.
 
 ## When the guard fires
 

@@ -11,7 +11,7 @@ Adoption is the one **O(project)** thing dopamine does, and it happens once. Eve
 
 That is the trade being made: read the repository properly a single time, so that no sweep ever has to.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — adoption is a placement exercise before it is a writing one, and the map is what decides where each thing found goes.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — adoption is a placement exercise before it is a writing one, and the map is what decides where each thing found goes.
 
 ## The recipe
 

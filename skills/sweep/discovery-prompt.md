@@ -20,7 +20,7 @@ You have no diff of your own. The sealed ledger is the sweep's one journal, so y
 
 Read the destination section before writing any entry there. That is how you decide append-or-merge, and it is also how recurrence surfaces for free.
 
-Load the dopamine:artifact-map skill by name before you place anything — it defines the tiers `{CONFIG_MAP}` and this prompt both refer to.
+Load the dopamine:routing-documentation-updates skill by name before you place anything — it defines the tiers `{CONFIG_MAP}` and this prompt both refer to.
 
 ## The output
 
@@ -35,7 +35,7 @@ The terms you derived, and the input each came from. This is what the verifier r
 One per change. Each is:
 
 - **File and line** — `docs/DESIGN.md:214`, or for a genuinely new append-mostly entry, the file and the heading it lands under
-- **Tier** — the artifact-map tier the destination belongs to
+- **Tier** — the tier the destination belongs to, as dopamine:routing-documentation-updates defines it
 - **Target heading** — the heading the change lands under, created if it does not exist yet
 - **Current text, quoted** — verbatim, enough to locate it unambiguously; for a genuinely new entry, write **"new entry"** in its place — there is nothing existing to cite
 - **The change required** — the replacement text, or the text to add and exactly where

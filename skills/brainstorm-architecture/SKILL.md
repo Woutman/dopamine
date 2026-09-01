@@ -11,7 +11,7 @@ The same wrapper as dopamine:brainstorm-design, one level down: it brainstorms *
 
 **REQUIRED BACKGROUND:** Use dopamine:brainstorm-design — it holds the wrapper contract this recipe shares: how the inner brainstorm is scoped, why that skill's closing instruction does not end this one, and how a living document relates to the frozen spec it came from.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — it decides which numbers this document holds and which it cites from somewhere else.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — it decides which numbers this document holds and which it cites from somewhere else.
 
 The order is technical, not stylistic. Component boundaries follow from what the system is for, so `DESIGN.md` exists before this runs.
 

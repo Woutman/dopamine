@@ -1,9 +1,9 @@
 ---
-name: artifact-map
+name: routing-documentation-updates
 description: Use when deciding where a fact belongs — a lesson, a measured number, a decision, a constraint — or when a document is growing and it is not obvious which of them should hold what
 ---
 
-# Artifact map
+# Routing documentation updates
 
 ## Overview
 
@@ -18,10 +18,10 @@ The tiers are not tidiness. They are a cost model.
 | **Living** — describes the present | `DESIGN.md`, `ARCHITECTURE.md`, `ROADMAP.md` | Drained **and verified** |
 | **Instructions** — highest read frequency | `CLAUDE.md` | Drained, verified, **plus an admission test** |
 | **Append-mostly** — dated observations, reached by grep | `LESSONS.md` | Drained, **never verified** |
-| **Immutable** — intent and actuality | `specs/`, `plans/`, sealed ledgers, sweep briefs | Never touched |
+| **Immutable** — intent and actuality | `specs/`, `plans/`, sealed ledgers | Never touched |
 | **Consumed** — deleted when discharged | handoffs | n/a |
 
-This repository's own paths are declared in `.dopamine/config`; `skills/sweep/scripts/artifact-paths` prints them.
+This repository's own paths are declared in `.dopamine/config`, one `tier: path` per line. A declared path that does not exist is **absent**, not an error — that is how remaining work stays visible without machinery to nag about it. No `.dopamine/config` at all means the repository has not adopted dopamine: use dopamine:adopting-a-repo.
 
 ## Where each kind of fact goes
 
@@ -32,6 +32,13 @@ This repository's own paths are declared in `.dopamine/config`; `skills/sweep/sc
 | What we decided and why | Spec (what we meant) plus the **sealed ledger** (what we actually did) | The deviation between them is the decision archive |
 | A dated observation that stays true — "we tried X, it failed because Y" | `LESSONS.md`, with the error text, symbol and version a future agent would grep for | Nothing consults it as current truth, so it never needs verifying |
 | A prescription — "do not use X" | A living document or `CLAUDE.md` | A prescription **does** go stale, so it has to sit where staleness is checked |
+
+## Once the destination is decided
+
+- A living document → dopamine:writing-living-documents, which holds the slots each one has and the rules for writing into them.
+- `CLAUDE.md` → dopamine:writing-claude-md, which holds the admission test.
+
+Routing says which document. Those two say where inside it, and in what shape.
 
 ## Common mistakes
 

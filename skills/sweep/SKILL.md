@@ -11,7 +11,7 @@ A sweep carries what actually happened during one unit of work back into the doc
 
 Its input is the **sealed ledger** — never the documents in bulk. It reaches into a document only along grep terms derived from it. That is the whole cost argument: a sweep's work tracks the change, not the size of the project.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — which tier a fact belongs to decides where every edit lands.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — which tier a fact belongs to decides where every edit lands.
 
 ## The recipe
 

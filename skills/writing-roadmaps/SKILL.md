@@ -11,7 +11,7 @@ description: Use when a design and an architecture are settled and the order of 
 
 **A phase is the smallest unit that makes one good plan.** `writing-plans` requires a plan to produce working, testable software on its own; a phase inherits that requirement whole — independently valuable, independently verifiable.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — `ROADMAP.md` is a living document, re-read and re-verified at every phase close, and what that costs decides what is allowed into it.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — `ROADMAP.md` is a living document, re-read and re-verified at every phase close, and what that costs decides what is allowed into it.
 
 ## The recipe
 

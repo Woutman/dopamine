@@ -2,7 +2,7 @@
 # Resolve this repository's artifact map: which paths hold which tier of
 # document, and whether each one exists yet.
 #
-# The tiers are the artifact model (see the dopamine:artifact-map skill).
+# The tiers are the artifact model (see the dopamine:routing-documentation-updates skill).
 # Only `living` and `instructions` are ever re-read and re-verified by a
 # sweep, so this file is what tells the sweep how much surface it owns.
 # The plugin hard-codes no project's document set: a repository that has

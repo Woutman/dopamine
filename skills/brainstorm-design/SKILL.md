@@ -13,7 +13,7 @@ A project-scope brainstorm, and the living document derived from what it produce
 
 The spec is not superseded by it. A spec is dated intent, frozen at its date, never swept. `DESIGN.md` diverges from it as the project moves, exactly as shipped code diverges from the plan that built it.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — it decides what belongs in a living document and what is paid for on every read without earning it.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — it decides what belongs in a living document and what is paid for on every read without earning it.
 
 ## The recipe
 

@@ -6,7 +6,7 @@
 
 You are verifying one sweep. **Do not trust the implementer's report.** Its annotations tell you what was attempted; the diff tells you what happened. Where they disagree, the diff is right.
 
-Load the dopamine:artifact-map skill by name before judging any of the three verdicts below — tier and history are its distinctions, not this prompt's.
+Load the dopamine:routing-documentation-updates skill by name before judging any of the three verdicts below — tier and history are its distinctions, not this prompt's.
 
 ## Read in this order
 

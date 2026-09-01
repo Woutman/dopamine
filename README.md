@@ -30,7 +30,7 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` |
 | `dopamine:claude-md-guard` | The admission test, the routing table for what fails it, and the vendored standard behind both |
 | `dopamine:sweep` | Seal → discovery → execution → verification, each of the last three stages its own subagent |
-| `dopamine:artifact-map` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
+| `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 
 ## Install
 
@@ -72,7 +72,7 @@ bash, git, and **Python 3** — used by the seal gate, the `CLAUDE.md` guard, an
 - **A `CLAUDE.md` rewritten by a Bash command does not fire the guard.** Claude Code runs a `PostToolUse` hook matching `Edit|Write` only for those tools, so `cat >> CLAUDE.md` bypasses the admission test. The sweep's own draining of the instructions tier is the backstop, and `FileChanged` is the escalation if this proves common.
 - **Only Claude Code's `PostToolUse` output shape is documented.** The guard emits the nested `hookSpecificOutput` shape there and a flat `additionalContext` object everywhere else. Cursor documents its own field name for `SessionStart` but not for `PostToolUse`, so it receives the flat shape rather than an invented one.
 - **The `living:` tier does not say which path plays which role.** The authoring recipes take the declared path whose basename matches the document they own — `DESIGN.md` for `dopamine:brainstorm-design`, and so on — and ask the human where no path matches. A project using different filenames therefore answers one question per recipe, once. A `role:` field in the config is the escalation if that proves annoying.
-- **`skills/sweep/` and `skills/artifact-map/` spell their script paths relative to the plugin, not through `${CLAUDE_PLUGIN_ROOT}`.** A skill runs with the user's repository as its working directory, so those spellings do not resolve there. The four authoring skills use the correct form; fixing the two earlier ones means fixing their `seal-ledger` and `sweep-package` references in the same pass, which is a change to already-merged slices.
+- **`skills/sweep/` and `skills/routing-documentation-updates/` spell their script paths relative to the plugin, not through `${CLAUDE_PLUGIN_ROOT}`.** A skill runs with the user's repository as its working directory, so those spellings do not resolve there. The four authoring skills use the correct form; fixing the two earlier ones means fixing their `seal-ledger` and `sweep-package` references in the same pass, which is a change to already-merged slices.
 
 ## Tests
 
