@@ -30,19 +30,13 @@ An order set by neither is a preference, and a preference does not survive conta
 
 ### 3. Write the phases
 
-Each phase, in this order:
+The phase slots, and the document's own, are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/roadmap-schema.md`.
 
-| Slot | Holds |
-|---|---|
-| **Lands** | What exists at the end that did not exist at the start |
-| **Why here** | The dependency it satisfies, or the risk it retires |
-| **Exit** | Observations, not assertions — what someone runs, and what they then see |
-
-An exit criterion is something that happens: a command that returns, a number that lands inside a band, a run that completes, a page that loads. "The module is finished" is not one, because nothing observes it and so nothing can close it.
+Use dopamine:writing-living-documents. It holds that schema and the rules for writing into it.
 
 ### 4. Name what the project cannot do for itself
 
-Anything the work waits on from outside — an access grant, an approval, a decision by another team — gets a row: what is being asked, which phase needs it, and why it belongs to them. Asked early it is off the critical path; asked late it is the critical path.
+Anything the work waits on from outside — an access grant, an approval, a decision by another team — earns a row in **External asks**. Asked early it is off the critical path; asked late it is the critical path.
 
 ### 5. Strike a closed phase, and leave a pointer
 

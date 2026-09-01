@@ -18,15 +18,13 @@ TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 echo "-- every dopamine:<skill> reference resolves to a skill that exists"
-# routing-documentation-updates (Task 2 of the rules-over-mechanism plan) names
-# two skills this plan commits to but has not written yet: writing-claude-md
-# lands in Task 3, writing-living-documents in Task 4. Both are forward
-# declarations, not typos a rename left dangling, so they are allowed here
-# until those tasks land — remove this allowlist once both directories exist.
-# writing-claude-md (Task 3) itself names a third: dopamine:finishing-work,
-# the exit gate that backstops it, does not exist until Task 6 renames sweep.
-# Same reasoning — a forward declaration, not a dangling rename.
-FORWARD_DECLARED="writing-claude-md writing-living-documents finishing-work"
+# writing-claude-md (Task 3 of the rules-over-mechanism plan) names a skill
+# this plan commits to but has not written yet: dopamine:finishing-work, the
+# exit gate that backstops it, does not exist until Task 6 renames sweep. That
+# is a forward declaration, not a typo a rename left dangling, so it is
+# allowed here until that task lands — remove this allowlist once the
+# directory exists.
+FORWARD_DECLARED="finishing-work"
 unresolved=""
 while IFS= read -r ref; do
     [ -n "$ref" ] || continue

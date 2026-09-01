@@ -23,6 +23,7 @@ source "$REPO_ROOT/tests/helpers.sh"
 # CLAUDE.md any more, so the skill has to say where its own trigger comes from
 # and where the backstop is. Not licence to pad.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 sweep:700
+         writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          writing-roadmaps:850 adopting-a-repo:700"
 

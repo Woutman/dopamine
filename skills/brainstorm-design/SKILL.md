@@ -33,19 +33,9 @@ That skill ends by directing you to `superpowers:writing-plans` and no other ski
 
 ### 3. Derive the document
 
-`DESIGN.md` is the spec re-cast in the present tense, holding only what stays true as the project moves. Its slots, in order:
+`DESIGN.md` is the spec re-cast in the present tense, holding only what stays true as the project moves. Its slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/design-schema.md`.
 
-| Slot | Holds |
-|---|---|
-| **What this is** | One paragraph: what the system does, and for whom |
-| **The problem** | What is wrong without it, measured wherever a number exists |
-| **What it must do** | The requirements that decide whether it works |
-| **The shape of the solution** | The approach taken, and the one or two rejected with the reason each was rejected |
-| **Principles** | The constraints that override an agent's defaults on this project |
-| **Not this** | What it deliberately does not do, so it is not proposed again |
-| **Open questions** | What is unsettled, and who settles it |
-
-The questions asked, the approaches surveyed and the record of who decided what stay in the spec. They are the dated account of one conversation; this document is the state of the system.
+Use dopamine:writing-living-documents. It holds that schema and the rules for writing into it, and it is the same skill every later edit to this document goes through — so the shape this stage creates is the shape the sweep maintains.
 
 ### 4. Name what is now pending
 

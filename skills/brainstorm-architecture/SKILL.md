@@ -31,16 +31,9 @@ The design's requirements are the givens. A requirement that turns out to be wro
 
 ### 3. Derive the document
 
-| Slot | Holds |
-|---|---|
-| **The assembly** | Each component in one line: what it owns, and what it must never own |
-| **How they talk** | The interface between each pair, and which way the dependency points |
-| **Where state lives** | Every store, and which component is authoritative for what in it |
-| **When it fails** | What each failure looks like from outside, and what is retried, dropped or surfaced |
-| **What runs where** | Processes, jobs, and the boundaries a deployment has to respect |
-| **Not this** | Assemblies considered and rejected, with the reason each was rejected |
+`ARCHITECTURE.md`'s slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/architecture-schema.md`.
 
-A number that describes the system now — a size limit, a timeout, a budget — belongs here as a bounded set, replaced when it changes. A number that describes one run belongs in the sealed ledger and is cited from here rather than copied into it.
+Use dopamine:writing-living-documents. It holds that schema and the rules for writing into it — including which numbers this document states outright and which it cites from the sealed ledger instead.
 
 ### 4. Name what is now pending
 

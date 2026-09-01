@@ -49,8 +49,8 @@ assert_contains "an unadopted repository is routed, not guessed at" \
     "$body" "dopamine:adopting-a-repo"
 assert_contains "it points at the artifact map rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
-assert_contains "the document has a non-goals slot" "$body" "Not this"
-assert_contains "the document has an open-questions slot" "$body" "Open questions"
+assert_contains "it hands the document's shape to the schema skill" \
+    "$body" "design-schema.md"
 assert_contains "it names the successor that answers what it defers" \
     "$body" "dopamine:brainstorm-architecture"
 
@@ -61,10 +61,6 @@ assert_contains "it points at the wrapper contract instead of restating it" \
     "$body" "dopamine:brainstorm-design"
 assert_contains "the design document is its input" "$body" "DESIGN.md"
 assert_contains "it reads its output path from the config" "$body" "artifact-paths"
-assert_contains "the document says where state lives" "$body" "Where state lives"
-assert_contains "the document says what failure looks like from outside" \
-    "$body" "When it fails"
-assert_contains "the document records the assemblies rejected" "$body" "Not this"
 assert_contains "a number describing a run is cited, not copied in" \
     "$body" "sealed ledger"
 assert_contains "it names the successor that orders the work" \
@@ -73,6 +69,8 @@ assert_contains "a wrong requirement is a finding for the design, not a quiet re
     "$body" "not something this brainstorm quietly redecides"
 assert_contains "it points at the artifact map rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
+assert_contains "it hands the document's shape to the schema skill" \
+    "$body" "architecture-schema.md"
 
 echo "-- writing-roadmaps"
 assert_skill_exists writing-roadmaps
@@ -82,10 +80,6 @@ assert_contains "a phase is defined by analogy to a superpowers plan" \
 assert_contains "it names the loop a phase maps onto" "$body" "superpowers:writing-plans"
 assert_contains "both living documents are its inputs" "$body" "ARCHITECTURE.md"
 assert_contains "order comes from dependency and from risk" "$body" "Risk"
-assert_contains "each phase says what exists at the end" "$body" "Lands"
-assert_contains "each phase says why it sits where it does" "$body" "Why here"
-assert_contains "an exit criterion is observed, not asserted" \
-    "$body" "Observations, not assertions"
 assert_contains "external asks are named with the phase that needs them" \
     "$body" "critical path"
 assert_contains "a closed phase is struck through rather than deleted" \
@@ -100,6 +94,8 @@ assert_contains "it points at the artifact map rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
 assert_contains "it locates its own output at the declared path" \
     "$body" "The roadmap is the declared path whose basename is"
+assert_contains "it hands the phase shape to the schema skill" \
+    "$body" "roadmap-schema.md"
 
 echo "-- adopting-a-repo"
 assert_skill_exists adopting-a-repo

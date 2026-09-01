@@ -47,7 +47,9 @@ Fill `{FINDINGS_PATH}` with `<plans>/adoption-<document-basename>.survey.md`, ta
 
 ### 4. Write, and mark what was inferred
 
-Fill each document's slots from its findings file, using the recipe that owns that document: dopamine:brainstorm-design, dopamine:brainstorm-architecture, dopamine:writing-roadmaps. Their slot tables are the shape; the findings file is the content.
+Fill each document's slots from its findings file. The slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/` — `design-schema.md`, `architecture-schema.md`, `roadmap-schema.md` — and dopamine:writing-living-documents holds the rules for writing into them. The schema is the shape; the findings file is the content.
+
+Where a document needs more than filling in — an order that has to be argued, an assembly that has to be decided — that is dopamine:brainstorm-design, dopamine:brainstorm-architecture or dopamine:writing-roadmaps, and adoption hands off to it rather than guessing.
 
 **Code carries what, not why.** A component's responsibilities are readable. The reason it exists rather than something simpler is not. So every claim lands in one of two places:
 
