@@ -28,7 +28,7 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | `dopamine:brainstorm-design` | Wraps superpowers' brainstorming at system scope and derives `DESIGN.md` |
 | `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` |
 | `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` |
-| `dopamine:claude-md-guard` | The admission test, the routing table for what fails it, and the vendored standard behind both |
+| `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |
 | `dopamine:sweep` | Seal → discovery → execution → verification, each of the last three stages its own subagent |
 | `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 
@@ -60,7 +60,7 @@ A declared document that does not exist yet is reported `absent`, not as an erro
 
 bash, git, and **Python 3** — used by the seal gate, the `CLAUDE.md` guard, and the tests. If no Python 3 is found, the affected hook prints one line to stderr and exits 0: a hook that cannot run must never break the session it exists to help.
 
-`skills/claude-md-guard/scripts/refresh-rule-card` also needs **curl or wget**, and network access. It is a maintenance script that runs off the edit path; nothing else in the plugin makes a network request.
+`skills/writing-claude-md/scripts/refresh-rule-card` also needs **curl or wget**, and network access. It is a maintenance script that runs off the edit path; nothing else in the plugin makes a network request.
 
 ## Known gaps
 

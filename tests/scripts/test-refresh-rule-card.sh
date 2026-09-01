@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../helpers.sh
 source "$REPO_ROOT/tests/helpers.sh"
 
-UNDER_TEST="$REPO_ROOT/skills/claude-md-guard/scripts/refresh-rule-card"
+UNDER_TEST="$REPO_ROOT/skills/writing-claude-md/scripts/refresh-rule-card"
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 

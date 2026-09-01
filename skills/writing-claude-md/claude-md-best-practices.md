@@ -1,6 +1,6 @@
 # CLAUDE.md — the admission standard
 
-Anthropic's own guidance on what belongs in a `CLAUDE.md`, distilled from the sections listed at the bottom. This file is the standard; `dopamine:claude-md-guard` is the routing decision made against it.
+Anthropic's own guidance on what belongs in a `CLAUDE.md`, distilled from the sections listed at the bottom. This file is the standard; `dopamine:writing-claude-md` is the routing decision made against it.
 
 ## The per-line test
 

@@ -58,7 +58,7 @@ That section is the handoff. Walk it with the human, move what they confirm into
 
 ### 5. Place what is not a living document
 
-A survey turns up gotchas, dated observations and always-loaded rules. Route them: a dated observation to the lessons tier, an always-loaded rule to `CLAUDE.md` only if it survives dopamine:claude-md-guard's admission test, and anything derivable by reading the code nowhere at all.
+A survey turns up gotchas, dated observations and always-loaded rules. Route them: a dated observation to the lessons tier, an always-loaded rule to `CLAUDE.md` only if it survives dopamine:writing-claude-md's admission test, and anything derivable by reading the code nowhere at all.
 
 ## Outcomes
 

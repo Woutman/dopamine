@@ -119,7 +119,7 @@ assert_contains "what the code states and what it implies are never mixed" \
 assert_contains "the reason a component exists is named as unreadable from code" \
     "$body" "Code carries what, not why"
 assert_contains "an instructions-tier candidate goes through the admission test" \
-    "$body" "dopamine:claude-md-guard"
+    "$body" "dopamine:writing-claude-md"
 assert_contains "it points at the artifact map rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
 

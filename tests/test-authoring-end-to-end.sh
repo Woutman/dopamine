@@ -23,7 +23,10 @@ echo "-- every dopamine:<skill> reference resolves to a skill that exists"
 # lands in Task 3, writing-living-documents in Task 4. Both are forward
 # declarations, not typos a rename left dangling, so they are allowed here
 # until those tasks land — remove this allowlist once both directories exist.
-FORWARD_DECLARED="writing-claude-md writing-living-documents"
+# writing-claude-md (Task 3) itself names a third: dopamine:finishing-work,
+# the exit gate that backstops it, does not exist until Task 6 renames sweep.
+# Same reasoning — a forward declaration, not a dangling rename.
+FORWARD_DECLARED="writing-claude-md writing-living-documents finishing-work"
 unresolved=""
 while IFS= read -r ref; do
     [ -n "$ref" ] || continue

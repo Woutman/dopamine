@@ -19,7 +19,10 @@ source "$REPO_ROOT/tests/helpers.sh"
 # the config format, which was an 87-line script the skill could point at instead.
 # The four authoring skills keep the budgets they were merged with even though this
 # change moves their slot tables out, so the headroom stays visible rather than spent.
-BUDGETS="routing-documentation-updates:600 claude-md-guard:500 sweep:700
+# writing-claude-md was 500 and is raised to 550: nothing intercepts an edit to
+# CLAUDE.md any more, so the skill has to say where its own trigger comes from
+# and where the backstop is. Not licence to pad.
+BUDGETS="routing-documentation-updates:600 writing-claude-md:550 sweep:700
          brainstorm-design:700 brainstorm-architecture:600
          writing-roadmaps:850 adopting-a-repo:700"
 
@@ -178,7 +181,7 @@ if [ -f "$sweep" ]; then
         assert_contains "discovery reads documents only along grep terms" "$dbody" "grepped six times"
         assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
         assert_contains "a promotion is put through the admission test" \
-            "$dbody" "dopamine:claude-md-guard"
+            "$dbody" "dopamine:writing-claude-md"
         assert_contains "an admitted promotion becomes an Edit" "$dbody" "verdict: admit"
         assert_contains "a routed promotion records where it went instead" \
             "$dbody" "verdict: route"
@@ -215,8 +218,8 @@ else
     fail "skills/sweep/SKILL.md exists" "not found"
 fi
 
-echo "-- claude-md-guard content"
-guard="$REPO_ROOT/skills/claude-md-guard/SKILL.md"
+echo "-- writing-claude-md content"
+guard="$REPO_ROOT/skills/writing-claude-md/SKILL.md"
 if [ -f "$guard" ]; then
     body=$(cat "$guard")
     assert_contains "it asks the admission question, not only the staleness one" \
@@ -228,10 +231,14 @@ if [ -f "$guard" ]; then
     assert_contains "it names the drift check" "$body" "refresh-rule-card"
     assert_contains "it gives the admit verdict shape" "$body" "verdict: admit"
     assert_contains "it gives the route verdict shape" "$body" "verdict: route"
-    assert_contains "it points at the artifact map rather than restating it" \
+    assert_contains "it points at the routing skill rather than restating it" \
         "$body" "dopamine:routing-documentation-updates"
+    assert_not_contains "it no longer claims a PostToolUse hook fires it" \
+        "$body" "PostToolUse"
+    assert_not_contains "a routed verdict is not parked in a brief that no longer exists" \
+        "$body" "in the brief"
 else
-    fail "skills/claude-md-guard/SKILL.md exists" "not found"
+    fail "skills/writing-claude-md/SKILL.md exists" "not found"
 fi
 
 finish

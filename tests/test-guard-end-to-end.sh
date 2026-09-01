@@ -13,7 +13,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=helpers.sh
 source "$REPO_ROOT/tests/helpers.sh"
 
-GUARD_DIR="$REPO_ROOT/skills/claude-md-guard"
+GUARD_DIR="$REPO_ROOT/skills/writing-claude-md"
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
@@ -74,7 +74,7 @@ assert_contains "and says so" "$out" "no drift"
 
 echo "-- the sweep now gates promotions on the guard"
 disc="$REPO_ROOT/skills/sweep/discovery-prompt.md"
-assert_contains "discovery names the guard" "$(cat "$disc")" "dopamine:claude-md-guard"
+assert_contains "discovery names the guard" "$(cat "$disc")" "dopamine:writing-claude-md"
 assert_not_contains "and no longer parks promotions" "$(cat "$disc")" "leave it unapplied"
 assert_contains "the verifier can find an ungated promotion" \
     "$(cat "$REPO_ROOT/skills/sweep/verifier-prompt.md")" "Ungated"

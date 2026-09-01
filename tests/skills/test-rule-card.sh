@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../helpers.sh
 source "$REPO_ROOT/tests/helpers.sh"
 
-CARD="$REPO_ROOT/skills/claude-md-guard/claude-md-best-practices.md"
+CARD="$REPO_ROOT/skills/writing-claude-md/claude-md-best-practices.md"
 
 if [ ! -f "$CARD" ]; then
     fail "the rule card exists" "not found at $CARD"
@@ -43,13 +43,13 @@ for line in "${sources[@]}"; do
         https://code.claude.com/docs/en/*.md) ;;
         *) notmd="$notmd $url" ;;
     esac
-    [ -f "$REPO_ROOT/skills/claude-md-guard/$snap" ] || missing="$missing $snap"
+    [ -f "$REPO_ROOT/skills/writing-claude-md/$snap" ] || missing="$missing $snap"
 done
 assert_eq "every source is a raw-markdown docs URL" "" "$notmd"
 assert_eq "every declared snapshot exists" "" "$missing"
 
 echo "-- the snapshots are real captures, not stubs"
-for snap in "$REPO_ROOT"/skills/claude-md-guard/sources/*.md; do
+for snap in "$REPO_ROOT"/skills/writing-claude-md/sources/*.md; do
     [ -f "$snap" ] || continue
     name=$(basename "$snap")
     first=$(head -1 "$snap")
@@ -66,7 +66,7 @@ for snap in "$REPO_ROOT"/skills/claude-md-guard/sources/*.md; do
 done
 
 echo "-- the fenced example survived extraction"
-bp="$REPO_ROOT/skills/claude-md-guard/sources/best-practices-write-an-effective-claude-md.md"
+bp="$REPO_ROOT/skills/writing-claude-md/sources/best-practices-write-an-effective-claude-md.md"
 if [ -f "$bp" ]; then
     snap=$(cat "$bp")
     assert_contains "the fenced example CLAUDE.md is present" "$snap" "# Workflow"
