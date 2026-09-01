@@ -19,9 +19,9 @@ The spec is not superseded by it. A spec is dated intent, frozen at its date, ne
 
 ### 1. Locate the output
 
-Run `${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths --tier living`. The design document is the declared path whose basename is `DESIGN.md`, present or absent. Where no declared path matches, ask which one is meant rather than creating a second.
+Read `.dopamine/config` at the repository root. It declares one `tier: path` per line; the design document is the `living:` path whose basename is `DESIGN.md`, present or absent. A declared path that does not exist is **absent**, not an error. Where no declared path matches, ask which one is meant rather than creating a second.
 
-Exit 3 means this repository has not adopted dopamine. Use dopamine:adopting-a-repo first — it writes the config, and where there is already code it reconstructs rather than brainstorms.
+No `.dopamine/config` means this repository has not adopted dopamine. Use dopamine:adopting-a-repo first — it writes the config, and where there is already code it reconstructs rather than brainstorms.
 
 ### 2. Brainstorm at system scope
 

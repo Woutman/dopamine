@@ -30,7 +30,7 @@ plans: docs/superpowers/plans
 
 Declare the paths this project will use, not only the ones it already has — a declared document that does not exist is reported `absent`, which is how the remaining work stays visible without any machinery to nag about it. Confirm the paths with the human before writing: this is the file every other component reads.
 
-Verify with `${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths`. Exit 0, with one row per declared path, means adoption can go on.
+Then read it back and confirm every line is one `tier: path` pair, and that each declared path is either present or one this project intends to create. A declared path that does not exist yet is **absent**, not an error, and adoption goes on.
 
 ### 2. Decide whether there is anything to reconstruct
 

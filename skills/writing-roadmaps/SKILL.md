@@ -17,7 +17,7 @@ description: Use when a design and an architecture are settled and the order of 
 
 ### 1. Locate the output and read the two inputs
 
-`${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths --tier living` gives all three. The roadmap is the declared path whose basename is `ROADMAP.md`; where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first. Exit 3 means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
+Read `.dopamine/config`; it declares one `tier: path` per line, and its `living:` paths give all three. The roadmap is the declared path whose basename is `ROADMAP.md`; where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first. No `.dopamine/config` means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
 
 ### 2. Order by dependency and risk, and say which one placed each phase
 

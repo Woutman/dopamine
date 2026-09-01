@@ -19,7 +19,7 @@ The order is technical, not stylistic. Component boundaries follow from what the
 
 ### 1. Locate the input and the output
 
-`${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths --tier living` gives both. The architecture document is the declared path whose basename is `ARCHITECTURE.md`; `DESIGN.md` beside it is this brainstorm's input. Where no declared path matches either name, ask which is meant rather than creating a second. Exit 3 means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
+Read `.dopamine/config`; it declares one `tier: path` per line, and its `living:` paths give both. The architecture document is the declared path whose basename is `ARCHITECTURE.md`; `DESIGN.md` beside it is this brainstorm's input. A declared path that does not exist is **absent**, not an error. Where no declared path matches either name, ask which is meant rather than creating a second. No `.dopamine/config` means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
 
 An absent `DESIGN.md` stops this recipe: run dopamine:brainstorm-design and come back.
 

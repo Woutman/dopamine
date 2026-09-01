@@ -44,7 +44,10 @@ assert_contains "it says the implementation still arrives one phase at a time" \
     "$body" "one roadmap phase at a time"
 assert_contains "the spec survives the derivation rather than being superseded" \
     "$body" "frozen"
-assert_contains "it reads its output path from the config" "$body" "artifact-paths"
+assert_contains "it reads its output path from the config" "$body" ".dopamine/config"
+assert_contains "it describes the config format rather than naming a parser" \
+    "$body" "tier: path"
+assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "an unadopted repository is routed, not guessed at" \
     "$body" "dopamine:adopting-a-repo"
 assert_contains "it points at the artifact map rather than restating it" \
@@ -60,7 +63,10 @@ body=$(read_skill brainstorm-architecture)
 assert_contains "it points at the wrapper contract instead of restating it" \
     "$body" "dopamine:brainstorm-design"
 assert_contains "the design document is its input" "$body" "DESIGN.md"
-assert_contains "it reads its output path from the config" "$body" "artifact-paths"
+assert_contains "it reads its output path from the config" "$body" ".dopamine/config"
+assert_contains "it describes the config format rather than naming a parser" \
+    "$body" "tier: path"
+assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "a number describing a run is cited, not copied in" \
     "$body" "sealed ledger"
 assert_contains "it names the successor that orders the work" \
@@ -94,6 +100,10 @@ assert_contains "it points at the artifact map rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
 assert_contains "it locates its own output at the declared path" \
     "$body" "The roadmap is the declared path whose basename is"
+assert_contains "it reads its output path from the config" "$body" ".dopamine/config"
+assert_contains "it describes the config format rather than naming a parser" \
+    "$body" "tier: path"
+assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "it hands the phase shape to the schema skill" \
     "$body" "roadmap-schema.md"
 
@@ -105,7 +115,8 @@ assert_contains "adoption is named as the one O(project) cost, paid once" \
 assert_contains "everything after adoption is O(change)" "$body" "O(change)"
 assert_contains "it writes the config that every other component reads" \
     "$body" ".dopamine/config"
-assert_contains "it verifies the config it wrote" "$body" "artifact-paths"
+assert_contains "it reads back the config it wrote" "$body" "read it back"
+assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "the no-code branch routes to the brainstorm instead" \
     "$body" "dopamine:brainstorm-design"
 assert_contains "the survey is dispatched, not read into this session" \

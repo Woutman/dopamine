@@ -22,10 +22,13 @@ source "$REPO_ROOT/tests/helpers.sh"
 # writing-claude-md was 500 and is raised to 550: nothing intercepts an edit to
 # CLAUDE.md any more, so the skill has to say where its own trigger comes from
 # and where the backstop is. Not licence to pad.
+# adopting-a-repo was 700 and is raised to 750: its verification step traded a
+# one-line pointer at an 87-line parser for the prose the parser's output used
+# to convey, which is the cost of removing the script.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 sweep:700
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
-         writing-roadmaps:850 adopting-a-repo:700"
+         writing-roadmaps:850 adopting-a-repo:750"
 
 budget_for() {
     local name="$1" entry
