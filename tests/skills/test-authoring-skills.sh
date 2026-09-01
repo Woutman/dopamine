@@ -8,7 +8,7 @@
 # structural check still passed.
 #
 # The Iron Law of superpowers:writing-skills is waived for this plugin
-# (spec section 10), so nothing here is a pressure scenario.
+# (spec section 8), so nothing here is a pressure scenario.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -50,7 +50,7 @@ assert_contains "it describes the config format rather than naming a parser" \
 assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "an unadopted repository is routed, not guessed at" \
     "$body" "dopamine:adopting-a-repo"
-assert_contains "it points at the artifact map rather than restating it" \
+assert_contains "it points at routing-documentation-updates rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
 assert_contains "it hands the document's shape to the schema skill" \
     "$body" "design-schema.md"
@@ -73,7 +73,7 @@ assert_contains "it names the successor that orders the work" \
     "$body" "dopamine:writing-roadmaps"
 assert_contains "a wrong requirement is a finding for the design, not a quiet re-decision" \
     "$body" "not something this brainstorm quietly redecides"
-assert_contains "it points at the artifact map rather than restating it" \
+assert_contains "it points at routing-documentation-updates rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
 assert_contains "it hands the document's shape to the schema skill" \
     "$body" "architecture-schema.md"
@@ -96,7 +96,7 @@ assert_contains "the struck line carries the pointer and no claim about the pres
     "$body" "and nothing else"
 assert_contains "dates are excluded as a metric that moves without the system" \
     "$body" "Dates and durations"
-assert_contains "it points at the artifact map rather than restating it" \
+assert_contains "it points at routing-documentation-updates rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
 assert_contains "it locates its own output at the declared path" \
     "$body" "The roadmap is the declared path whose basename is"
@@ -127,7 +127,7 @@ assert_contains "the reason a component exists is named as unreadable from code"
     "$body" "Code carries what, not why"
 assert_contains "an instructions-tier candidate goes through the admission test" \
     "$body" "dopamine:writing-claude-md"
-assert_contains "it points at the artifact map rather than restating it" \
+assert_contains "it points at routing-documentation-updates rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
 
 echo "-- adopting-a-repo survey prompt"

@@ -2,7 +2,7 @@
 # Structural tests for every skill in the plugin.
 #
 # The Iron Law of superpowers:writing-skills — no skill without a failing
-# pressure-scenario test first — is deliberately waived here (spec section 10).
+# pressure-scenario test first — is deliberately waived here (spec section 8).
 # These tests therefore check structure and budget, not behaviour: frontmatter is
 # valid, the description is a trigger rather than a workflow summary, referenced
 # files exist, no @-link force-loads context, and the word budget holds.
@@ -219,6 +219,8 @@ if [ -f "$guard" ]; then
     body=$(cat "$guard")
     assert_contains "it asks the admission question, not only the staleness one" \
         "$body" "belong here"
+    assert_contains "the admission question is stated as what an agent would get wrong" \
+        "$body" "cause Claude to make mistakes"
     assert_contains "a rejected line is routed rather than dropped" "$body" "routed"
     assert_contains "the lessons tier is one of the destinations" "$body" "lessons tier"
     assert_contains "a path-scoped rule is one of the destinations" "$body" ".claude/rules/"

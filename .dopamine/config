@@ -1,4 +1,4 @@
-# dopamine's own artifact map.
+# dopamine's own config: where this repository's living documents live.
 #
 # DESIGN.md, ARCHITECTURE.md and ROADMAP.md are declared and do not exist yet.
 # Deriving them is `dopamine:brainstorm-design`, `dopamine:brainstorm-architecture`

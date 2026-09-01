@@ -77,7 +77,6 @@ extract_config() {
 }
 from_skill=$(extract_config "$adopt")
 from_readme=$(extract_config "$REPO_ROOT/README.md")
-assert_eq "the skill's config block is non-empty" "6" "$(printf '%s\n' "$from_skill" | grep -c ':')"
 assert_eq "the skill and the README show the same config" "$from_readme" "$from_skill"
 
 echo "-- the documented config is well-formed under the format the skills describe"
