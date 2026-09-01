@@ -1,9 +1,9 @@
 ---
-name: claude-md-guard
-description: Use when a line is about to be added to CLAUDE.md, when a sweep is draining into it, or when a recurring lesson is proposed for promotion to an always-loaded line
+name: writing-claude-md
+description: Use when a line is about to be added to CLAUDE.md, when work is finishing and something is being drained into it, or when a recurring lesson is proposed for promotion to an always-loaded line
 ---
 
-# CLAUDE.md guard
+# Writing CLAUDE.md
 
 ## Overview
 
@@ -14,13 +14,14 @@ description: Use when a line is about to be added to CLAUDE.md, when a sweep is 
 
 The second is the one that pays. A predecessor project carried 516 lines of `CLAUDE.md` that were not false; they were **misfiled**. Design rationale reads perfectly well there, and is then paid for on every session while duplicating the design document. Staleness checking would never have caught it.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — it holds the tier each destination below belongs to.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — it holds the tier each destination below belongs to.
 
-## When the guard fires
+## When this fires
 
-- **After an edit to an instructions-tier file.** The `PostToolUse` hook carries the file's numbers and points here.
-- **During a sweep**, when discovery places a claim whose destination is the instructions tier.
+- **Before a line enters `CLAUDE.md`** — written by hand, or drained into it as work finishes.
 - **On a promotion** — a lesson that has recurred, offered as an always-loaded line.
+
+Nothing intercepts an edit to `CLAUDE.md` any more, so this skill is loaded because the writer reaches for it. dopamine:finishing-work's exit gate is the backstop: a promotion that reached the instructions tier without a verdict is a finding there.
 
 ## The test
 
@@ -48,7 +49,7 @@ verdict: admit — <the include row it matches>
 verdict: route <destination> — <one line of reason>
 ```
 
-A routed promotion keeps its verdict in the brief. That is what stops the next recurrence re-litigating a decision already made.
+A routed verdict is reported when the work closes and then forgotten — re-litigating one costs a single lookup in the table above, and logging every one would grow the lessons tier, which nothing verifies and nothing prunes. A promotion that was **genuinely contested** is a ruling, and a ruling belongs in the sealed ledger with everything else the work decided.
 
 ## Keeping the card honest
 

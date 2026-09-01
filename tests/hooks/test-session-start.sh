@@ -69,9 +69,14 @@ assert_eq "Copilot's top-level key is exactly additionalContext" \
     "additionalContext" "$(keys "$out")"
 
 echo "-- what the injection actually says"
-assert_contains "names the sweep skill, so the agent can find it" "$ctx" "sweep"
+assert_contains "names the skill that closes a unit of work" "$ctx" "dopamine:finishing-work"
+assert_contains "names the skill loaded before writing to a living document" \
+    "$ctx" "dopamine:writing-living-documents"
+assert_contains "names the skill loaded before writing to the instructions file" \
+    "$ctx" "dopamine:writing-claude-md"
 assert_contains "points at superpowers' existing ledger" "$ctx" "ledger"
 assert_contains "names the living documents it governs" "$ctx" "living document"
+assert_not_contains "no reference to the renamed skill survives" "$ctx" "dopamine:sweep"
 
 words=$(wc -w < "$CONTEXT_FILE" | tr -d ' ')
 if [ "$words" -le 200 ]; then

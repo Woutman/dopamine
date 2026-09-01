@@ -2,7 +2,7 @@
 # Structural tests for every skill in the plugin.
 #
 # The Iron Law of superpowers:writing-skills — no skill without a failing
-# pressure-scenario test first — is deliberately waived here (spec section 10).
+# pressure-scenario test first — is deliberately waived here (spec section 8).
 # These tests therefore check structure and budget, not behaviour: frontmatter is
 # valid, the description is a trigger rather than a workflow summary, referenced
 # files exist, no @-link force-loads context, and the word budget holds.
@@ -14,14 +14,27 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$REPO_ROOT/tests/helpers.sh"
 
 # skill-name:max-words
-# sweep was raised 600 -> 700 (2026-08-28). The 600 was calibrated against a 540-word
-# first draft that later review found incomplete: it was missing producers for the
-# config map, the plans-touch fact and the spec, and its no-ledger branch named an
-# input no subagent could receive. A budget set against an incomplete document is not
-# evidence about a complete one. Not licence to pad: additions stay terse and measured.
-BUDGETS="artifact-map:500 sweep:700 claude-md-guard:500
+# These are ratchets, not targets. A budget is raised only with a recorded reason.
+# artifact-map was 500 and is raised to 600 here: it gains a paragraph describing
+# the config format, which was an 87-line script the skill could point at instead.
+# The four authoring skills keep the budgets they were merged with even though this
+# change moves their slot tables out, so the headroom stays visible rather than spent.
+# writing-claude-md was 500 and is raised to 550: nothing intercepts an edit to
+# CLAUDE.md any more, so the skill has to say where its own trigger comes from
+# and where the backstop is. Not licence to pad.
+# adopting-a-repo was 700 and is raised to 750: its verification step traded a
+# one-line pointer at an 87-line parser for the prose the parser's output used
+# to convey, which is the cost of removing the script.
+# finishing-work carries the 600-to-700 raise sweep was given: 600 was
+# calibrated against a 540-word first draft that later review found
+# incomplete -- missing producers for the config map, the plans-touch fact
+# and the spec, and its no-ledger branch named an input no subagent could
+# receive. A budget set against an incomplete document is not evidence about
+# a complete one. Not licence to pad.
+BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:700
+         writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
-         writing-roadmaps:850 adopting-a-repo:700"
+         writing-roadmaps:850 adopting-a-repo:750"
 
 budget_for() {
     local name="$1" entry
@@ -134,8 +147,8 @@ done
 
 assert_eq "at least one skill was checked" "yes" "$([ "$found" -gt 0 ] && echo yes || echo no)"
 
-echo "-- artifact-map content"
-map="$REPO_ROOT/skills/artifact-map/SKILL.md"
+echo "-- routing-documentation-updates content"
+map="$REPO_ROOT/skills/routing-documentation-updates/SKILL.md"
 if [ -f "$map" ]; then
     body=$(cat "$map")
     for tier in Living Instructions Append-mostly Immutable Consumed; do
@@ -143,79 +156,71 @@ if [ -f "$map" ]; then
     done
     assert_contains "the map says which tiers are verified" "$body" "verified"
     assert_contains "the map routes a number describing a run to the ledger" "$body" "sealed ledger"
+    assert_contains "it describes the config format rather than naming a parser" \
+        "$body" "tier: path"
+    assert_contains "an unadopted repository is routed to adoption" \
+        "$body" "dopamine:adopting-a-repo"
+    assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 else
-    fail "skills/artifact-map/SKILL.md exists" "not found"
+    fail "skills/routing-documentation-updates/SKILL.md exists" "not found"
 fi
 
-echo "-- sweep content"
-sweep="$REPO_ROOT/skills/sweep/SKILL.md"
-if [ -f "$sweep" ]; then
-    body=$(cat "$sweep")
-    assert_contains "the recipe names seal-ledger" "$body" "seal-ledger"
-    assert_contains "the recipe names discovery-prompt.md" "$body" "discovery-prompt.md"
-    assert_contains "the recipe names implementer-prompt.md" "$body" "implementer-prompt.md"
-    assert_contains "verification runs against a scoped package" "$body" "sweep-package"
-    assert_contains "the verifier prompt is referenced" "$body" "verifier-prompt.md"
-    assert_contains "the fix loop is capped" "$body" "two rounds"
+echo "-- finishing-work content"
+fw="$REPO_ROOT/skills/finishing-work/SKILL.md"
+if [ -f "$fw" ]; then
+    body=$(cat "$fw")
+    assert_contains "the input is the sealed ledger, not the documents" \
+        "$body" "sealed ledger"
+    assert_contains "documents are reached along terms derived from it" "$body" "grep terms"
+    assert_contains "and never read in bulk" "$body" "in bulk"
+    assert_contains "sealing is one copy, not a script" "$body" "cp .superpowers/sdd/"
+    assert_contains "an absent ledger is reconstructed rather than skipped" \
+        "$body" "reconstruction"
+    assert_contains "the commit convention survives the rename" "$body" "sweep: <slug>"
     assert_contains "nothing to drain is a legitimate outcome" "$body" "nothing to drain"
-    assert_contains "it points at the artifact map rather than restating it" "$body" "dopamine:artifact-map"
+    assert_contains "the close reports the line counts that make failure visible" \
+        "$body" "wc -l"
+    assert_contains "it says where it sits relative to branch integration" \
+        "$body" "finishing-a-development-branch"
+    assert_contains "it points at the routing skill rather than restating it" \
+        "$body" "dopamine:routing-documentation-updates"
+    assert_contains "it hands each edit to the schema skill" \
+        "$body" "dopamine:writing-living-documents"
+    assert_contains "an instructions-tier candidate goes through the admission test" \
+        "$body" "dopamine:writing-claude-md"
 
-    discovery="$REPO_ROOT/skills/sweep/discovery-prompt.md"
-    if [ -f "$discovery" ]; then
-        dbody=$(cat "$discovery")
-        for kind in Edits Negatives Promotions; do
-            assert_contains "the brief defines the $kind entry kind" "$dbody" "$kind"
-        done
-        assert_contains "an edit entry is located and quoted" "$dbody" "Current text, quoted"
-        edits_section=$(awk '/^### Edits$/{flag=1; next} /^### Negatives$/{flag=0} flag' "$discovery")
-        assert_contains "an Edit into the instructions tier is gated too, not only a Promotion" \
-            "$edits_section" "verdict:"
-        assert_contains "discovery reads documents only along grep terms" "$dbody" "grepped six times"
-        assert_contains "discovery does not read documents in bulk" "$dbody" "in bulk"
-        assert_contains "a promotion is put through the admission test" \
-            "$dbody" "dopamine:claude-md-guard"
-        assert_contains "an admitted promotion becomes an Edit" "$dbody" "verdict: admit"
-        assert_contains "a routed promotion records where it went instead" \
-            "$dbody" "verdict: route"
-        assert_not_contains "the promotion is no longer parked unapplied" \
-            "$dbody" "leave it unapplied"
-    else
-        fail "skills/sweep/discovery-prompt.md exists" "not found"
-    fi
+    echo "-- finishing-work's exit gate"
+    gate=$(awk '/^## Exit gate$/{flag=1; next} /^## /{flag=0} flag' "$fw")
+    assert_contains "right tier" "$gate" "Right tier"
+    assert_contains "changed what changed" "$gate" "Changed what changed"
+    assert_contains "no run number entered a living document" "$gate" "describing a run"
+    assert_contains "every promotion carries an admission verdict" "$gate" "verdict"
+    assert_contains "historical records untouched" "$gate" "Historical records"
+    assert_contains "the gate is a self-review, not a subagent dispatch" \
+        "$gate" "fresh eyes"
 
-    verifier="$REPO_ROOT/skills/sweep/verifier-prompt.md"
-    if [ -f "$verifier" ]; then
-        vbody=$(cat "$verifier")
-        for verdict in Placement Discipline "Drain completeness"; do
-            assert_contains "the verifier returns a $verdict verdict" "$vbody" "$verdict"
-        done
-        assert_contains "the verifier re-derives its own grep terms" "$vbody" "independently"
-        assert_contains "the verifier does not trust the report" "$vbody" "not trust"
-        assert_contains "a listed location the diff never touches is Missing" "$vbody" "Missing"
-        assert_contains "an ungated promotion is a finding" "$vbody" "Ungated"
-        assert_contains "the verifier knows promotions carry a verdict" "$vbody" "verdict: admit"
-    else
-        fail "skills/sweep/verifier-prompt.md exists" "not found"
-    fi
-
-    impl="$REPO_ROOT/skills/sweep/implementer-prompt.md"
-    if [ -f "$impl" ]; then
-        ibody=$(cat "$impl")
-        assert_contains "the implementer changes what changed" "$ibody" "Change what changed"
-        assert_contains "the implementer leaves historical records alone" "$ibody" "historical"
-    else
-        fail "skills/sweep/implementer-prompt.md exists" "not found"
-    fi
+    echo "-- the pipeline's files are gone"
+    for gone in discovery-prompt.md implementer-prompt.md verifier-prompt.md \
+                scripts/artifact-paths scripts/seal-ledger scripts/sweep-package; do
+        if [ -e "$REPO_ROOT/skills/finishing-work/$gone" ]; then
+            fail "$gone is deleted" "still present"
+        else
+            pass "$gone is deleted"
+        fi
+    done
+    assert_not_contains "the recipe prescribes no agent count" "$body" "one subagent"
 else
-    fail "skills/sweep/SKILL.md exists" "not found"
+    fail "skills/finishing-work/SKILL.md exists" "not found"
 fi
 
-echo "-- claude-md-guard content"
-guard="$REPO_ROOT/skills/claude-md-guard/SKILL.md"
+echo "-- writing-claude-md content"
+guard="$REPO_ROOT/skills/writing-claude-md/SKILL.md"
 if [ -f "$guard" ]; then
     body=$(cat "$guard")
     assert_contains "it asks the admission question, not only the staleness one" \
         "$body" "belong here"
+    assert_contains "the admission question is stated as what an agent would get wrong" \
+        "$body" "cause Claude to make mistakes"
     assert_contains "a rejected line is routed rather than dropped" "$body" "routed"
     assert_contains "the lessons tier is one of the destinations" "$body" "lessons tier"
     assert_contains "a path-scoped rule is one of the destinations" "$body" ".claude/rules/"
@@ -223,10 +228,14 @@ if [ -f "$guard" ]; then
     assert_contains "it names the drift check" "$body" "refresh-rule-card"
     assert_contains "it gives the admit verdict shape" "$body" "verdict: admit"
     assert_contains "it gives the route verdict shape" "$body" "verdict: route"
-    assert_contains "it points at the artifact map rather than restating it" \
-        "$body" "dopamine:artifact-map"
+    assert_contains "it points at the routing skill rather than restating it" \
+        "$body" "dopamine:routing-documentation-updates"
+    assert_not_contains "it no longer claims a PostToolUse hook fires it" \
+        "$body" "PostToolUse"
+    assert_not_contains "a routed verdict is not parked in a brief that no longer exists" \
+        "$body" "in the brief"
 else
-    fail "skills/claude-md-guard/SKILL.md exists" "not found"
+    fail "skills/writing-claude-md/SKILL.md exists" "not found"
 fi
 
 finish

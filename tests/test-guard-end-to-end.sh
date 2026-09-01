@@ -2,10 +2,10 @@
 # The guard, end to end, offline.
 #
 # Each unit test checks one component against its own contract. This one checks
-# the chain of names between them: the hook names a skill, the skill links a card,
-# the card names snapshots, and the extractor round-trips those snapshots. Rename
-# any link in that chain and every unit test still passes while the shipped plugin
-# points at nothing.
+# the chain of names between them: the skill links a card, the card names
+# snapshots, and the extractor round-trips those snapshots. Rename any link in
+# that chain and every unit test still passes while the shipped plugin points at
+# nothing.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,50 +13,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=helpers.sh
 source "$REPO_ROOT/tests/helpers.sh"
 
-GUARD_DIR="$REPO_ROOT/skills/claude-md-guard"
+GUARD_DIR="$REPO_ROOT/skills/writing-claude-md"
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
-echo "-- a repository adopts dopamine, and an edit to its instructions file is met"
-repo="$TEST_ROOT/project"
-mkdir -p "$repo/docs" "$repo/.dopamine"
-git init -q "$repo" 2>/dev/null
-git -C "$repo" config user.email "test@example.com"
-git -C "$repo" config user.name "Test"
-{
-    printf 'living: docs/DESIGN.md\n'
-    printf 'instructions: CLAUDE.md\n'
-    printf 'lessons: docs/LESSONS.md\n'
-    printf 'plans: docs/superpowers/plans\n'
-} > "$repo/.dopamine/config"
-printf '# Project\n\n- Run make test before committing.\n' > "$repo/CLAUDE.md"
-printf '# Lessons\n' > "$repo/docs/LESSONS.md"
-
-evt=$(CWD="$repo" FP="$repo/CLAUDE.md" python3 -c '
-import json, os
-print(json.dumps({
-    "hook_event_name": "PostToolUse",
-    "cwd": os.environ["CWD"],
-    "tool_name": "Edit",
-    "tool_input": {"file_path": os.environ["FP"]},
-}))')
-
-RC=0
-out=$(printf '%s' "$evt" | (cd "$repo" && CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$REPO_ROOT/hooks/claude-md-guard")) || RC=$?
-assert_eq "the guard exits 0" 0 "$RC"
-
-ctx=$(printf '%s' "$out" | python3 -c '
-import json, sys
-raw = sys.stdin.read().strip()
-if not raw:
-    print(""); raise SystemExit
-print(json.loads(raw).get("hookSpecificOutput", {}).get("additionalContext", ""))')
-assert_contains "a verdict arrived" "$ctx" "make mistakes"
-
 echo "-- the chain of names holds"
-named_skill=$(printf '%s' "$ctx" | grep -o 'dopamine:[a-z-]*' | head -1)
-assert_eq "the injection names the guard skill" "dopamine:claude-md-guard" "$named_skill"
-assert_eq "and that skill exists in the plugin" "yes" \
+assert_eq "the guard skill exists in the plugin" "yes" \
     "$([ -f "$GUARD_DIR/SKILL.md" ] && echo yes || echo no)"
 
 linked=$(grep -oE '\[[^]]*\]\(([a-zA-Z0-9._/-]+\.md)\)' "$GUARD_DIR/SKILL.md" \
@@ -110,18 +72,27 @@ out=$("$GUARD_DIR/scripts/refresh-rule-card" "$local_card" 2>&1) || RC=$?
 assert_eq "the extractor round-trips every shipped snapshot" 0 "$RC"
 assert_contains "and says so" "$out" "no drift"
 
-echo "-- the sweep now gates promotions on the guard"
-disc="$REPO_ROOT/skills/sweep/discovery-prompt.md"
-assert_contains "discovery names the guard" "$(cat "$disc")" "dopamine:claude-md-guard"
-assert_not_contains "and no longer parks promotions" "$(cat "$disc")" "leave it unapplied"
-assert_contains "the verifier can find an ungated promotion" \
-    "$(cat "$REPO_ROOT/skills/sweep/verifier-prompt.md")" "Ungated"
+echo "-- the close still gates promotions on the admission test"
+fw=$(cat "$REPO_ROOT/skills/finishing-work/SKILL.md")
+assert_contains "finishing-work routes instructions-tier candidates through the test" \
+    "$fw" "dopamine:writing-claude-md"
+assert_contains "and its exit gate catches a promotion that arrived without a verdict" \
+    "$fw" "admission verdict"
 
-echo "-- all three hook events are registered"
+echo "-- SessionStart is the only hook event left"
 events=$(python3 -c "
 import json
 print(','.join(sorted(json.load(open('$REPO_ROOT/hooks/hooks.json'))['hooks'])))")
-assert_eq "SessionStart, PreToolUse and PostToolUse" \
-    "PostToolUse,PreToolUse,SessionStart" "$events"
+assert_eq "SessionStart, and nothing that fires on every tool call" \
+    "SessionStart" "$events"
+
+echo "-- no hook shells out to a Python interpreter"
+if [ -e "$REPO_ROOT/hooks/py-hook" ]; then
+    fail "py-hook is gone, so Python is not a runtime dependency" "hooks/py-hook still exists"
+else
+    pass "py-hook is gone, so Python is not a runtime dependency"
+fi
+leftover=$(find "$REPO_ROOT/hooks" -name '*.py' | sed "s|$REPO_ROOT/||")
+assert_eq "no Python hook scripts remain" "" "$leftover"
 
 finish

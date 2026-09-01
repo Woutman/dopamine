@@ -11,7 +11,7 @@ The same wrapper as dopamine:brainstorm-design, one level down: it brainstorms *
 
 **REQUIRED BACKGROUND:** Use dopamine:brainstorm-design — it holds the wrapper contract this recipe shares: how the inner brainstorm is scoped, why that skill's closing instruction does not end this one, and how a living document relates to the frozen spec it came from.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — it decides which numbers this document holds and which it cites from somewhere else.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — it decides which numbers this document holds and which it cites from somewhere else.
 
 The order is technical, not stylistic. Component boundaries follow from what the system is for, so `DESIGN.md` exists before this runs.
 
@@ -19,7 +19,7 @@ The order is technical, not stylistic. Component boundaries follow from what the
 
 ### 1. Locate the input and the output
 
-`${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths --tier living` gives both. The architecture document is the declared path whose basename is `ARCHITECTURE.md`; `DESIGN.md` beside it is this brainstorm's input. Where no declared path matches either name, ask which is meant rather than creating a second. Exit 3 means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
+Read `.dopamine/config`; it declares one `tier: path` per line, and its `living:` paths give both. The architecture document is the declared path whose basename is `ARCHITECTURE.md`; `DESIGN.md` beside it is this brainstorm's input. A declared path that does not exist is **absent**, not an error. Where no declared path matches either name, ask which is meant rather than creating a second. No `.dopamine/config` means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
 
 An absent `DESIGN.md` stops this recipe: run dopamine:brainstorm-design and come back.
 
@@ -31,16 +31,9 @@ The design's requirements are the givens. A requirement that turns out to be wro
 
 ### 3. Derive the document
 
-| Slot | Holds |
-|---|---|
-| **The assembly** | Each component in one line: what it owns, and what it must never own |
-| **How they talk** | The interface between each pair, and which way the dependency points |
-| **Where state lives** | Every store, and which component is authoritative for what in it |
-| **When it fails** | What each failure looks like from outside, and what is retried, dropped or surfaced |
-| **What runs where** | Processes, jobs, and the boundaries a deployment has to respect |
-| **Not this** | Assemblies considered and rejected, with the reason each was rejected |
+`ARCHITECTURE.md`'s slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/architecture-schema.md`.
 
-A number that describes the system now — a size limit, a timeout, a budget — belongs here as a bounded set, replaced when it changes. A number that describes one run belongs in the sealed ledger and is cited from here rather than copied into it.
+Use dopamine:writing-living-documents. It holds that schema and the rules for writing into it — including which numbers this document states outright and which it cites from the sealed ledger instead.
 
 ### 4. Name what is now pending
 

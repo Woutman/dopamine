@@ -5,17 +5,14 @@
 # passing after a rename that leaves the plugin pointing at nothing. This one
 # checks the chains between the files: that every dopamine:<name> reference
 # resolves, that the ordered hand-off from design to architecture to roadmap is
-# unbroken, and that the config block the documentation shows a human is a config
-# artifact-paths can actually read.
+# unbroken, and that the config block the documentation shows a human is
+# well-formed under the format the skills describe.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=helpers.sh
 source "$REPO_ROOT/tests/helpers.sh"
-
-TEST_ROOT="$(mktemp -d)"
-trap 'rm -rf "$TEST_ROOT"' EXIT
 
 echo "-- every dopamine:<skill> reference resolves to a skill that exists"
 unresolved=""
@@ -52,15 +49,27 @@ assert_contains "adoption reaches the architecture recipe" \
 assert_contains "adoption reaches the design recipe" \
     "$(cat "$adopt")" "dopamine:brainstorm-design"
 
-echo "-- every root-relative reference to artifact-paths points at the real script"
-# The sweep names it `scripts/artifact-paths`, relative to itself; every other
-# skill names it from the repository root. Only that second form is checkable
-# here, and it is the one a rename or a move would break.
-spellings=$(grep -rhoE 'skills/[A-Za-z0-9_/-]*artifact-paths' "$REPO_ROOT/skills" | sort -u)
-assert_eq "one root-relative spelling, and it is the shipped path" \
-    "skills/sweep/scripts/artifact-paths" "$spellings"
-assert_eq "and that path is executable" "yes" \
-    "$([ -x "$REPO_ROOT/skills/sweep/scripts/artifact-paths" ] && echo yes || echo no)"
+echo "-- every \${CLAUDE_PLUGIN_ROOT} path a skill names resolves"
+# The gap this closes: a skill runs with the *user's* repository as its working
+# directory, so a plugin-relative path only works when it is spelled through the
+# plugin root. Checking that those spellings resolve is what stops a rename
+# leaving the shipped plugin pointing at nothing.
+missing=""
+while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    [ -e "$REPO_ROOT/$rel" ] || missing="$missing $rel"
+done < <(grep -rhoE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9._/-]+' "$REPO_ROOT/skills" \
+    | sed 's|${CLAUDE_PLUGIN_ROOT}/||' | sed 's|/$||' | sort -u)
+if [ -z "$missing" ]; then
+    pass "every \${CLAUDE_PLUGIN_ROOT} path resolves"
+else
+    fail "every \${CLAUDE_PLUGIN_ROOT} path resolves" "missing:$missing"
+fi
+
+echo "-- no skill names a script this change deleted"
+leftover=$(grep -rhoE '(artifact-paths|seal-ledger|sweep-package)' "$REPO_ROOT/skills" | sort -u)
+assert_eq "artifact-paths, seal-ledger and sweep-package are gone from the skills" \
+    "" "$leftover"
 
 echo "-- the documented config is one config, in both places that show it"
 extract_config() {
@@ -68,22 +77,17 @@ extract_config() {
 }
 from_skill=$(extract_config "$adopt")
 from_readme=$(extract_config "$REPO_ROOT/README.md")
-assert_eq "the skill's config block is non-empty" "6" "$(printf '%s\n' "$from_skill" | grep -c ':')"
 assert_eq "the skill and the README show the same config" "$from_readme" "$from_skill"
 
-echo "-- that config is one artifact-paths can read"
-repo="$TEST_ROOT/project"
-mkdir -p "$repo/.dopamine"
-git init -q "$repo" 2>/dev/null
-printf '%s\n' "$from_skill" > "$repo/.dopamine/config"
-rows=$("$REPO_ROOT/skills/sweep/scripts/artifact-paths" "$repo" 2>/dev/null)
-rc=$?
-assert_eq "artifact-paths accepts the documented config" "0" "$rc"
-assert_eq "it declares six paths" "6" "$(printf '%s\n' "$rows" | grep -c .)"
+echo "-- the documented config is well-formed under the format the skills describe"
+# Each line is `tier: path`. There is no parser any more -- the consumer is an
+# LLM reading the file -- so what is worth checking is that the block every
+# document shows a human is actually in that shape.
+malformed=$(printf '%s\n' "$from_skill" | grep -vE '^[a-z]+: [A-Za-z0-9._/-]+$' | grep -c . || true)
+assert_eq "every documented line is one tier: path pair" "0" "$malformed"
+assert_eq "it declares six paths" "6" "$(printf '%s\n' "$from_skill" | grep -c ':')"
 assert_eq "three of them are the living tier" "3" \
-    "$(printf '%s\n' "$rows" | grep -c '^living')"
-assert_eq "and all of them are absent in a fresh repository" "6" \
-    "$(printf '%s\n' "$rows" | grep -c 'absent$')"
+    "$(printf '%s\n' "$from_skill" | grep -c '^living:')"
 
 echo "-- every living document a config declares has a recipe that authors it"
 for pair in "DESIGN.md:brainstorm-design" \
@@ -95,11 +99,8 @@ for pair in "DESIGN.md:brainstorm-design" \
 done
 
 echo "-- an unadopted repository is routed rather than guessed at"
-bare="$TEST_ROOT/bare"
-mkdir -p "$bare"
-assert_exit "artifact-paths exits 3 with no config" 3 \
-    "$REPO_ROOT/skills/sweep/scripts/artifact-paths" "$bare"
-assert_contains "and the recipe that meets that exit names the way out" \
-    "$(cat "$design")" "dopamine:adopting-a-repo"
+assert_contains "the recipe names the absence of the config as the trigger" \
+    "$(cat "$design")" ".dopamine/config"
+assert_contains "and names the way out" "$(cat "$design")" "dopamine:adopting-a-repo"
 
 finish

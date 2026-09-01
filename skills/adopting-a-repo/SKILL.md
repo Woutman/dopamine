@@ -11,7 +11,7 @@ Adoption is the one **O(project)** thing dopamine does, and it happens once. Eve
 
 That is the trade being made: read the repository properly a single time, so that no sweep ever has to.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — adoption is a placement exercise before it is a writing one, and the map is what decides where each thing found goes.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — adoption is a placement exercise before it is a writing one, and the map is what decides where each thing found goes.
 
 ## The recipe
 
@@ -30,7 +30,7 @@ plans: docs/superpowers/plans
 
 Declare the paths this project will use, not only the ones it already has — a declared document that does not exist is reported `absent`, which is how the remaining work stays visible without any machinery to nag about it. Confirm the paths with the human before writing: this is the file every other component reads.
 
-Verify with `${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths`. Exit 0, with one row per declared path, means adoption can go on.
+Then read it back and confirm every line is one `tier: path` pair, and that each declared path is either present or one this project intends to create. A declared path that does not exist yet is **absent**, not an error, and adoption goes on.
 
 ### 2. Decide whether there is anything to reconstruct
 
@@ -47,7 +47,9 @@ Fill `{FINDINGS_PATH}` with `<plans>/adoption-<document-basename>.survey.md`, ta
 
 ### 4. Write, and mark what was inferred
 
-Fill each document's slots from its findings file, using the recipe that owns that document: dopamine:brainstorm-design, dopamine:brainstorm-architecture, dopamine:writing-roadmaps. Their slot tables are the shape; the findings file is the content.
+Fill each document's slots from its findings file. The slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/` — `design-schema.md`, `architecture-schema.md`, `roadmap-schema.md` — and dopamine:writing-living-documents holds the rules for writing into them. The schema is the shape; the findings file is the content.
+
+Where a document needs more than filling in — an order that has to be argued, an assembly that has to be decided — that is dopamine:brainstorm-design, dopamine:brainstorm-architecture or dopamine:writing-roadmaps, and adoption hands off to it rather than guessing.
 
 **Code carries what, not why.** A component's responsibilities are readable. The reason it exists rather than something simpler is not. So every claim lands in one of two places:
 
@@ -58,7 +60,7 @@ That section is the handoff. Walk it with the human, move what they confirm into
 
 ### 5. Place what is not a living document
 
-A survey turns up gotchas, dated observations and always-loaded rules. Route them: a dated observation to the lessons tier, an always-loaded rule to `CLAUDE.md` only if it survives dopamine:claude-md-guard's admission test, and anything derivable by reading the code nowhere at all.
+A survey turns up gotchas, dated observations and always-loaded rules. Route them: a dated observation to the lessons tier, an always-loaded rule to `CLAUDE.md` only if it survives dopamine:writing-claude-md's admission test, and anything derivable by reading the code nowhere at all.
 
 ## Outcomes
 

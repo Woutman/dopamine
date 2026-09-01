@@ -13,15 +13,15 @@ A project-scope brainstorm, and the living document derived from what it produce
 
 The spec is not superseded by it. A spec is dated intent, frozen at its date, never swept. `DESIGN.md` diverges from it as the project moves, exactly as shipped code diverges from the plan that built it.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — it decides what belongs in a living document and what is paid for on every read without earning it.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — it decides what belongs in a living document and what is paid for on every read without earning it.
 
 ## The recipe
 
 ### 1. Locate the output
 
-Run `${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths --tier living`. The design document is the declared path whose basename is `DESIGN.md`, present or absent. Where no declared path matches, ask which one is meant rather than creating a second.
+Read `.dopamine/config` at the repository root. It declares one `tier: path` per line; the design document is the `living:` path whose basename is `DESIGN.md`, present or absent. A declared path that does not exist is **absent**, not an error. Where no declared path matches, ask which one is meant rather than creating a second.
 
-Exit 3 means this repository has not adopted dopamine. Use dopamine:adopting-a-repo first — it writes the config, and where there is already code it reconstructs rather than brainstorms.
+No `.dopamine/config` means this repository has not adopted dopamine. Use dopamine:adopting-a-repo first — it writes the config, and where there is already code it reconstructs rather than brainstorms.
 
 ### 2. Brainstorm at system scope
 
@@ -33,19 +33,9 @@ That skill ends by directing you to `superpowers:writing-plans` and no other ski
 
 ### 3. Derive the document
 
-`DESIGN.md` is the spec re-cast in the present tense, holding only what stays true as the project moves. Its slots, in order:
+`DESIGN.md` is the spec re-cast in the present tense, holding only what stays true as the project moves. Its slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/design-schema.md`.
 
-| Slot | Holds |
-|---|---|
-| **What this is** | One paragraph: what the system does, and for whom |
-| **The problem** | What is wrong without it, measured wherever a number exists |
-| **What it must do** | The requirements that decide whether it works |
-| **The shape of the solution** | The approach taken, and the one or two rejected with the reason each was rejected |
-| **Principles** | The constraints that override an agent's defaults on this project |
-| **Not this** | What it deliberately does not do, so it is not proposed again |
-| **Open questions** | What is unsettled, and who settles it |
-
-The questions asked, the approaches surveyed and the record of who decided what stay in the spec. They are the dated account of one conversation; this document is the state of the system.
+Use dopamine:writing-living-documents. It holds that schema and the rules for writing into it, and it is the same skill every later edit to this document goes through — so the shape this stage creates is the shape the sweep maintains.
 
 ### 4. Name what is now pending
 

@@ -11,13 +11,13 @@ description: Use when a design and an architecture are settled and the order of 
 
 **A phase is the smallest unit that makes one good plan.** `writing-plans` requires a plan to produce working, testable software on its own; a phase inherits that requirement whole — independently valuable, independently verifiable.
 
-**REQUIRED BACKGROUND:** Use dopamine:artifact-map — `ROADMAP.md` is a living document, re-read and re-verified at every phase close, and what that costs decides what is allowed into it.
+**REQUIRED BACKGROUND:** Use dopamine:routing-documentation-updates — `ROADMAP.md` is a living document, re-read and re-verified at every phase close, and what that costs decides what is allowed into it.
 
 ## The recipe
 
 ### 1. Locate the output and read the two inputs
 
-`${CLAUDE_PLUGIN_ROOT}/skills/sweep/scripts/artifact-paths --tier living` gives all three. The roadmap is the declared path whose basename is `ROADMAP.md`; where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first. Exit 3 means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
+Read `.dopamine/config`; it declares one `tier: path` per line, and its `living:` paths give all three. The roadmap is the declared path whose basename is `ROADMAP.md`. A declared path that does not exist is **absent**, not an error. Where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first. No `.dopamine/config` means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
 
 ### 2. Order by dependency and risk, and say which one placed each phase
 
@@ -30,19 +30,13 @@ An order set by neither is a preference, and a preference does not survive conta
 
 ### 3. Write the phases
 
-Each phase, in this order:
+The phase slots, and the document's own, are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/roadmap-schema.md`.
 
-| Slot | Holds |
-|---|---|
-| **Lands** | What exists at the end that did not exist at the start |
-| **Why here** | The dependency it satisfies, or the risk it retires |
-| **Exit** | Observations, not assertions — what someone runs, and what they then see |
-
-An exit criterion is something that happens: a command that returns, a number that lands inside a band, a run that completes, a page that loads. "The module is finished" is not one, because nothing observes it and so nothing can close it.
+Use dopamine:writing-living-documents. It holds that schema and the rules for writing into it.
 
 ### 4. Name what the project cannot do for itself
 
-Anything the work waits on from outside — an access grant, an approval, a decision by another team — gets a row: what is being asked, which phase needs it, and why it belongs to them. Asked early it is off the critical path; asked late it is the critical path.
+Anything the work waits on from outside — an access grant, an approval, a decision by another team — earns a row in **External asks**. Asked early it is off the critical path; asked late it is the critical path.
 
 ### 5. Strike a closed phase, and leave a pointer
 
@@ -50,7 +44,7 @@ A closed phase stays, **struck through**, its body replaced by one link to its s
 
 `~~**Phase 2 — The spine**~~ — [ledger](<plans>/2026-08-28-dopamine-spine.ledger.md)`
 
-The ledger is immutable, so the trail cannot rot; its header names the plan, which names the spec, and the sweep brief sits beside it. `dopamine:sweep` has no concept of a phase, so re-running this recipe at each close is what strikes it.
+The ledger is immutable, so the trail cannot rot; its header names the plan, which names the spec. `dopamine:finishing-work` has no concept of a phase, so re-running this recipe at each close is what strikes it.
 
 **The struck line holds the name and the link, and nothing else** — no `Lands`, no `Exit`, no measured number: what asserts something about the present is defended at every sweep, and a bare pointer asserts nothing. What changed the system goes to `DESIGN.md` or `ARCHITECTURE.md`; what a run measured stays in the ledger, cited.
 
