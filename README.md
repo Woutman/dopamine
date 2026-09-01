@@ -59,9 +59,9 @@ A declared document that does not exist yet is reported `absent`, not as an erro
 
 **bash and git.** That is the whole runtime: one `SessionStart` hook and a set of skills.
 
-Python 3 is used by the **test suite** — `tests/` parses JSON and skill frontmatter with it — and by nothing the plugin ships.
+Python 3 is used by the **test suite** — `tests/` parses JSON and skill frontmatter with it.
 
-`skills/writing-claude-md/scripts/refresh-rule-card` also needs **curl or wget**, and network access. It is a maintenance script that runs off the edit path; nothing else in the plugin makes a network request.
+`skills/writing-claude-md/scripts/refresh-rule-card` also needs **Python 3, curl or wget**, and network access. It is a maintenance script that runs off the edit path; nothing else in the plugin makes a network request.
 
 ## Known gaps
 
