@@ -1,0 +1,8 @@
+You are working in the git repository at {RUN_DIR}.
+
+Write the implementation plan for Phase 2. Its spec is `docs/superpowers/specs/2026-03-02-phase-2-inbox-import-design.md`. `docs/architecture.md` says how the pieces fit, and `docs/superpowers/plans/2026-02-09-phase-1-port-and-store.md` is the plan Phase 1 was built from.
+
+Use the superpowers:writing-plans skill: it is at {WRITING_PLANS}; read it and follow it. Save the plan to `docs/superpowers/plans/2026-03-04-phase-2-inbox-import.md` and commit it. Write the plan only: do not implement it, and end at the handoff rather than asking which execution approach to use.
+
+Your final message is one line: `DONE`, or `BLOCKED: <reason>`.
+{LOADED_SKILL}
