@@ -6,4 +6,6 @@ If you find yourself about to change a living document mid-execution, record it 
 
 When you do write to a living document, load `dopamine:writing-living-documents` first; for `CLAUDE.md`, load `dopamine:writing-claude-md`. Each holds the shape that document has to keep, and `dopamine:routing-documentation-updates` decides which document a fact belongs in at all.
 
+Before writing or editing a code comment, including one in a plan's code block, load `dopamine:writing-code-comments`.
+
 At the end of any plan or ad-hoc unit of work, and before the workspace is cleaned up, invoke the `dopamine:finishing-work` skill.
