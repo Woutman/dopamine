@@ -65,7 +65,11 @@
 
 **Task order and why:** tooling first, so RED can run; RED next, because it can end the plan; then the skill, the injection and the gate, which GREEN needs in place; GREEN; then the documents that describe the result.
 
+**Two phases.** Phase 1 is Tasks 1–2 and ends at a review with the human. Phase 2 is Tasks 3–7 as drafted below; it is revised in light of the RED findings at that review, and does not start until the human approves the revised version.
+
 ---
+
+## Phase 1 — tooling and RED
 
 ### Task 1: Baseline tooling
 
@@ -659,19 +663,28 @@ cp -R .dopamine/run/baseline/red/out docs/superpowers/plans/2026-09-29-writing-c
 
 Expected: a two-row table, A0 and S0, and no `no change:` line.
 
-- [ ] **Step 10: Decide**
+- [ ] **Step 10: Commit and stop for review**
 
-**RED shows a problem** when the mean of narration plus restatement per run is **at least 1.0** for A0 **or** S0.
-
-- It does → commit and continue to Task 3.
-- It does not → commit, report the table to the human, and **stop the plan**. No skill is written.
+The spec's gate — **RED shows a problem** when the mean of narration plus restatement per run is **at least 1.0** for A0 **or** S0 — is applied at the review, not here. Whatever the table shows, commit and **stop: Phase 1 ends here.**
 
 ```bash
 git add tests/baselines/writing-code-comments/prompts docs/superpowers/plans/2026-09-29-writing-code-comments.baseline/red
 git commit -m "test: RED baseline for code-comment discipline"
 ```
 
+- [ ] **Step 11: Report the findings to the human**
+
+Bring to the review:
+- `score.md`, and whether the spec's gate is met.
+- Every comment judged `narration` or `restatement`, quoted with its run's arm.
+- Any comment that was hard to categorise, and how it was resolved.
+- Anything the runs did that the categories or the Phase 2 draft did not anticipate.
+
+Phase 2 is revised with the human from these findings before any of it runs.
+
 ---
+
+## Phase 2 — skill, wiring and GREEN (draft; revised after the Phase 1 review)
 
 ### Task 3: The skill
 
