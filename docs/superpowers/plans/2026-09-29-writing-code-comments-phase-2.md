@@ -26,8 +26,7 @@
 3. The injection does not ask the controller to copy the contract into implementer prompts: implementers copy the plan's comments and add almost none.
 4. GREEN passes on a criterion aimed at the failure, combined with a general one and a floor (Task 6, Step 9).
 5. The skill is built with `superpowers:writing-skills`. The failure is wrong-shaped output, so the skill is a positive contract, not a prohibition list, and its wording is micro-tested against a no-guidance control before the full runs.
-
-**Ruling: the skill has no sentence about correcting a comment the change made false.** The design spec (§2) keeps such comments in scope. Against: no baseline run kept one. L kept the stale comment in 0 of 5 runs per arm, and P0's 3 of 5 was the extractor reading plan prose, fixed since. writing-skills says a GREEN skill addresses the failures RED showed and adds nothing for hypothetical ones. **Cost if wrong:** a stale comment survives a change. The exit gate reads only added comments, so nothing else catches it.
+6. The skill keeps the design spec's sentence on a comment the change makes false (§2), although no baseline run kept a stale comment.
 
 ## Global Constraints
 
@@ -499,22 +498,24 @@ V2 is the full skill. V1 is the same skill without its `## Common mistakes` tabl
 ````markdown
 ---
 name: writing-code-comments
-description: Use when writing or editing a code comment, docstring or doc comment, including one inside a plan's code block
+description: Use when writing or editing a code comment, docstring or doc comment, including one inside a plan's code block, or when a change leaves a nearby comment describing behaviour the code no longer has
 ---
 
 # Writing code comments
 
 ## Overview
 
-A comment is read later by someone with the code but not the spec, plan or change behind it.
+A comment is read later by someone who has the code, not the spec, plan or change.
 
 ## The contract
 
-> A comment states one of three things: **why** the code is this way — a constraint or a non-obvious reason; the **contract** of a public interface, in the language's standard doc-comment format; or a **warning** a reader needs before changing it. It gives its one reason as briefly as that reason allows. A design's argument — rejected alternatives, measurements behind a number — stays in the spec or the plan's prose. The story of the change goes in the commit message.
+> A comment states one of three things: **why** the code is this way — a constraint or non-obvious reason; the **contract** of a public interface, in the language's standard doc-comment format; or a **warning** a reader needs before changing it. It gives its one reason as briefly as that reason allows. A design's argument — rejected alternatives, measurements behind a number — stays in the spec or the plan's prose. The story of the change goes in the commit message.
+
+A comment the change makes false is rewritten in the same edit.
 
 ## Example
 
-Spec: deduplicate webhook events by id, not payload hash; the provider re-sends events with new timestamps.
+Spec: dedupe webhook events by id, not payload hash; re-sends carry new timestamps.
 
 ```python
 def dedupe_key(event):
@@ -526,8 +527,8 @@ def dedupe_key(event):
 
 | The comment | Its home |
 |---|---|
-| Argues against an alternative the code never had | The spec |
-| Recites the measurements behind a constant | The spec; the comment says what it guards |
+| Argues against a rejected alternative | The spec |
+| Recites measurements behind a constant | The spec; keep what it guards |
 | Says what the next line does | Nowhere |
 ````
 
@@ -538,7 +539,7 @@ M=tests/baselines/writing-code-comments/micro
 awk '/^## Common mistakes$/{exit} {print}' "$M/skill-v2.md" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$M/skill-v1.md"
 ```
 
-Check: `awk '/^---$/ { s++; next } s >= 2' "$M/skill-v2.md" | wc -w` prints 199, and the same for `skill-v1.md` prints 148.
+Check: `awk '/^---$/ { s++; next } s >= 2' "$M/skill-v2.md" | wc -w` prints 199, and the same for `skill-v1.md` prints 154.
 
 - [ ] **Step 3: Dispatch fifteen samples**
 
@@ -634,6 +635,7 @@ assert_contains "doc comments follow the language's own format" \
 assert_contains "one reason, briefly" "$contract" "as briefly as"
 assert_contains "a design's argument has a home" "$contract" "the spec or the plan's prose"
 assert_contains "the change's story has a home" "$contract" "commit message"
+assert_contains "a comment the change makes false is its business" "$body" "makes false"
 
 echo "-- what it leaves out"
 assert_not_contains "no density clause to negotiate with" "$body" "density"
@@ -681,7 +683,7 @@ with `<chosen>` the variant Task 2 recorded, 1 or 2. If Task 2 revised the wordi
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `bash tests/skills/test-code-comments.sh | tail -1; bash tests/skills/test-skill-structure.sh | grep writing-code-comments`
-Expected: `OK`. The structure test shows `writing-code-comments: within its 200-word budget (199 words)` for V2 and `(148 words)` for V1, with every other `writing-code-comments` line `[PASS]`.
+Expected: `OK`. The structure test shows `writing-code-comments: within its 200-word budget (199 words)` for V2 and `(154 words)` for V1, with every other `writing-code-comments` line `[PASS]`.
 
 - [ ] **Step 6: Run the full suite and commit**
 
