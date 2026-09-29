@@ -1,6 +1,6 @@
 # Dopamine — code-comment discipline: a legacy-phase scenario
 
-> **Status.** Draft 2026-09-29, for review.
+> **Status.** Approved 2026-09-29.
 >
 > **Amends** `2026-09-29-writing-code-comments-rebaseline-design.md`: adds scenario L (§3–§6). The
 > scenarios P, R and M, their results, and everything else there stand.
