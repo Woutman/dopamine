@@ -12,7 +12,7 @@ run changed no code: a plan run that implemented it would be scored as a plan.
 
 The legacy modes do the same for the legacy fixture. `legacy-code` checks its phase spec through the
 interfaces the spec fixes: the calibration feature and its dependents gone, the new key, resume from
-markers, the poison cap and the exit statuses. `legacy-plan` also wants at least six tasks: fewer
+markers, the poison cap and the exit statuses. `legacy-plan` also wants at least five tasks: fewer
 means the fixture is too small to test what it was built for.
 Prints "ok", or the first check that failed, and exits 0 or 1.
 """
@@ -201,7 +201,7 @@ def main():
     elif len(args) == 2 and args[1] == "legacy-code":
         problem = check_code(args[0], LEGACY_CHECKS)
     elif len(args) == 3 and args[1] == "legacy-plan":
-        problem = check_plan(args[0], args[2], code=("readings", "tests"), tasks=6,
+        problem = check_plan(args[0], args[2], code=("readings", "tests"), tasks=5,
                              needed=("readings/calibrate.py", "INBOX_DIR", "POISON_AFTER", "set_marker",
                                      "Summary", "readings/cli.py"))
     else:

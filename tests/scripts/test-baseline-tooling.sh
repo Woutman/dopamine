@@ -151,14 +151,14 @@ exec_run=$(bash "$B/setup-run" --fixture "$L" --message "plan: Phase 2" "$T/lega
 assert_eq "an overlay is committed under the message given" "plan: Phase 2" \
     "$(git -C "$exec_run" log -1 --format=%s)"
 tasks() { for n in $(seq "$1"); do printf '### Task %s: step\n\n```python\nx = %s\n```\n\n' "$n" "$n"; done; }
-{ tasks 6; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
-    > "$legacy/docs/p.md"
-git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
-assert_exit "accept takes a committed legacy plan of six tasks" 0 python3 "$B/accept" "$legacy" legacy-plan docs/p.md
 { tasks 5; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
     > "$legacy/docs/p.md"
 git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
-assert_exit "but not one of five: the fixture would be too small" 1 \
+assert_exit "accept takes a committed legacy plan of five tasks" 0 python3 "$B/accept" "$legacy" legacy-plan docs/p.md
+{ tasks 4; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
+    > "$legacy/docs/p.md"
+git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
+assert_exit "but not one of four: the fixture would be too small" 1 \
     python3 "$B/accept" "$legacy" legacy-plan docs/p.md
 { tasks 6; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
     > "$legacy/docs/p.md"

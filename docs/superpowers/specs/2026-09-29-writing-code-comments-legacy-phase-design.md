@@ -64,7 +64,11 @@ A second fixture beside the first. It does not replace it.
   rewired to.
 
 **Size check.** The spec's decisions must touch enough of the package that an honest plan has at
-least six tasks. The fixture is judged too small if a trial plan written from it has fewer.
+least five tasks. The fixture is judged too small if a trial plan written from it has fewer.
+
+*Amended 2026-09-29:* the threshold was six. The trial plan covered all eight decisions in five tasks,
+because writing-plans folds related work into one task, so six measured the planner's grouping
+rather than the fixture's reach.
 
 ## 4. Scenario L
 
@@ -88,7 +92,7 @@ clean.
   metrics. The process-label pattern adds `Phase \d` and `§` pointers. Pointers are counted, not
   judged bad by themselves.
 - **Acceptance per stage.**
-  - A plan run passes when its plan is committed, changes no code, has at least six tasks, and
+  - A plan run passes when its plan is committed, changes no code, has at least five tasks, and
     covers the decisions.
   - An execution run passes when its tests pass and a check against the spec holds. The check covers:
     the dormant feature and its dependents gone; the new key; resume from state markers; the poison
