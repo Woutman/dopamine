@@ -1,0 +1,1080 @@
+diff --git a/docs/superpowers/plans/2026-03-04-phase-2-inbox-import.md b/docs/superpowers/plans/2026-03-04-phase-2-inbox-import.md
+new file mode 100644
+index 0000000..279de0b
+--- /dev/null
++++ b/docs/superpowers/plans/2026-03-04-phase-2-inbox-import.md
+@@ -0,0 +1,1074 @@
++# Phase 2: unattended import from the inbox — Implementation Plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
++
++**Goal:** `python3 -m readings` imports every export in the inbox into the store, one file at a
++time, and says by its exit status whether a person is needed.
++
++**Architecture:** The leaf modules (`dialect`, `units`, `store`) stay as they are. Calibration and
++the old report go (Task 1). `parse_file` fails a file with an unknown column (Task 2). The runner is
++rewritten: readings keyed by station, time and quantity, one marker per inbox file committed with
++that file's readings, the inbox listing as the work list, sequential (Task 3), and failed files
++retried until they are poisoned (Task 4). A small `cli` turns a run's `Summary` into one stdout
++line, stderr lines for problem files, and an exit status (Task 5).
++
++**Tech Stack:** Python 3 standard library only (`argparse`, `sqlite3`, `dataclasses`), `unittest`.
++
++**Spec:** `docs/superpowers/specs/2026-03-02-phase-2-inbox-import-design.md`. How the pieces fit:
++`docs/architecture.md`. The store's contract is `docs/architecture.md` §3.
++
++## Global Constraints
++
++- Standard library only. Tests run with `python3 -m unittest` from the repository root.
++- `readings/dialect.py`, `readings/units.py` and `readings/store.py` are not changed.
++- A reading's key is `f"{station}|{time}|{quantity}"`, with `time` as `parse_file` normalises it.
++- `Reading(station, row, time, quantity, value)`; `row` stays, and is part of no key.
++- `POISON_AFTER = 3`. `INBOX_DIR = "inbox"`. `--db` defaults to `readings.db`.
++- The directory is the **inbox** everywhere; nothing is named `drop`, `manifest` or `progress`.
++- Marker states are `done`, `failed`, `poisoned`. A `done` marker has failures 0 and the detail
++  `"<n> stored, <n> duplicates, <n> rejected"`.
++- `files == imported + skipped + failed + poisoned` after every run.
++- stdout gets exactly one line, `files=… imported=… skipped=… failed=… poisoned=… stored=…
++  duplicates=… rejected=…`, fields in that order. A problem file gets one stderr line,
++  `<name>: <state> (<failures>): <detail>`.
++- Exit status: 0 nothing failed and no poisoned file in the inbox; 1 a file failed this run, or
++  the run stopped on an exception; 2 usage error; 3 a poisoned file is in the inbox. 3 takes
++  precedence over 1.
++- Tests of `run` use a real `Store` on a temporary file and real exports in a temporary inbox.
++  Every test that checks counts also checks the store.
++- Before writing or editing any code comment, load `dopamine:writing-code-comments`
++  (`/home/wogi/projects/dopamine/skills/writing-code-comments/SKILL.md`). The comments in this
++  plan's code blocks already follow it; copy them as they are.
++
++## Review Focus
++
++1. **A `*.csv` still being copied** (zero bytes, or cut off inside its header) fails, is retried,
++   and imports as `done` once the copy is complete; it is never marked `done` with nothing in it.
++   Pinned in Task 4, `test_copy_in_progress_fails_then_imports_when_complete`.
++2. **Other things in the inbox** (a `*.csv.part` a sync tool is writing, a `README.txt`, a
++   directory named `old.csv`) are neither imported nor counted in `files`. Pinned in Task 3,
++   `test_only_csv_files_are_imported`.
++3. **The same inbox spelled differently** (relative, with a trailing slash) finds the same
++   markers, because a marker is keyed by the file's bare name. That bare name is also what a
++   person deletes from `markers` to clear a poisoned file (spec §10). Pinned in Task 3,
++   `test_markers_do_not_depend_on_how_the_inbox_is_spelled`.
++4. **Every run that exits 3 names each poisoned file behind it on stderr**, including runs after
++   the one that poisoned it; otherwise Phase 3's alert points at nothing. This reads spec §6.3's
++   "poisoned this run" as the summary counts `poisoned` ("this run or before"). Pinned in Task 5,
++   `test_unreadable_file_over_four_runs`.
++5. **A `--db` whose directory does not exist** is a usage error (exit 2) before anything runs,
++   like a missing inbox. Left to `sqlite3` it would exit 1 ("not yet") on every run and never ask
++   for a person. Pinned in Task 5, `test_store_directory_missing_is_a_usage_error`.
++
++---
++
++## File Structure
++
++| Path | After this plan |
++|---|---|
++| `readings/calibrate.py`, `tests/test_calibrate.py` | Deleted (Task 1) |
++| `readings/report.py`, `tests/test_report.py` | Deleted (Task 1) |
++| `readings/parse.py` | `Reading` without calibration fields (Task 1); unknown column is a `FileError` (Task 2) |
++| `readings/runner.py` | Rewritten: `INBOX_DIR`, `POISON_AFTER`, `key`, `Summary`, `run` (Tasks 3–4) |
++| `readings/cli.py` | New: `summary_line`, `exit_status`, `main(argv) -> int` (Task 5) |
++| `readings/__main__.py` | New: calls `cli.main` and exits with its status (Task 5) |
++| `tests/test_parse.py` | Two tests added (Tasks 1–2) |
++| `tests/test_runner.py` | Rewritten against the new runner (Tasks 3–4) |
++| `tests/test_cli.py` | New (Task 5) |
++
++---
++
++### Task 1: Delete remote calibration and the old report
++
++Spec §2, §4.1. The ported runner keeps working (its non-calibration tests still pass) until Task 3
++replaces it.
++
++**Files:**
++- Delete: `readings/calibrate.py`, `tests/test_calibrate.py`, `readings/report.py`,
++  `tests/test_report.py`
++- Modify: `readings/parse.py:12-20` (`Reading`)
++- Modify: `readings/runner.py` (calibration import, flag, `Outcome` member, branch)
++- Modify: `tests/test_runner.py` (the calibration test)
++- Test: `tests/test_parse.py`
++
++**Interfaces:**
++- Consumes: nothing new.
++- Produces: `readings.parse.Reading(station: str, row: int, time: str, quantity: str, value: float)`,
++  a `@dataclass` with exactly those five fields, in that order.
++
++- [ ] **Step 1: Write the failing test**
++
++Add to `tests/test_parse.py`: `import dataclasses` at the top, and this method to `ParseFileTest`:
++
++```python
++    def test_reading_has_no_calibration_fields(self):
++        self.assertEqual([f.name for f in dataclasses.fields(parse.Reading)],
++                         ["station", "row", "time", "quantity", "value"])
++```
++
++- [ ] **Step 2: Run it to verify it fails**
++
++Run: `python3 -m unittest tests.test_parse -v`
++Expected: FAIL in `test_reading_has_no_calibration_fields`; the lists differ by
++`'calibrated_value', 'calibration_version'`.
++
++- [ ] **Step 3: Remove the calibration fields from `Reading`**
++
++In `readings/parse.py`, `Reading` becomes:
++
++```python
++@dataclass
++class Reading:
++    station: str
++    row: int
++    time: str
++    quantity: str
++    value: float
++```
++
++- [ ] **Step 4: Delete the calibration and report modules and their tests**
++
++```bash
++git rm readings/calibrate.py tests/test_calibrate.py readings/report.py tests/test_report.py
++```
++
++- [ ] **Step 5: Remove calibration from the ported runner**
++
++In `readings/runner.py`:
++- delete the line `from . import calibrate`;
++- delete the line `CALIBRATE = False  # off until the calibration service is back`;
++- delete the `Outcome` member `CALIBRATION_FAILED = "calibration_failed"`;
++- delete this block from `import_file`:
++
++```python
++    if CALIBRATE:
++        try:
++            calibrate.apply(readings, calibrate.fetch_offsets(readings[0].station))
++        except calibrate.CalibrationError:
++            counts[Outcome.CALIBRATION_FAILED] += 1
++```
++
++In `tests/test_runner.py`, delete `from unittest import mock` and the whole method
++`test_calibration_failure_still_stores`.
++
++- [ ] **Step 6: Run the tests and check nothing mentions calibration**
++
++Run: `python3 -m unittest`
++Expected: `OK` (28 tests: 34, minus 3 calibrate, 3 report and 1 runner test, plus 1 new).
++
++Run: `grep -rnE "calibrate|calibrated_value|calibration_version|CALIBRAT|import report|report import" readings tests`
++Expected: no output.
++
++- [ ] **Step 7: Commit**
++
++```bash
++git add readings/parse.py readings/runner.py tests/test_parse.py tests/test_runner.py
++git commit -m "refactor: delete remote calibration and the notebook report
++
++The calibration service was decommissioned in January and nothing reads
++calibrated_value (spec §4.1). The report's vocabulary was the runner's
++Outcome counter, which the Phase 2 summary replaces."
++```
++
++---
++
++### Task 2: An unknown column fails the file
++
++Spec §7: `parse_file` checks the header against `units.COLUMNS` before reading any row, so a
++station sending an unmapped column fails the file instead of rejecting every row as a `KeyError`.
++
++**Files:**
++- Modify: `readings/parse.py:34-69` (`parse_file`)
++- Test: `tests/test_parse.py`
++
++**Interfaces:**
++- Consumes: `readings.units.COLUMNS: dict[str, tuple[str, str]]` (unchanged).
++- Produces: `parse_file(path) -> tuple[list[Reading], list[int]]`, raising
++  `FileError("unknown column: <name>[, <name>…]")` for header columns `units.COLUMNS` does not
++  know, in header order. Other `FileError` messages are unchanged:
++  `"not a station export: <name>"`, `"not text: …"`, `"header has no delimiter"`,
++  `"first column is not time"`.
++
++- [ ] **Step 1: Write the failing tests**
++
++Add to `ParseFileTest` in `tests/test_parse.py`:
++
++```python
++    def test_unknown_column_fails_the_file(self):
++        path = write(self.dir, "ST014_202601150600.csv",
++                     "time,temp_c,humidity\n2026-01-15T00:00,3.1,80\n")
++        with self.assertRaises(parse.FileError) as caught:
++            parse.parse_file(path)
++        self.assertEqual(str(caught.exception), "unknown column: humidity")
++
++    def test_unknown_column_fails_a_file_with_no_rows(self):
++        path = write(self.dir, "ST014_202601150600.csv", "time,humidity,dew_c\n")
++        with self.assertRaises(parse.FileError) as caught:
++            parse.parse_file(path)
++        self.assertEqual(str(caught.exception), "unknown column: humidity, dew_c")
++```
++
++- [ ] **Step 2: Run them to verify they fail**
++
++Run: `python3 -m unittest tests.test_parse -v`
++Expected: both new tests FAIL with `AssertionError: FileError not raised`.
++
++- [ ] **Step 3: Check the header in `parse_file`**
++
++In `readings/parse.py`, `parse_file` becomes:
++
++```python
++def parse_file(path):
++    """(readings, rejected row numbers) for one export.
++
++    Raises FileError when the file has no station name, is not UTF-8 text, has no
++    delimiter in its header, does not start with a time column, or has a column
++    units.COLUMNS does not know.
++    """
++    station = station_of(path)
++    try:
++        with open(path, encoding="utf-8") as f:
++            text = f.read()
++    except UnicodeDecodeError as e:
++        raise FileError(f"not text: {e}") from None
++    try:
++        found = dialect.sniff(text)
++    except ValueError as e:
++        raise FileError(str(e)) from None
++    header, *body = dialect.rows(text, found)
++    if not header or header[0] != "time":
++        raise FileError("first column is not time")
++    unknown = [column for column in header[1:] if column not in units.COLUMNS]
++    if unknown:
++        raise FileError(f"unknown column: {', '.join(unknown)}")
++
++    readings, rejected = [], []
++    # row numbers are stable because a station never rewrites a file it has exported
++    for row, fields in enumerate(body, 1):
++        if len(fields) != len(header):
++            rejected.append(row)
++            continue
++        try:
++            time = datetime.fromisoformat(fields[0]).isoformat(timespec="minutes")
++            values = [units.convert(c, f, found.decimal) for c, f in zip(header[1:], fields[1:])]
++        except ValueError:
++            rejected.append(row)
++            continue
++        for converted in values:
++            if converted is not None:
++                readings.append(Reading(station, row, time, *converted))
++    return readings, rejected
++```
++
++The `except` now catches `ValueError` only: the header check makes `units.convert`'s `KeyError`
++unreachable, and catching it would hide a bug.
++
++- [ ] **Step 4: Run the tests to verify they pass**
++
++Run: `python3 -m unittest`
++Expected: `OK` (30 tests).
++
++- [ ] **Step 5: Commit**
++
++```bash
++git add readings/parse.py tests/test_parse.py
++git commit -m "feat: an unknown column fails the whole file
++
++The prototype rejected every row of such a file as a KeyError, which
++looked like a file full of bad data rather than a station sending a
++column nobody has mapped (spec §7)."
++```
++
++---
++
++### Task 3: The new runner: keys, markers, the inbox as work list
++
++Spec §4.2–§4.5, §5, §6.1–§6.2. This task replaces `readings/runner.py` and `tests/test_runner.py`
++wholesale. A `FileError` still propagates out of `run` here; Task 4 handles it.
++
++**Files:**
++- Rewrite: `readings/runner.py`
++- Rewrite: `tests/test_runner.py`
++
++**Interfaces:**
++- Consumes: `readings.parse.parse_file(path) -> (list[Reading], list[int])`, `FileError`;
++  `readings.store.Store` with `add(key, reading: dict) -> bool`, `marker(name) -> Marker | None`,
++  `set_marker(name, state, failures=0, detail="")`, `commit()`, `rollback()`;
++  `readings.store.Marker(state: str, failures: int, detail: str)`, frozen.
++- Produces:
++  - `readings.runner.INBOX_DIR = "inbox"`, `readings.runner.POISON_AFTER = 3`
++  - `readings.runner.key(reading: Reading) -> str`, e.g. `"ST014|2026-01-15T06:00|temperature"`
++  - `readings.runner.Summary`, a `@dataclass` with int fields, all defaulting to 0, in this
++    order: `files, imported, skipped, failed, poisoned, stored, duplicates, rejected`
++  - `readings.runner.run(inbox: str, store: Store) -> Summary` (Task 4 adds `on_problem`)
++  - Markers are stored under the file's bare name (`os.listdir` entry), never a path.
++  - `tests.test_runner.InboxCase`, a `unittest.TestCase` base whose `setUp` gives
++    `self.inbox` (an existing empty directory), `self.db` (a path) and `self.store` (a `Store`
++    on `self.db`, closed on cleanup); and module constants `MORNING`, `NOON`, `MORNING_TEXT`,
++    `NOON_TEXT`. Task 4 adds tests on this base.
++
++- [ ] **Step 1: Write the failing tests**
++
++Replace `tests/test_runner.py` with:
++
++```python
++import os
++import sqlite3
++import unittest
++
++from readings import runner
++from readings.parse import Reading
++from readings.runner import Summary
++from readings.store import Marker, Store
++from tests.helpers import HEADER, temp_dir, write
++
++MORNING = "ST014_202601150600.csv"
++NOON = "ST014_202601151200.csv"
++
++# The 06:00 reading is row 3 of MORNING and row 1 of NOON, as when a station drops
++# empty rows before exporting.
++MORNING_TEXT = HEADER + ("2026-01-15T00:00,3.1,1012.4,4.2\n"
++                         "2026-01-15T03:00,2.8,1012.0,3.9\n"
++                         "2026-01-15T06:00,2.5,1011.6,3.5\n")
++NOON_TEXT = HEADER + ("2026-01-15T06:00,2.5,1011.6,3.5\n"
++                      "2026-01-15T09:00,4.0,1011.2,3.1\n")
++
++
++class FailingStore(Store):
++    """A real Store whose nth add raises, as a full disk would."""
++
++    def __init__(self, path, fail_on):
++        super().__init__(path)
++        self._adds = 0
++        self._fail_on = fail_on
++
++    def add(self, key, reading):
++        self._adds += 1
++        if self._adds == self._fail_on:
++            raise sqlite3.OperationalError("database or disk is full")
++        return super().add(key, reading)
++
++
++class InboxCase(unittest.TestCase):
++    def setUp(self):
++        base = temp_dir(self)
++        self.inbox = os.path.join(base, "inbox")
++        os.mkdir(self.inbox)
++        self.db = os.path.join(base, "readings.db")
++        self.store = Store(self.db)
++        self.addCleanup(self.store.close)
++
++
++class KeyTest(unittest.TestCase):
++    def test_station_time_quantity(self):
++        reading = Reading("ST014", 7, "2026-01-15T06:00", "temperature", 2.5)
++        self.assertEqual(runner.key(reading), "ST014|2026-01-15T06:00|temperature")
++
++
++class RunTest(InboxCase):
++    def test_overlapping_exports_store_each_reading_once(self):
++        # Written first, so name order and not creation order has to decide.
++        write(self.inbox, NOON, NOON_TEXT)
++        write(self.inbox, MORNING, MORNING_TEXT)
++
++        summary = runner.run(self.inbox, self.store)
++
++        self.assertEqual(summary, Summary(files=2, imported=2, stored=12, duplicates=3))
++        self.assertEqual(self.store.count(), 12)
++        self.assertEqual(self.store.get("ST014|2026-01-15T06:00|temperature"),
++                         {"station": "ST014", "row": 3, "time": "2026-01-15T06:00",
++                          "quantity": "temperature", "value": 2.5})
++        self.assertEqual(self.store.marker(MORNING),
++                         Marker("done", 0, "9 stored, 0 duplicates, 0 rejected"))
++        self.assertEqual(self.store.marker(NOON),
++                         Marker("done", 0, "3 stored, 3 duplicates, 0 rejected"))
++
++    def test_second_run_skips_every_file_unopened(self):
++        write(self.inbox, MORNING, MORNING_TEXT)
++        write(self.inbox, NOON, NOON_TEXT)
++        runner.run(self.inbox, self.store)
++        # Unparseable now: the second run passes only if it never opens the file.
++        write(self.inbox, MORNING, "garbage\n")
++        reopened = Store(self.db)
++        self.addCleanup(reopened.close)
++
++        summary = runner.run(self.inbox, reopened)
++
++        self.assertEqual(summary, Summary(files=2, skipped=2))
++        self.assertEqual(reopened.count(), 12)
++        self.assertEqual(reopened.marker(MORNING),
++                         Marker("done", 0, "9 stored, 0 duplicates, 0 rejected"))
++
++    def test_bad_row_is_rejected_and_the_file_imports(self):
++        write(self.inbox, MORNING, HEADER + ("2026-01-15T00:00,3.1,1012.4,4.2\n"
++                                             "--:--,3.0,1012.1,4.0\n"
++                                             "2026-01-15T02:00,2.9,1011.9,3.8\n"))
++
++        summary = runner.run(self.inbox, self.store)
++
++        self.assertEqual(summary, Summary(files=1, imported=1, stored=6, rejected=1))
++        self.assertEqual(self.store.count(), 6)
++        self.assertEqual(self.store.marker(MORNING),
++                         Marker("done", 0, "6 stored, 0 duplicates, 1 rejected"))
++
++    def test_only_csv_files_are_imported(self):
++        write(self.inbox, MORNING, MORNING_TEXT)
++        write(self.inbox, NOON + ".part", NOON_TEXT)
++        write(self.inbox, "README.txt", "copied here by the station sync\n")
++        os.mkdir(os.path.join(self.inbox, "old.csv"))
++
++        summary = runner.run(self.inbox, self.store)
++
++        self.assertEqual(summary, Summary(files=1, imported=1, stored=9))
++        self.assertEqual(self.store.count(), 9)
++        self.assertIsNone(self.store.marker(NOON + ".part"))
++        self.assertIsNone(self.store.marker("old.csv"))
++
++    def test_markers_do_not_depend_on_how_the_inbox_is_spelled(self):
++        write(self.inbox, MORNING, MORNING_TEXT)
++        runner.run(self.inbox, self.store)
++
++        summary = runner.run(os.path.relpath(self.inbox) + os.sep, self.store)
++
++        self.assertEqual(summary, Summary(files=1, skipped=1))
++        self.assertEqual(self.store.count(), 9)
++        self.assertEqual(self.store.marker(MORNING).state, "done")
++
++    def test_store_error_keeps_nothing_of_the_file(self):
++        write(self.inbox, MORNING, MORNING_TEXT)
++        write(self.inbox, NOON, NOON_TEXT)
++        # MORNING's 9 adds, then NOON's 3 duplicates, 1 stored, and the 14th add fails.
++        store = FailingStore(self.db, fail_on=14)
++        self.addCleanup(store.close)
++
++        with self.assertRaises(sqlite3.OperationalError):
++            runner.run(self.inbox, store)
++
++        self.assertEqual(store.count(), 9)
++        self.assertIsNone(store.marker(NOON))
++        self.assertEqual(store.marker(MORNING).state, "done")
++        self.assertEqual(self.store.count(), 9)
++```
++
++- [ ] **Step 2: Run them to verify they fail**
++
++Run: `python3 -m unittest tests.test_runner -v`
++Expected: ERROR, `ImportError: cannot import name 'Summary' from 'readings.runner'`.
++
++- [ ] **Step 3: Rewrite the runner**
++
++Replace `readings/runner.py` with:
++
++```python
++"""Import every export in the inbox into the store, one file at a time."""
++import os
++from dataclasses import asdict, dataclass
++
++from .parse import parse_file
++
++INBOX_DIR = "inbox"
++POISON_AFTER = 3
++
++
++def key(reading):
++    """The store key of a reading: its station, time and quantity."""
++    # A reading arrives in two overlapping exports, at a different row in each;
++    # only station, time and quantity match across them.
++    return f"{reading.station}|{reading.time}|{reading.quantity}"
++
++
++@dataclass
++class Summary:
++    """What one run did. files == imported + skipped + failed + poisoned."""
++
++    files: int = 0       # *.csv files in the inbox
++    imported: int = 0    # read this run and marked done
++    skipped: int = 0     # already done, not opened
++    failed: int = 0      # failed this run, will be retried
++    poisoned: int = 0    # poisoned, this run or before
++    stored: int = 0
++    duplicates: int = 0
++    rejected: int = 0
++
++
++def run(inbox, store):
++    """Import every *.csv file in inbox, in name order, into store.
++
++    Each file's readings and its marker are committed together. Any exception is
++    rolled back, keeping nothing of the file being read, and propagates.
++    """
++    summary = Summary()
++    for name in _exports(inbox):
++        summary.files += 1
++        marker = store.marker(name)
++        if marker is not None and marker.state == "done":
++            summary.skipped += 1
++            continue
++        try:
++            _import(os.path.join(inbox, name), name, store, summary)
++            store.commit()
++        except BaseException:
++            store.rollback()
++            raise
++        summary.imported += 1
++    return summary
++
++
++def _exports(inbox):
++    return sorted(name for name in os.listdir(inbox)
++                  if name.endswith(".csv") and os.path.isfile(os.path.join(inbox, name)))
++
++
++def _import(path, name, store, summary):
++    readings, rejected = parse_file(path)
++    stored = duplicates = 0
++    for reading in readings:
++        if store.add(key(reading), asdict(reading)):
++            stored += 1
++        else:
++            duplicates += 1
++    summary.stored += stored
++    summary.duplicates += duplicates
++    summary.rejected += len(rejected)
++    store.set_marker(name, "done", 0,
++                     f"{stored} stored, {duplicates} duplicates, {len(rejected)} rejected")
++```
++
++- [ ] **Step 4: Run the tests to verify they pass**
++
++Run: `python3 -m unittest`
++Expected: `OK` (33 tests: 30, minus the 4 ported runner tests, plus 7).
++
++Run: `grep -rnE "DROP_DIR|MANIFEST|PROGRESS_LOG|WORKERS|Outcome|threading|ThreadPool" readings tests`
++Expected: no output.
++
++- [ ] **Step 5: Commit**
++
++```bash
++git add readings/runner.py tests/test_runner.py
++git commit -m "feat: runner imports the inbox into the store, one file at a time
++
++Readings are keyed by station, time and quantity, so the two exports
++that carry each reading store it once (spec §4.2). A marker per file,
++committed with its readings, replaces the progress log (§4.3); the inbox
++listing replaces the manifest (§4.4); the thread pool goes (§4.5)."
++```
++
++---
++
++### Task 4: Failed files are retried, then poisoned
++
++Spec §4.6–§4.7, §6.1 step 2, §7. `run` gains the `FileError` branch and an `on_problem` callback
++the command line (Task 5) uses for its stderr lines.
++
++**Files:**
++- Modify: `readings/runner.py` (`run`, `_import`)
++- Test: `tests/test_runner.py` (new class `FailureTest`)
++
++**Interfaces:**
++- Consumes: from Task 3, `Summary`, `key`, `POISON_AFTER`, `_exports`, and in the tests
++  `InboxCase`, `MORNING`, `MORNING_TEXT`; `readings.parse.FileError`; `readings.store.Marker`.
++- Produces: `readings.runner.run(inbox: str, store: Store, on_problem=None) -> Summary`.
++  `on_problem`, when given, is called as `on_problem(name: str, marker: Marker)` once for each
++  file counted `failed` or `poisoned` in this run's summary, in name order, with that file's
++  marker as it stands after the run. That includes a file poisoned by an earlier run.
++
++- [ ] **Step 1: Write the failing tests**
++
++Append to `tests/test_runner.py`:
++
++```python
++BROKEN = "ST022_202601150600.csv"
++
++
++class FailureTest(InboxCase):
++    def run_once(self):
++        problems = []
++        summary = runner.run(self.inbox, self.store,
++                             on_problem=lambda name, marker: problems.append((name, marker)))
++        return summary, problems
++
++    def poison(self, name):
++        write(self.inbox, name, "garbage\n")
++        for _ in range(runner.POISON_AFTER):
++            self.run_once()
++
++    def test_unreadable_file_is_poisoned_on_its_third_failure(self):
++        write(self.inbox, BROKEN, "garbage\n")
++        expected = [
++            (Summary(files=1, failed=1), Marker("failed", 1, "header has no delimiter")),
++            (Summary(files=1, failed=1), Marker("failed", 2, "header has no delimiter")),
++            (Summary(files=1, poisoned=1), Marker("poisoned", 3, "header has no delimiter")),
++            (Summary(files=1, poisoned=1), Marker("poisoned", 3, "header has no delimiter")),
++        ]
++        for number, (summary, marker) in enumerate(expected, 1):
++            with self.subTest(run=number):
++                if number == 4:
++                    # Parseable now: the fourth run passes only if it never opens the file.
++                    write(self.inbox, BROKEN, MORNING_TEXT)
++                got, problems = self.run_once()
++                self.assertEqual(got, summary)
++                self.assertEqual(self.store.marker(BROKEN), marker)
++                self.assertEqual(problems, [(BROKEN, marker)])
++                self.assertEqual(self.store.count(), 0)
++
++    def test_a_poisoned_file_does_not_stop_the_others(self):
++        self.poison(BROKEN)
++        write(self.inbox, MORNING, MORNING_TEXT)
++
++        summary, problems = self.run_once()
++
++        self.assertEqual(summary, Summary(files=2, imported=1, poisoned=1, stored=9))
++        self.assertEqual(self.store.count(), 9)
++        self.assertEqual([name for name, _ in problems], [BROKEN])
++
++    def test_unknown_column_fails_the_file(self):
++        write(self.inbox, MORNING, "time,temp_c,humidity\n2026-01-15T00:00,3.1,80\n")
++
++        summary, _ = self.run_once()
++
++        self.assertEqual(summary, Summary(files=1, failed=1))
++        self.assertEqual(self.store.count(), 0)
++        self.assertEqual(self.store.marker(MORNING),
++                         Marker("failed", 1, "unknown column: humidity"))
++
++    def test_copy_in_progress_fails_then_imports_when_complete(self):
++        stages = [
++            ("", Summary(files=1, failed=1),
++             Marker("failed", 1, "header has no delimiter"), 0),
++            (MORNING_TEXT[:15], Summary(files=1, failed=1),
++             Marker("failed", 2, "unknown column: pre"), 0),
++            (MORNING_TEXT, Summary(files=1, imported=1, stored=9),
++             Marker("done", 0, "9 stored, 0 duplicates, 0 rejected"), 9),
++        ]
++        for text, summary, marker, count in stages:
++            with self.subTest(copied=len(text)):
++                write(self.inbox, MORNING, text)
++                got, _ = self.run_once()
++                self.assertEqual(got, summary)
++                self.assertEqual(self.store.marker(MORNING), marker)
++                self.assertEqual(self.store.count(), count)
++```
++
++`MORNING_TEXT[:15]` is `"time,temp_c,pre"`: a copy cut off inside its header.
++
++- [ ] **Step 2: Run them to verify they fail**
++
++Run: `python3 -m unittest tests.test_runner -v`
++Expected: the four `FailureTest` tests ERROR with
++`TypeError: run() got an unexpected keyword argument 'on_problem'`; the Task 3 tests still pass.
++
++- [ ] **Step 3: Handle `FileError` in `run`**
++
++Replace `readings/runner.py` with:
++
++```python
++"""Import every export in the inbox into the store, one file at a time."""
++import os
++from dataclasses import asdict, dataclass
++
++from .parse import FileError, parse_file
++from .store import Marker
++
++INBOX_DIR = "inbox"
++POISON_AFTER = 3
++
++
++def key(reading):
++    """The store key of a reading: its station, time and quantity."""
++    # A reading arrives in two overlapping exports, at a different row in each;
++    # only station, time and quantity match across them.
++    return f"{reading.station}|{reading.time}|{reading.quantity}"
++
++
++@dataclass
++class Summary:
++    """What one run did. files == imported + skipped + failed + poisoned."""
++
++    files: int = 0       # *.csv files in the inbox
++    imported: int = 0    # read this run and marked done
++    skipped: int = 0     # already done, not opened
++    failed: int = 0      # failed this run, will be retried
++    poisoned: int = 0    # poisoned, this run or before
++    stored: int = 0
++    duplicates: int = 0
++    rejected: int = 0
++
++
++def run(inbox, store, on_problem=None):
++    """Import every *.csv file in inbox, in name order, into store.
++
++    Each file's readings and its marker are committed together. A file that raises
++    FileError is marked failed, or poisoned once it has failed POISON_AFTER runs, and
++    the run goes on; a poisoned file is not opened again. on_problem, if given, is
++    called as on_problem(name, marker) for each file counted failed or poisoned.
++    Any other exception is rolled back, keeping nothing of the file being read, and
++    propagates.
++    """
++    summary = Summary()
++    for name in _exports(inbox):
++        summary.files += 1
++        marker = store.marker(name)
++        if marker is not None and marker.state == "done":
++            summary.skipped += 1
++            continue
++        if marker is None or marker.state != "poisoned":
++            try:
++                marker = _import(os.path.join(inbox, name), name, marker, store, summary)
++                store.commit()
++            except BaseException:
++                store.rollback()
++                raise
++        if marker.state == "done":
++            summary.imported += 1
++            continue
++        if marker.state == "failed":
++            summary.failed += 1
++        else:
++            summary.poisoned += 1
++        if on_problem is not None:
++            on_problem(name, marker)
++    return summary
++
++
++def _exports(inbox):
++    return sorted(name for name in os.listdir(inbox)
++                  if name.endswith(".csv") and os.path.isfile(os.path.join(inbox, name)))
++
++
++def _import(path, name, previous, store, summary):
++    """Stage one file's readings and its new marker in store, uncommitted; return the marker."""
++    try:
++        readings, rejected = parse_file(path)
++    except FileError as e:
++        store.rollback()
++        failures = (previous.failures if previous is not None else 0) + 1
++        state = "poisoned" if failures >= POISON_AFTER else "failed"
++        marker = Marker(state, failures, str(e))
++    else:
++        stored = duplicates = 0
++        for reading in readings:
++            if store.add(key(reading), asdict(reading)):
++                stored += 1
++            else:
++                duplicates += 1
++        summary.stored += stored
++        summary.duplicates += duplicates
++        summary.rejected += len(rejected)
++        marker = Marker("done", 0,
++                        f"{stored} stored, {duplicates} duplicates, {len(rejected)} rejected")
++    store.set_marker(name, marker.state, marker.failures, marker.detail)
++    return marker
++```
++
++- [ ] **Step 4: Run the tests to verify they pass**
++
++Run: `python3 -m unittest`
++Expected: `OK` (37 tests).
++
++- [ ] **Step 5: Commit**
++
++```bash
++git add readings/runner.py tests/test_runner.py
++git commit -m "feat: retry a failed file, and poison it on its third failure
++
++Most failures are partial copies that parse a run later, so the first
++failure must not need a person; a file that never parses stops being
++retried after POISON_AFTER runs (spec §4.7)."
++```
++
++---
++
++### Task 5: The command line and its exit status
++
++Spec §6.3, §8, §9. `python3 -m readings [--inbox DIR] [--db PATH]`.
++
++**Files:**
++- Create: `readings/cli.py`
++- Create: `readings/__main__.py`
++- Test: `tests/test_cli.py`
++
++**Interfaces:**
++- Consumes: `readings.runner.INBOX_DIR`, `readings.runner.Summary`,
++  `readings.runner.run(inbox, store, on_problem=None) -> Summary` with
++  `on_problem(name: str, marker: Marker)`; `readings.store.Store(path)` with `close()`.
++- Produces:
++  - `readings.cli.summary_line(summary: Summary) -> str`, e.g.
++    `"files=4 imported=2 skipped=1 failed=1 poisoned=0 stored=30 duplicates=6 rejected=1"`
++  - `readings.cli.exit_status(summary: Summary) -> int`: 3 if `poisoned`, else 1 if `failed`,
++    else 0
++  - `readings.cli.main(argv: list[str] | None = None) -> int`; returns argparse's status
++    (2) instead of raising `SystemExit`; lets any exception from the run propagate.
++  - `readings/__main__.py`: `sys.exit(main(sys.argv[1:]))`.
++
++- [ ] **Step 1: Write the failing tests**
++
++Create `tests/test_cli.py`:
++
++```python
++import io
++import os
++import subprocess
++import sys
++import unittest
++from contextlib import redirect_stderr, redirect_stdout
++
++from readings import cli
++from readings.runner import Summary
++from readings.store import Store
++from tests.helpers import HEADER, temp_dir, write
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++
++EARLY = "ST014_202601150000.csv"
++LATER = "ST014_202601150600.csv"
++BROKEN = "ST022_202601150600.csv"
++OTHER = "ST031_202601150600.csv"
++
++EARLY_TEXT = HEADER + "2026-01-15T00:00,3.1,1012.4,4.2\n"
++# One reading row repeats EARLY's, one is a clock reset, one is new.
++LATER_TEXT = HEADER + ("2026-01-15T00:00,3.1,1012.4,4.2\n"
++                       "--:--,3.0,1012.1,4.0\n"
++                       "2026-01-15T06:00,2.5,1011.6,3.5\n")
++
++
++class SummaryLineTest(unittest.TestCase):
++    def test_fields_in_order(self):
++        summary = Summary(files=4, imported=2, skipped=1, failed=1, stored=30, duplicates=6,
++                          rejected=1)
++        self.assertEqual(cli.summary_line(summary),
++                         "files=4 imported=2 skipped=1 failed=1 poisoned=0 stored=30 "
++                         "duplicates=6 rejected=1")
++
++
++class MainTest(unittest.TestCase):
++    def setUp(self):
++        self.base = temp_dir(self)
++        self.inbox = os.path.join(self.base, "inbox")
++        os.mkdir(self.inbox)
++        self.db = os.path.join(self.base, "readings.db")
++
++    def main(self, *argv):
++        out, err = io.StringIO(), io.StringIO()
++        with redirect_stdout(out), redirect_stderr(err):
++            status = cli.main(list(argv) or ["--inbox", self.inbox, "--db", self.db])
++        return status, out.getvalue(), err.getvalue()
++
++    def stored(self):
++        store = Store(self.db)
++        try:
++            return store.count()
++        finally:
++            store.close()
++
++    def test_clean_run_exits_0(self):
++        write(self.inbox, EARLY, EARLY_TEXT)
++        self.assertEqual(self.main(), (
++            0, "files=1 imported=1 skipped=0 failed=0 poisoned=0 stored=3 duplicates=0 rejected=0\n",
++            ""))
++        self.assertEqual(self.stored(), 3)
++
++    def test_mixed_run_exits_1_and_names_the_failed_file(self):
++        write(self.inbox, EARLY, EARLY_TEXT)
++        self.main()
++        write(self.inbox, LATER, LATER_TEXT)
++        write(self.inbox, BROKEN, "garbage\n")
++
++        self.assertEqual(self.main(), (
++            1, "files=3 imported=1 skipped=1 failed=1 poisoned=0 stored=3 duplicates=3 rejected=1\n",
++            f"{BROKEN}: failed (1): header has no delimiter\n"))
++        self.assertEqual(self.stored(), 6)
++
++    def test_unreadable_file_over_four_runs(self):
++        write(self.inbox, BROKEN, "garbage\n")
++        failed = "files=1 imported=0 skipped=0 failed=1 poisoned=0 stored=0 duplicates=0 rejected=0\n"
++        poisoned = "files=1 imported=0 skipped=0 failed=0 poisoned=1 stored=0 duplicates=0 rejected=0\n"
++        expected = [
++            (1, failed, f"{BROKEN}: failed (1): header has no delimiter\n"),
++            (1, failed, f"{BROKEN}: failed (2): header has no delimiter\n"),
++            (3, poisoned, f"{BROKEN}: poisoned (3): header has no delimiter\n"),
++            (3, poisoned, f"{BROKEN}: poisoned (3): header has no delimiter\n"),
++        ]
++        for number, result in enumerate(expected, 1):
++            with self.subTest(run=number):
++                self.assertEqual(self.main(), result)
++                self.assertEqual(self.stored(), 0)
++
++    def test_poisoned_outranks_failed(self):
++        write(self.inbox, BROKEN, "garbage\n")
++        for _ in range(3):
++            self.main()
++        write(self.inbox, OTHER, "garbage\n")
++
++        self.assertEqual(self.main(), (
++            3, "files=2 imported=0 skipped=0 failed=1 poisoned=1 stored=0 duplicates=0 rejected=0\n",
++            f"{BROKEN}: poisoned (3): header has no delimiter\n"
++            f"{OTHER}: failed (1): header has no delimiter\n"))
++        self.assertEqual(self.stored(), 0)
++
++    def test_missing_inbox_is_a_usage_error(self):
++        status, out, err = self.main("--inbox", os.path.join(self.base, "nowhere"),
++                                     "--db", self.db)
++        self.assertEqual(status, 2)
++        self.assertEqual(out, "")
++        self.assertIn("no inbox directory at", err)
++        self.assertFalse(os.path.exists(self.db))
++
++    def test_store_directory_missing_is_a_usage_error(self):
++        db = os.path.join(self.base, "nowhere", "readings.db")
++        status, out, err = self.main("--inbox", self.inbox, "--db", db)
++        self.assertEqual(status, 2)
++        self.assertEqual(out, "")
++        self.assertIn("no directory for the store at", err)
++        self.assertFalse(os.path.exists(os.path.dirname(db)))
++
++
++class ModuleTest(unittest.TestCase):
++    def setUp(self):
++        self.base = temp_dir(self)
++        os.mkdir(os.path.join(self.base, "inbox"))
++        write(os.path.join(self.base, "inbox"), EARLY, EARLY_TEXT)
++
++    def python_m(self, *argv):
++        env = dict(os.environ, PYTHONPATH=ROOT)
++        return subprocess.run([sys.executable, "-m", "readings", *argv], cwd=self.base,
++                              env=env, capture_output=True, text=True)
++
++    def test_defaults_are_inbox_and_readings_db(self):
++        result = self.python_m()
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assertEqual(result.stdout, "files=1 imported=1 skipped=0 failed=0 poisoned=0 "
++                                        "stored=3 duplicates=0 rejected=0\n")
++        store = Store(os.path.join(self.base, "readings.db"))
++        self.addCleanup(store.close)
++        self.assertEqual(store.count(), 3)
++
++    def test_a_store_that_cannot_be_opened_stops_the_run(self):
++        # A directory where the store file should be: sqlite3 cannot open it.
++        result = self.python_m("--db", self.base)
++        self.assertEqual(result.returncode, 1)
++        self.assertEqual(result.stdout, "")
++        self.assertIn("sqlite3.OperationalError", result.stderr)
++```
++
++- [ ] **Step 2: Run them to verify they fail**
++
++Run: `python3 -m unittest tests.test_cli -v`
++Expected: ERROR, `ImportError: cannot import name 'cli' from 'readings'`.
++
++- [ ] **Step 3: Write the command line**
++
++Create `readings/cli.py`:
++
++```python
++"""python3 -m readings: import the inbox once, and say by exit status whether a person is needed."""
++import argparse
++import os
++import sys
++from dataclasses import fields
++
++from .runner import INBOX_DIR, run
++from .store import Store
++
++DB_PATH = "readings.db"
++
++
++def summary_line(summary):
++    """The summary's fields as name=value, space-separated, in declaration order."""
++    return " ".join(f"{field.name}={getattr(summary, field.name)}" for field in fields(summary))
++
++
++def exit_status(summary):
++    """3 if a poisoned file is in the inbox, else 1 if a file failed this run, else 0."""
++    if summary.poisoned:
++        return 3
++    if summary.failed:
++        return 1
++    return 0
++
++
++def main(argv=None):
++    """Run one import over the inbox, print its summary line, and return the exit status.
++
++    Returns 2 for a usage error. An exception from the run propagates.
++    """
++    parser = argparse.ArgumentParser(prog="python3 -m readings",
++                                     description="Import station exports from the inbox.")
++    parser.add_argument("--inbox", default=INBOX_DIR,
++                        help=f"directory of station exports (default: {INBOX_DIR})")
++    parser.add_argument("--db", default=DB_PATH,
++                        help=f"the store's SQLite file (default: {DB_PATH})")
++    try:
++        args = parser.parse_args(argv)
++        if not os.path.isdir(args.inbox):
++            parser.error(f"no inbox directory at {args.inbox}")
++        # Left to sqlite3, a missing directory fails every run with status 1, which
++        # never asks for a person.
++        if not os.path.isdir(os.path.dirname(os.path.abspath(args.db))):
++            parser.error(f"no directory for the store at {args.db}")
++    except SystemExit as e:
++        return e.code
++
++    store = Store(args.db)
++    try:
++        summary = run(args.inbox, store, on_problem=_report)
++    finally:
++        store.close()
++    print(summary_line(summary))
++    return exit_status(summary)
++
++
++def _report(name, marker):
++    print(f"{name}: {marker.state} ({marker.failures}): {marker.detail}", file=sys.stderr)
++```
++
++Create `readings/__main__.py`:
++
++```python
++import sys
++
++from .cli import main
++
++sys.exit(main(sys.argv[1:]))
++```
++
++- [ ] **Step 4: Run the tests to verify they pass**
++
++Run: `python3 -m unittest`
++Expected: `OK` (46 tests).
++
++- [ ] **Step 5: Try it by hand**
++
++```bash
++mkdir -p /tmp/phase2/inbox
++printf 'time,temp_c\n2026-01-15T00:00,3.1\n' > /tmp/phase2/inbox/ST014_202601150600.csv
++printf 'garbage\n' > /tmp/phase2/inbox/ST022_202601150600.csv
++python3 -m readings --inbox /tmp/phase2/inbox --db /tmp/phase2/readings.db; echo "exit $?"
++python3 -m readings --inbox /tmp/phase2/missing --db /tmp/phase2/readings.db; echo "exit $?"
++rm -r /tmp/phase2
++```
++
++Expected, first command: stderr `ST022_202601150600.csv: failed (1): header has no delimiter`,
++stdout `files=2 imported=1 skipped=0 failed=1 poisoned=0 stored=1 duplicates=0 rejected=0`,
++`exit 1`. Second: argparse's usage and `error: no inbox directory at /tmp/phase2/missing`, `exit 2`.
++
++- [ ] **Step 6: Commit**
++
++```bash
++git add readings/cli.py readings/__main__.py tests/test_cli.py
++git commit -m "feat: python3 -m readings, with an exit status for the timer
++
++One summary line on stdout, one stderr line per failed or poisoned file,
++and an exit status that says whether a person is needed: 3 for a
++poisoned file in the inbox, 1 for a failure that will be retried (spec §8)."
++```
++
++---
++
++## Not in this plan
++
++- The timer and alerting, a command to clear a poisoned file, and moving files out of the inbox
++  (spec §10).
++- Edits to `docs/architecture.md` or `CLAUDE.md` (Phase 2's status, how to run the importer).
++  Record anything they need in the execution ledger; the `dopamine:finishing-work` sweep places
++  it when the plan is done.
