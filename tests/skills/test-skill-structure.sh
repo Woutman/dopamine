@@ -31,7 +31,10 @@ source "$REPO_ROOT/tests/helpers.sh"
 # and the spec, and its no-ledger branch named an input no subagent could
 # receive. A budget set against an incomplete document is not evidence about
 # a complete one. Not licence to pad.
+# writing-code-comments is 200: it loads on most coding sessions, which is the
+# frequently-loaded budget superpowers:writing-skills sets.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:700
+         writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          writing-roadmaps:850 adopting-a-repo:750"
