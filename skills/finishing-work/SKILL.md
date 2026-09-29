@@ -41,13 +41,14 @@ In the same commit message, `wc -l` for each `living:` document and for the `ins
 
 ## Exit gate
 
-Five checks, run with **fresh eyes** over the diff, fixed inline. No re-review and no subagent dispatch: this is the pattern superpowers uses for its own documents, where the human is the gate. A fresh-subagent review is for code, which has tests and objective failure modes.
+Six checks, run with **fresh eyes** over the diff, fixed inline. No re-review and no subagent dispatch: this is the pattern superpowers uses for its own documents, where the human is the gate. A fresh-subagent review is for code, which has tests and objective failure modes.
 
 1. **Right tier.**
 2. **Changed what changed** — a paragraph appended where existing text should have been replaced is a failure even when the added text is true.
 3. **No number describing a run** entered a living document.
 4. **Every promotion to the instructions tier carries an admission verdict.**
 5. **Historical records untouched** — specs, plans and sealed ledgers are immutable.
+6. **Comments added in the diff state a why, a contract or a warning** — `dopamine:writing-code-comments` holds the contract. Judged over the diff's added lines only.
 
 ## Method is your judgment
 
