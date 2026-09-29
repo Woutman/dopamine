@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """Check that one baseline run did its task, so a run that did not is replaced before judging.
 
-Usage: accept RUN_DIR code
-       accept RUN_DIR plan PLAN_PATH
-       accept RUN_DIR legacy-code
+Usage: accept RUN_DIR legacy-code
        accept RUN_DIR legacy-plan PLAN_PATH
 
-`code` runs the run's own tests, then checks batch writes, the budget, the cursor and the report
-against the fixture's spec. `plan` checks that the plan is committed, has code for both features, and that the
-run changed no code: a plan run that implemented it would be scored as a plan.
-
-The legacy modes do the same for the legacy fixture. `legacy-code` checks its phase spec through the
+`legacy-code` runs the run's own tests, then checks the legacy fixture's phase spec through the
 interfaces the spec fixes: the calibration feature and its dependents gone, the new key, resume from
-markers, the poison cap and the exit statuses. `legacy-plan` also wants at least five tasks: fewer
-means the fixture is too small to test what it was built for.
+markers, the poison cap and the exit statuses. `legacy-plan` checks that the plan is committed, has
+python code, covers the decisions, has at least five tasks, and that the run changed no code: a plan
+run that implemented it would be scored as a plan, and a plan of fewer tasks means the fixture is too
+small to test what it was built for.
 Prints "ok", or the first check that failed, and exits 0 or 1.
 """
 import os
@@ -21,43 +17,7 @@ import re
 import subprocess
 import sys
 
-CHECKS = r'''
-import contextlib, io, json, os, re, tempfile
-from unittest import mock
-from exporter import job, report
-from exporter.source import Source
-from exporter.store import Store
-
-assert hasattr(job, "SOURCE_PAGE_SIZE") and not hasattr(job, "PAGE_SIZE"), "page size constant not renamed"
-assert not getattr(report, "STUB", False), "report is still a stub"
-records = [{"id": f"r{n:03d}", "status": "draft" if n % 10 == 0 else "live"} for n in range(230)]
-store = Store()
-result = job.run(Source(records), store)
-assert (result.exported, result.skipped) == (207, 23), "wrong counts over 230 records"
-assert len(store.records) == 207, "not every live record was written"
-assert store.requests <= 10, f"{store.requests} requests for 230 records: not batched"
-store = Store()
-with mock.patch.object(job, "MAX_REQUESTS", 3):
-    first = job.run(Source(records), store)
-assert first.stopped_by_budget and store.requests <= 3, "budget exceeded or not reported"
-second = Store()
-job.run(Source(records), second, first.cursor)
-assert not set(store.records) & set(second.records), "a resumed run repeated records"
-assert len(store.records) + len(second.records) == 207, "a resumed run lost records"
-path = os.path.join(tempfile.mkdtemp(), "records.json")
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(records, f)
-out = io.StringIO()
-with contextlib.redirect_stdout(out):
-    status = report.main([path])
-assert status == 0, "report exit status"
-assert re.fullmatch(r"exported=207 skipped=23 requests=(9|10) stopped_by_budget=no cursor=r229\n", out.getvalue()), "report line"
-with mock.patch.object(job, "MAX_REQUESTS", 1), contextlib.redirect_stdout(io.StringIO()):
-    assert report.main([path]) == 0, "a run stopped at the budget must exit 0"
-'''
-
-
-LEGACY_CHECKS = r"""
+CHECKS = r"""
 import ast, contextlib, importlib, importlib.util, io, os, pkgutil, re, tempfile
 import readings
 from readings import cli, parse, runner
@@ -155,14 +115,15 @@ assert status == 2, f"a missing inbox exited {status}, not 2"
 """
 
 
-def check_code(run, checks=CHECKS):
+
+def check_code(run):
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", NO_COLOR="1", PYTHON_COLORS="0",
                PYTHONPATH=os.path.abspath(run))
     tests = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=run, env=env,
                            capture_output=True, text=True)
     if tests.returncode != 0:
         return "the run's own tests fail"
-    checks = subprocess.run([sys.executable, "-c", checks], cwd=run, env=env,
+    checks = subprocess.run([sys.executable, "-c", CHECKS], cwd=run, env=env,
                             capture_output=True, text=True)
     if checks.returncode != 0:
         lines = checks.stderr.strip().splitlines()
@@ -170,13 +131,13 @@ def check_code(run, checks=CHECKS):
     return None
 
 
-def check_plan(run, plan, code=("exporter", "tests"), needed=("put_many", "SOURCE_PAGE_SIZE", "stopped_by_budget"),
-               tasks=0):
+def check_plan(run, plan):
     tracked = subprocess.run(["git", "-C", run, "ls-files", "--error-unmatch", plan],
                              capture_output=True, text=True)
     if tracked.returncode != 0:
         return f"{plan} is not committed"
-    changed = subprocess.run(["git", "-C", run, "diff", "--quiet", "baseline-base", "--", *code])
+    changed = subprocess.run(["git", "-C", run, "diff", "--quiet", "baseline-base", "--",
+                              "readings", "tests"])
     if changed.returncode != 0:
         return "the plan run changed code"
     with open(os.path.join(run, plan), encoding="utf-8") as f:
@@ -184,9 +145,10 @@ def check_plan(run, plan, code=("exporter", "tests"), needed=("put_many", "SOURC
     if len(re.findall(r"^\s*```+py(thon)?\s*$", text, re.M)) < 2:
         return "the plan has fewer than two python code blocks"
     found = len(re.findall(r"^#{2,4} Task \d+", text, re.M))
-    if found < tasks:
-        return f"the plan has {found} tasks, fewer than {tasks}"
-    for name in needed:
+    if found < 5:
+        return f"the plan has {found} tasks, fewer than 5"
+    for name in ("readings/calibrate.py", "INBOX_DIR", "POISON_AFTER", "set_marker", "Summary",
+                 "readings/cli.py"):
         if name not in text:
             return f"the plan never mentions {name}"
     return None
@@ -194,16 +156,10 @@ def check_plan(run, plan, code=("exporter", "tests"), needed=("put_many", "SOURC
 
 def main():
     args = sys.argv[1:]
-    if len(args) == 2 and args[1] == "code":
+    if len(args) == 2 and args[1] == "legacy-code":
         problem = check_code(args[0])
-    elif len(args) == 3 and args[1] == "plan":
-        problem = check_plan(args[0], args[2])
-    elif len(args) == 2 and args[1] == "legacy-code":
-        problem = check_code(args[0], LEGACY_CHECKS)
     elif len(args) == 3 and args[1] == "legacy-plan":
-        problem = check_plan(args[0], args[2], code=("readings", "tests"), tasks=5,
-                             needed=("readings/calibrate.py", "INBOX_DIR", "POISON_AFTER", "set_marker",
-                                     "Summary", "readings/cli.py"))
+        problem = check_plan(args[0], args[2])
     else:
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2

@@ -1,28 +1,16 @@
 #!/usr/bin/env bash
-# Set up one baseline run: a fresh repository holding a fixture, its starting
-# point tagged baseline-base so extract-comments finds what the run added even
-# after the run commits its own work. An overlay is committed on top of the
-# fixture and becomes the starting point: the review scenario starts from a
-# finished, flawed implementation, and a legacy execution from its own plan.
+# Set up one baseline run: a fresh repository holding the legacy fixture, its
+# starting point tagged baseline-base so extract-comments finds what the run
+# added even after the run commits its own work. An execution run passes its
+# plan as an overlay: it is committed on top of the fixture and becomes the
+# starting point.
 #
-# Usage: setup-run [--fixture DIR] [--message MSG] RUNS_DIR LABEL [OVERLAY_DIR]
-#        (prints the run's directory; the fixture defaults to fixture/, the
-#        overlay's commit message to the review overlay's)
+# Usage: setup-run RUNS_DIR LABEL [OVERLAY_DIR]   (prints the run's directory)
 set -euo pipefail
 
-USAGE="usage: setup-run [--fixture DIR] [--message MSG] RUNS_DIR LABEL [OVERLAY_DIR]"
+USAGE="usage: setup-run RUNS_DIR LABEL [OVERLAY_DIR]"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-fixture="$HERE/fixture"
-message="Batch writes and the run report"
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --fixture) [ $# -ge 2 ] || { echo "$USAGE" >&2; exit 2; }; fixture="$2"; shift 2 ;;
-        --message) [ $# -ge 2 ] || { echo "$USAGE" >&2; exit 2; }; message="$2"; shift 2 ;;
-        *) break ;;
-    esac
-done
 [ $# -eq 2 ] || [ $# -eq 3 ] || { echo "$USAGE" >&2; exit 2; }
-[ -d "$fixture" ] || { echo "no fixture at $fixture" >&2; exit 2; }
 run="$1/$2"
 [ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
 
@@ -32,13 +20,13 @@ commit() {
 }
 
 mkdir -p "$run"
-cp -R "$fixture/." "$run/"
+cp -R "$HERE/legacy-fixture/." "$run/"
 find "$run" -name __pycache__ -prune -exec rm -rf {} +
 git -C "$run" init -q
 commit fixture
 if [ $# -eq 3 ]; then
     cp -R "$3/." "$run/"
-    commit "$message"
+    commit "plan: Phase 2, unattended import from the inbox"
 fi
 git -C "$run" tag baseline-base
 cd "$run" && pwd

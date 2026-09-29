@@ -10,6 +10,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$REPO_ROOT/tests/helpers.sh"
 
 B="$REPO_ROOT/tests/baselines/writing-code-comments"
+L="$B/legacy-fixture"
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 export PYTHONDONTWRITEBYTECODE=1
@@ -18,12 +19,12 @@ export GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@localhost
 
 echo "-- the fixture"
 RC=0
-(cd "$B/fixture" && python3 -m unittest -q >/dev/null 2>&1) || RC=$?
+(cd "$L" && python3 -m unittest -q >/dev/null 2>&1) || RC=$?
 assert_eq "its own tests pass as shipped" 0 "$RC"
-assert_contains "it carries the comment the change makes false" \
-    "$(cat "$B/fixture/exporter/job.py")" "the store has no batch write"
-assert_exit "accept refuses it: the task is not done" 1 python3 "$B/accept" "$B/fixture" code
-assert_exit "accept's bad usage exits 2" 2 python3 "$B/accept" "$B/fixture"
+assert_contains "it carries the comment the spec makes false" \
+    "$(cat "$L/readings/runner.py")" "Keyed by station and row"
+assert_exit "accept refuses it: the phase is not done" 1 python3 "$B/accept" "$L" legacy-code
+assert_exit "accept's bad usage exits 2" 2 python3 "$B/accept" "$L"
 
 echo "-- setup-run"
 run=$(bash "$B/setup-run" "$T/runs" A0-1)
@@ -33,37 +34,37 @@ assert_eq "the starting point is tagged" \
     "$(git -C "$run" rev-parse HEAD)" "$(git -C "$run" rev-parse baseline-base)"
 assert_exit "a label already set up is refused" 1 bash "$B/setup-run" "$T/runs" A0-1
 assert_exit "bad usage exits 2" 2 bash "$B/setup-run" "$T/runs"
-review=$(bash "$B/setup-run" "$T/review" R0-1 "$B/overlays/review")
-assert_eq "an overlay is committed on top of the fixture" 2 "$(git -C "$review" rev-list --count HEAD)"
+mkdir -p "$T/overlay/docs"
+echo "# a plan" > "$T/overlay/docs/p.md"
+exec_run=$(bash "$B/setup-run" "$T/legacy" L0x-1 "$T/overlay")
+assert_eq "an overlay is committed on top of the fixture" 2 "$(git -C "$exec_run" rev-list --count HEAD)"
+assert_eq "under the plan's commit message" "plan: Phase 2, unattended import from the inbox" \
+    "$(git -C "$exec_run" log -1 --format=%s)"
 assert_eq "and the overlay is the tagged starting point" \
-    "$(git -C "$review" rev-parse HEAD)" "$(git -C "$review" rev-parse baseline-base)"
-RC=0
-(cd "$review" && python3 -m unittest -q >/dev/null 2>&1) || RC=$?
-assert_eq "the review overlay passes its own tests" 0 "$RC"
-assert_exit "but accept finds its flaws" 1 python3 "$B/accept" "$review" code
+    "$(git -C "$exec_run" rev-parse HEAD)" "$(git -C "$exec_run" rev-parse baseline-base)"
 
 # A0-1: a docstring, a comment, and a '#' that lives inside a string.
-cat >> "$run/exporter/job.py" <<'EOF'
+cat >> "$run/readings/report.py" <<'PY'
 
 
-def total_exported(results):
-    """Sum of the exported counts."""
-    # Loop over the results
+def total_stored(summaries):
+    """Sum of the stored counts."""
+    # Loop over the summaries
     label = "run # count"
-    return sum(result.exported for result in results)
-EOF
+    return sum(summary.stored for summary in summaries)
+PY
 # A0-2: changes nothing.
 bash "$B/setup-run" "$T/runs" A0-2 >/dev/null
 # A0-3: a new file, committed by the run itself.
 run=$(bash "$B/setup-run" "$T/runs" A0-3)
-printf '# Added helper\ndef helper():\n    return 1\n' > "$run/exporter/helpers.py"
+printf '# Added helper\ndef helper():\n    return 1\n' > "$run/readings/helpers.py"
 git -C "$run" add -A && git -C "$run" commit -qm work
 # A0-4: leaves the module unparseable.
 run=$(bash "$B/setup-run" "$T/runs" A0-4)
-printf '\n\ndef broken(:\n    # Fixed the thing\n' >> "$run/exporter/job.py"
+printf '\n\ndef broken(:\n    # Fixed the thing\n' >> "$run/readings/runner.py"
 # A0-5: a plan whose python blocks carry comments; one block is indented and does not parse.
 run=$(bash "$B/setup-run" "$T/runs" A0-5)
-cat > "$run/docs/plan.md" <<'EOF'
+cat > "$run/docs/plan.md" <<'MD'
 # Plan
 
 ```bash
@@ -83,16 +84,27 @@ def helper():
           so it does not parse."""
           return (
   ```
-EOF
+MD
 
-# A plan run: accept checks the plan, and that no code changed.
-plan=$(bash "$B/setup-run" "$T/plans" P0-1)
-printf '```python\nstore.put_many(batch)\n```\n\n```python\nSOURCE_PAGE_SIZE = 100\nstopped_by_budget = True\n```\n' > "$plan/docs/p.md"
+echo "-- accept legacy-plan"
+plan=$(bash "$B/setup-run" "$T/plans" L0p-1)
+tasks() { for n in $(seq "$1"); do printf '### Task %s: step\n\n```python\nx = %s\n```\n\n' "$n" "$n"; done; }
+names='readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py'
+{ tasks 5; echo "$names"; } > "$plan/docs/p.md"
+assert_exit "refuses an uncommitted plan" 1 python3 "$B/accept" "$plan" legacy-plan docs/p.md
 git -C "$plan" add -A && git -C "$plan" commit -qm plan
-assert_exit "accept takes a committed plan with code for both features" 0 python3 "$B/accept" "$plan" plan docs/p.md
-assert_exit "accept refuses an uncommitted plan" 1 python3 "$B/accept" "$run" plan docs/plan.md
-echo "x = 1" >> "$plan/exporter/job.py"
-assert_exit "accept refuses a plan run that changed code" 1 python3 "$B/accept" "$plan" plan docs/p.md
+assert_exit "takes a committed plan of five tasks" 0 python3 "$B/accept" "$plan" legacy-plan docs/p.md
+{ tasks 4; echo "$names"; } > "$plan/docs/p.md"
+git -C "$plan" add -A && git -C "$plan" commit -qm plan
+assert_exit "but not one of four: the fixture would be too small" 1 \
+    python3 "$B/accept" "$plan" legacy-plan docs/p.md
+{ tasks 5; echo "readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary"; } > "$plan/docs/p.md"
+git -C "$plan" add -A && git -C "$plan" commit -qm plan
+assert_exit "nor one that leaves a decision out" 1 python3 "$B/accept" "$plan" legacy-plan docs/p.md
+{ tasks 5; echo "$names"; } > "$plan/docs/p.md"
+echo "x = 1" >> "$plan/readings/units.py"
+git -C "$plan" add -A && git -C "$plan" commit -qm plan
+assert_exit "nor one whose run changed the package" 1 python3 "$B/accept" "$plan" legacy-plan docs/p.md
 
 echo "-- extract-comments"
 RC=0
@@ -101,8 +113,8 @@ assert_eq "exits 0" 0 "$RC"
 comments=$(cat "$T/out/comments.md")
 key=$(cat "$T/out/key.tsv")
 runs=$(cat "$T/out/runs.tsv")
-assert_contains "finds an added comment" "$comments" "Loop over the results"
-assert_contains "finds an added docstring" "$comments" "Sum of the exported counts"
+assert_contains "finds an added comment" "$comments" "Loop over the summaries"
+assert_contains "finds an added docstring" "$comments" "Sum of the stored counts"
 assert_contains "finds a comment in a new file the run committed" "$comments" "Added helper"
 assert_contains "falls back when the code does not parse" "$comments" "Fixed the thing"
 assert_not_contains "labels no entry with its run" "$comments" "A0-"
@@ -133,39 +145,6 @@ stale=$(cat "$T/stale/runs.tsv")
 assert_contains "--stale marks a run whose changed files still match" "$stale" $'A0-5\t19\t7\t3\t1\t1'
 assert_contains "and clears one whose do not" "$stale" $'A0-1\t7\t7\t2\t0\t0'
 
-echo "-- the legacy fixture"
-L="$B/legacy-fixture"
-RC=0
-(cd "$L" && python3 -m unittest -q >/dev/null 2>&1) || RC=$?
-assert_eq "its own tests pass as shipped" 0 "$RC"
-assert_contains "it carries the comment the spec makes false" \
-    "$(cat "$L/readings/runner.py")" "Keyed by station and row"
-assert_exit "accept refuses it: the phase is not done" 1 python3 "$B/accept" "$L" legacy-code
-legacy=$(bash "$B/setup-run" --fixture "$L" "$T/legacy" L0p-1)
-assert_eq "setup-run takes another fixture" "" "$(git -C "$legacy" status --porcelain)"
-assert_eq "and tags it" "$(git -C "$legacy" rev-parse HEAD)" "$(git -C "$legacy" rev-parse baseline-base)"
-assert_exit "a fixture that does not exist exits 2" 2 bash "$B/setup-run" --fixture "$T/none" "$T/legacy" L0p-9
-mkdir -p "$T/overlay/docs"
-echo "# a plan" > "$T/overlay/docs/p.md"
-exec_run=$(bash "$B/setup-run" --fixture "$L" --message "plan: Phase 2" "$T/legacy" L0x-1 "$T/overlay")
-assert_eq "an overlay is committed under the message given" "plan: Phase 2" \
-    "$(git -C "$exec_run" log -1 --format=%s)"
-tasks() { for n in $(seq "$1"); do printf '### Task %s: step\n\n```python\nx = %s\n```\n\n' "$n" "$n"; done; }
-{ tasks 5; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
-    > "$legacy/docs/p.md"
-git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
-assert_exit "accept takes a committed legacy plan of five tasks" 0 python3 "$B/accept" "$legacy" legacy-plan docs/p.md
-{ tasks 4; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
-    > "$legacy/docs/p.md"
-git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
-assert_exit "but not one of four: the fixture would be too small" 1 \
-    python3 "$B/accept" "$legacy" legacy-plan docs/p.md
-{ tasks 6; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
-    > "$legacy/docs/p.md"
-echo "x = 1" >> "$legacy/readings/units.py"
-git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
-assert_exit "nor one whose run changed the package" 1 python3 "$B/accept" "$legacy" legacy-plan docs/p.md
-
 # L0x-1: an execution that edits a plan's code block and adds a comment in the package.
 printf '```python\n# plan comment, see spec §4.2\nx = 1\n```\n' >> "$exec_run/docs/p.md"
 printf '\n# no longer keyed by row\n' >> "$exec_run/readings/runner.py"
@@ -176,11 +155,10 @@ assert_contains "--stale finds the comment left in the code" "$(cat "$T/lout/run
 python3 "$B/extract-comments" "$T/legacy" "$T/lout2" >/dev/null 2>&1
 assert_contains "a pointer to a spec section counts as a label" \
     "$(cat "$T/lout2/runs.tsv")" $'L0x-1\t6\t4\t2\t1\t-'
-mkdir -p "$T/prose"
-prose=$(bash "$B/setup-run" "$T/prose" P0-1)
-printf 'The comment saying the store has no batch write goes.\n' > "$prose/docs/p.md"
-python3 "$B/extract-comments" "$T/prose" "$T/pout" --stale 'the store has no batch write' >/dev/null 2>&1
-assert_contains "--stale does not read a plan's prose" "$(cat "$T/pout/runs.tsv")" $'P0-1\t1\t0\t0\t0\t0'
+prose=$(bash "$B/setup-run" "$T/prose" L0p-1)
+printf 'The comment saying the runner is keyed by station and row goes.\n' > "$prose/docs/p.md"
+python3 "$B/extract-comments" "$T/prose" "$T/pout" --stale 'keyed by station and row' >/dev/null 2>&1
+assert_contains "--stale does not read a plan's prose" "$(cat "$T/pout/runs.tsv")" $'L0p-1\t1\t0\t0\t0\t0'
 
 echo "-- score"
 S="$T/score"
