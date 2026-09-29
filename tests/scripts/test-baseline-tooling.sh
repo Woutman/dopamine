@@ -133,6 +133,55 @@ stale=$(cat "$T/stale/runs.tsv")
 assert_contains "--stale marks a run whose changed files still match" "$stale" $'A0-5\t19\t7\t3\t1\t1'
 assert_contains "and clears one whose do not" "$stale" $'A0-1\t7\t7\t2\t0\t0'
 
+echo "-- the legacy fixture"
+L="$B/legacy-fixture"
+RC=0
+(cd "$L" && python3 -m unittest -q >/dev/null 2>&1) || RC=$?
+assert_eq "its own tests pass as shipped" 0 "$RC"
+assert_contains "it carries the comment the spec makes false" \
+    "$(cat "$L/readings/runner.py")" "Keyed by station and row"
+assert_exit "accept refuses it: the phase is not done" 1 python3 "$B/accept" "$L" legacy-code
+legacy=$(bash "$B/setup-run" --fixture "$L" "$T/legacy" L0p-1)
+assert_eq "setup-run takes another fixture" "" "$(git -C "$legacy" status --porcelain)"
+assert_eq "and tags it" "$(git -C "$legacy" rev-parse HEAD)" "$(git -C "$legacy" rev-parse baseline-base)"
+assert_exit "a fixture that does not exist exits 2" 2 bash "$B/setup-run" --fixture "$T/none" "$T/legacy" L0p-9
+mkdir -p "$T/overlay/docs"
+echo "# a plan" > "$T/overlay/docs/p.md"
+exec_run=$(bash "$B/setup-run" --fixture "$L" --message "plan: Phase 2" "$T/legacy" L0x-1 "$T/overlay")
+assert_eq "an overlay is committed under the message given" "plan: Phase 2" \
+    "$(git -C "$exec_run" log -1 --format=%s)"
+tasks() { for n in $(seq "$1"); do printf '### Task %s: step\n\n```python\nx = %s\n```\n\n' "$n" "$n"; done; }
+{ tasks 6; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
+    > "$legacy/docs/p.md"
+git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
+assert_exit "accept takes a committed legacy plan of six tasks" 0 python3 "$B/accept" "$legacy" legacy-plan docs/p.md
+{ tasks 5; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
+    > "$legacy/docs/p.md"
+git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
+assert_exit "but not one of five: the fixture would be too small" 1 \
+    python3 "$B/accept" "$legacy" legacy-plan docs/p.md
+{ tasks 6; printf 'readings/calibrate.py INBOX_DIR POISON_AFTER set_marker Summary readings/cli.py\n'; } \
+    > "$legacy/docs/p.md"
+echo "x = 1" >> "$legacy/readings/units.py"
+git -C "$legacy" add -A && git -C "$legacy" commit -qm plan
+assert_exit "nor one whose run changed the package" 1 python3 "$B/accept" "$legacy" legacy-plan docs/p.md
+
+# L0x-1: an execution that edits a plan's code block and adds a comment in the package.
+printf '```python\n# plan comment, see spec §4.2\nx = 1\n```\n' >> "$exec_run/docs/p.md"
+printf '\n# no longer keyed by row\n' >> "$exec_run/readings/runner.py"
+python3 "$B/extract-comments" "$T/legacy" "$T/lout" --py-only --stale 'Keyed by station and row' >/dev/null 2>&1
+assert_not_contains "--py-only leaves out a plan's code" "$(cat "$T/lout/comments.md")" "plan comment"
+assert_contains "and keeps the package's" "$(cat "$T/lout/comments.md")" "no longer keyed by row"
+assert_contains "--stale finds the comment left in the code" "$(cat "$T/lout/runs.tsv")" $'L0x-1\t6\t2\t1\t0\t1'
+python3 "$B/extract-comments" "$T/legacy" "$T/lout2" >/dev/null 2>&1
+assert_contains "a pointer to a spec section counts as a label" \
+    "$(cat "$T/lout2/runs.tsv")" $'L0x-1\t6\t4\t2\t1\t-'
+mkdir -p "$T/prose"
+prose=$(bash "$B/setup-run" "$T/prose" P0-1)
+printf 'The comment saying the store has no batch write goes.\n' > "$prose/docs/p.md"
+python3 "$B/extract-comments" "$T/prose" "$T/pout" --stale 'the store has no batch write' >/dev/null 2>&1
+assert_contains "--stale does not read a plan's prose" "$(cat "$T/pout/runs.tsv")" $'P0-1\t1\t0\t0\t0\t0'
+
 echo "-- score"
 S="$T/score"
 mkdir -p "$S"
