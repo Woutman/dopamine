@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Tally the judge's verdicts per arm.
+
+Usage: score OUT_DIR
+
+Reads runs.tsv, key.tsv and verdicts.tsv from OUT_DIR. A run's arm is its
+label up to the first '-', so A0-3 belongs to arm A0. Prints each category's
+mean per run, then the per-run narration-plus-restatement counts the pass
+criteria are stated in.
+
+Exits 2 when a comment is unjudged or judged into an unknown category: either
+would otherwise score silently as a clean comment.
+"""
+import os
+import sys
+
+CATEGORIES = ("why", "contract", "warning", "narration", "restatement")
+
+
+def rows(out, name):
+    with open(os.path.join(out, name), encoding="utf-8") as f:
+        return [line.rstrip("\n").split("\t") for line in f.readlines()[1:] if line.strip()]
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("usage: score OUT_DIR", file=sys.stderr)
+        return 2
+    out = sys.argv[1]
+    runs = {label: int(added) for label, added in rows(out, "runs.tsv")}
+    owner = {row[0]: row[1] for row in rows(out, "key.tsv")}
+    verdicts = {row[0]: (row[1].strip() if len(row) > 1 else "")
+                for row in rows(out, "verdicts.tsv")}
+
+    problems = [f"unjudged: {cid}" for cid in owner if not verdicts.get(cid)]
+    problems += [f"unknown category {verdicts[cid]!r}: {cid}" for cid in owner
+                 if verdicts.get(cid) and verdicts[cid] not in CATEGORIES]
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
+
+    counts = {label: dict.fromkeys(CATEGORIES, 0) for label in runs}
+    for cid, label in owner.items():
+        counts[label][verdicts[cid]] += 1
+
+    arms = {}
+    for label in sorted(runs):
+        arms.setdefault(label.split("-", 1)[0], []).append(label)
+
+    print("| arm | runs | " + " | ".join(CATEGORIES) + " | narration+restatement per run |")
+    print("|---" * (len(CATEGORIES) + 3) + "|")
+    for arm, labels in arms.items():
+        means = [f"{sum(counts[l][c] for l in labels) / len(labels):.1f}" for c in CATEGORIES]
+        per_run = ", ".join(str(counts[l]["narration"] + counts[l]["restatement"]) for l in labels)
+        print(f"| {arm} | {len(labels)} | " + " | ".join(means) + f" | {per_run} |")
+
+    unchanged = [label for label, added in sorted(runs.items()) if added == 0]
+    if unchanged:
+        print()
+        print("no change: " + ", ".join(unchanged))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

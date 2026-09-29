@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Set up one baseline run: a fresh repository holding the fixture, its starting
+# point tagged baseline-base so extract-comments finds what the run added even
+# after the run commits its own work.
+#
+# Usage: setup-run RUNS_DIR LABEL   (prints the run's directory)
+set -euo pipefail
+
+[ $# -eq 2 ] || { echo "usage: setup-run RUNS_DIR LABEL" >&2; exit 2; }
+HERE="$(cd "$(dirname "$0")" && pwd)"
+run="$1/$2"
+[ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
+
+mkdir -p "$run"
+cp -R "$HERE/fixture/." "$run/"
+rm -rf "$run/__pycache__"
+git -C "$run" init -q
+git -C "$run" add -A
+git -C "$run" -c user.name=baseline -c user.email=baseline@localhost commit -qm fixture
+git -C "$run" tag baseline-base
+cd "$run" && pwd

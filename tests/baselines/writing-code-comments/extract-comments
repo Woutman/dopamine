@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Pool the comments added across baseline runs into one blinded list.
+
+Usage: extract-comments RUNS_DIR OUT_DIR [--seed N]
+
+Each subdirectory of RUNS_DIR holding a .git is one run, set up by setup-run.
+A comment counts as added when any of its lines is added relative to the tag
+baseline-base, so work the run committed and files it created both count.
+
+Writes to OUT_DIR:
+  comments.md   every added comment with surrounding code, shuffled, no run label
+  key.tsv       id, run, file, first line, last line, kind
+  runs.tsv      every run and its added-line count, so a run with nothing to judge still scores
+  verdicts.tsv  one row per id with an empty category, for the judge
+  diffs/        each run's full diff, so a later judge can re-read the raw output
+"""
+import ast
+import io
+import os
+import random
+import re
+import subprocess
+import sys
+import tokenize
+
+CONTEXT = 3
+USAGE = "usage: extract-comments RUNS_DIR OUT_DIR [--seed N]"
+
+
+def git(run, *args):
+    return subprocess.run(["git", "-C", run, *args], check=True,
+                          capture_output=True, text=True).stdout
+
+
+def added_lines(patch):
+    added, current, line = {}, None, 0
+    for text in patch.splitlines():
+        if text.startswith("+++ "):
+            path = text[4:]
+            current = None if path == "/dev/null" else path[2:]
+            continue
+        hunk = re.match(r"@@ -\S+ \+(\d+)", text)
+        if hunk:
+            line = int(hunk.group(1))
+            continue
+        if current and text.startswith("+"):
+            added.setdefault(current, set()).add(line)
+            line += 1
+    return added
+
+
+def comment_units(source):
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+        tree = ast.parse(source)
+    except (SyntaxError, tokenize.TokenError):
+        return [(n, n, "unparsed") for n, text in enumerate(source.splitlines(), 1)
+                if "#" in text]
+    units = []
+    # Adjacent comment lines are read as one comment, so they are judged as one.
+    for n in (t.start[0] for t in tokens if t.type == tokenize.COMMENT):
+        if units and units[-1][1] == n - 1:
+            units[-1] = (units[-1][0], n, "comment")
+        else:
+            units.append((n, n, "comment"))
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            first = node.body[0] if node.body else None
+            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)):
+                units.append((first.lineno, first.end_lineno, "docstring"))
+    return sorted(units)
+
+
+def main():
+    args = sys.argv[1:]
+    seed = None
+    if "--seed" in args:
+        at = args.index("--seed")
+        seed = int(args[at + 1])
+        del args[at:at + 2]
+    if len(args) != 2:
+        print(USAGE, file=sys.stderr)
+        return 2
+    runs_dir, out = args
+    os.makedirs(os.path.join(out, "diffs"), exist_ok=True)
+
+    entries, runs = [], []
+    for label in sorted(os.listdir(runs_dir)):
+        run = os.path.join(runs_dir, label)
+        if not os.path.isdir(os.path.join(run, ".git")):
+            continue
+        git(run, "add", "-A")
+        with open(os.path.join(out, "diffs", label + ".diff"), "w", encoding="utf-8") as f:
+            f.write(git(run, "diff", "--cached", "--no-color", "baseline-base", "--"))
+        added = added_lines(git(run, "diff", "--cached", "--no-color", "-U0", "baseline-base", "--"))
+        runs.append((label, sum(len(lines) for lines in added.values())))
+        for name, numbers in sorted(added.items()):
+            if not name.endswith(".py"):
+                continue
+            with open(os.path.join(run, name), encoding="utf-8") as f:
+                source = f.read()
+            lines = source.splitlines()
+            for first, last, kind in comment_units(source):
+                if numbers.isdisjoint(range(first, last + 1)):
+                    continue
+                lo, hi = max(1, first - CONTEXT), min(len(lines), last + CONTEXT)
+                shown = [("> " if first <= n <= last else "  ") + lines[n - 1]
+                         for n in range(lo, hi + 1)]
+                entries.append((label, name, first, last, kind, "\n".join(shown)))
+
+    random.Random(seed).shuffle(entries)
+    with open(os.path.join(out, "comments.md"), "w", encoding="utf-8") as md, \
+            open(os.path.join(out, "key.tsv"), "w", encoding="utf-8") as key, \
+            open(os.path.join(out, "verdicts.tsv"), "w", encoding="utf-8") as verdicts:
+        key.write("id\trun\tfile\tfirst\tlast\tkind\n")
+        verdicts.write("id\tcategory\n")
+        for n, (label, name, first, last, kind, shown) in enumerate(entries, 1):
+            cid = f"c{n:03d}"
+            md.write(f"### {cid} — {name}\n\n```python\n{shown}\n```\n\n")
+            key.write(f"{cid}\t{label}\t{name}\t{first}\t{last}\t{kind}\n")
+            verdicts.write(f"{cid}\t\n")
+    with open(os.path.join(out, "runs.tsv"), "w", encoding="utf-8") as f:
+        f.write("run\tadded\n")
+        for label, count in runs:
+            f.write(f"{label}\t{count}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
