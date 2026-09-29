@@ -71,6 +71,7 @@ Python 3 is used by the **test suite** — `tests/` parses JSON and skill frontm
 - **The `living:` tier does not say which path plays which role.** The authoring recipes take the declared path whose basename matches the document they own — `DESIGN.md` for `dopamine:brainstorm-design`, and so on — and ask the human where no path matches. A project using different filenames therefore answers one question per recipe, once. A `role:` field in the config is the escalation if that proves annoying.
 - **Whether sweeps happen at all is answered only after the fact.** `git log --grep='^sweep:'` shows which units of work closed with one; nothing prompts for the ones that did not. Line-count growth in the commit messages is the signal that routing is being skipped, and it has to be read by a human.
 - **Implementers are not handed the comment contract.** The baseline found that implementers copy a plan's comments and add almost none of their own, so the injection points the plan's author at the skill instead; `finishing-work`'s exit gate is the backstop for comments written outside a plan.
+- **A stale comment survives more often under the comment skill, not less.** GREEN kept a comment the change made false in 3 of 5 plans and 2 of 5 executions, against none without the skill: the plans copied the function whole, comment included. `finishing-work`'s exit gate reads added lines only, so it cannot see a comment left in place. The skill's sentence on such comments is the next wording to micro-test.
 
 ## Tests
 

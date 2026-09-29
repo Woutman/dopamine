@@ -48,7 +48,7 @@ Six checks, run with **fresh eyes** over the diff, fixed inline. No re-review an
 3. **No number describing a run** entered a living document.
 4. **Every promotion to the instructions tier carries an admission verdict.**
 5. **Historical records untouched** — specs, plans and sealed ledgers are immutable.
-6. **Comments added in the diff state a why, a contract or a warning** — `dopamine:writing-code-comments` holds the contract. Judged over the diff's added lines only.
+6. **Comments added in the unit of work state a why, a contract or a warning** — `dopamine:writing-code-comments` holds the contract. Judged over the added lines of `git diff <base>...HEAD`.
 
 ## Method is your judgment
 
