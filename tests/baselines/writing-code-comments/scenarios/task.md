@@ -1,0 +1,1 @@
+Implement what `docs/superpowers/plans/2026-01-10-export-job.md` left out: batch writes (spec §2.2, under the budget and cursor rules of §3.1 and §3.2) and the run report (spec §4). The spec is `docs/superpowers/specs/2026-01-08-exporter-design.md`. Run the tests with `python3 -m unittest`.

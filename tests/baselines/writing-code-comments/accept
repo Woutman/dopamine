@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Check that one baseline run did its task, so a run that did not is replaced before judging.
+
+Usage: accept RUN_DIR code
+       accept RUN_DIR plan PLAN_PATH
+
+`code` runs the run's own tests, then checks batch writes, the budget, the cursor and the report
+against the fixture's spec. `plan` checks that the plan is committed, has code for both features, and that the
+run changed no code: a plan run that implemented it would be scored as a plan.
+Prints "ok", or the first check that failed, and exits 0 or 1.
+"""
+import os
+import re
+import subprocess
+import sys
+
+CHECKS = r'''
+import contextlib, io, json, os, tempfile
+from unittest import mock
+from exporter import job, report
+from exporter.source import Source
+from exporter.store import Store
+
+assert hasattr(job, "SOURCE_PAGE_SIZE") and not hasattr(job, "PAGE_SIZE"), "page size constant not renamed"
+assert not getattr(report, "STUB", False), "report is still a stub"
+records = [{"id": f"r{n:03d}", "status": "draft" if n % 10 == 0 else "live"} for n in range(230)]
+store = Store()
+result = job.run(Source(records), store)
+assert (result.exported, result.skipped) == (207, 23), "wrong counts over 230 records"
+assert len(store.records) == 207, "not every live record was written"
+assert store.requests <= 10, f"{store.requests} requests for 230 records: not batched"
+store = Store()
+with mock.patch.object(job, "MAX_REQUESTS", 3):
+    first = job.run(Source(records), store)
+assert first.stopped_by_budget and store.requests <= 3, "budget exceeded or not reported"
+second = Store()
+job.run(Source(records), second, first.cursor)
+assert not set(store.records) & set(second.records), "a resumed run repeated records"
+assert len(store.records) + len(second.records) == 207, "a resumed run lost records"
+path = os.path.join(tempfile.mkdtemp(), "records.json")
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(records, f)
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    status = report.main([path])
+assert status == 0, "report exit status"
+assert out.getvalue() == "exported=207 skipped=23 requests=10 stopped_by_budget=no cursor=r229\n", "report line"
+with mock.patch.object(job, "MAX_REQUESTS", 1), contextlib.redirect_stdout(io.StringIO()):
+    assert report.main([path]) == 0, "a run stopped at the budget must exit 0"
+'''
+
+
+def check_code(run):
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", NO_COLOR="1", PYTHON_COLORS="0")
+    tests = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=run, env=env,
+                           capture_output=True, text=True)
+    if tests.returncode != 0:
+        return "the run's own tests fail"
+    checks = subprocess.run([sys.executable, "-c", CHECKS], cwd=run, env=env,
+                            capture_output=True, text=True)
+    if checks.returncode != 0:
+        lines = checks.stderr.strip().splitlines()
+        return lines[-1] if lines else "checks failed"
+    return None
+
+
+def check_plan(run, plan):
+    tracked = subprocess.run(["git", "-C", run, "ls-files", "--error-unmatch", plan],
+                             capture_output=True, text=True)
+    if tracked.returncode != 0:
+        return f"{plan} is not committed"
+    changed = subprocess.run(["git", "-C", run, "diff", "--quiet", "baseline-base", "--", "exporter", "tests"])
+    if changed.returncode != 0:
+        return "the plan run changed code"
+    with open(os.path.join(run, plan), encoding="utf-8") as f:
+        text = f.read()
+    if len(re.findall(r"^\s*```+py(thon)?\s*$", text, re.M)) < 2:
+        return "the plan has fewer than two python code blocks"
+    for needed in ("put_many", "SOURCE_PAGE_SIZE", "stopped_by_budget"):
+        if needed not in text:
+            return f"the plan never mentions {needed}"
+    return None
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) == 2 and args[1] == "code":
+        problem = check_code(args[0])
+    elif len(args) == 3 and args[1] == "plan":
+        problem = check_plan(args[0], args[2])
+    else:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        return 2
+    print(problem or "ok")
+    return 1 if problem else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

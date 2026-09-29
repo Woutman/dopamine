@@ -4,9 +4,11 @@
 Usage: score OUT_DIR
 
 Reads runs.tsv, key.tsv and verdicts.tsv from OUT_DIR. A run's arm is its
-label up to the first '-', so A0-3 belongs to arm A0. Prints each category's
-mean per run, then the per-run narration-plus-restatement counts the pass
-criteria are stated in.
+label up to the first '-', so P0-3 belongs to arm P0. Prints each category's
+mean per run; the per-run count of bad comments (narration, bloat and
+restatement), which the pass criteria are stated in; and, from runs.tsv, the
+share of added code lines that are comment lines, the comments carrying a
+process label, and how many runs kept the stale comment.
 
 Exits 2 when a comment is unjudged or judged into an unknown category: either
 would otherwise score silently as a clean comment.
@@ -14,7 +16,8 @@ would otherwise score silently as a clean comment.
 import os
 import sys
 
-CATEGORIES = ("why", "contract", "warning", "narration", "restatement")
+CATEGORIES = ("why", "contract", "warning", "narration", "bloat", "restatement")
+BAD = ("narration", "bloat", "restatement")
 
 
 def rows(out, name):
@@ -27,7 +30,7 @@ def main():
         print("usage: score OUT_DIR", file=sys.stderr)
         return 2
     out = sys.argv[1]
-    runs = {label: int(added) for label, added in rows(out, "runs.tsv")}
+    runs = {row[0]: row[1:] for row in rows(out, "runs.tsv")}
     owner = {row[0]: row[1] for row in rows(out, "key.tsv")}
     verdicts = {row[0]: (row[1].strip() if len(row) > 1 else "")
                 for row in rows(out, "verdicts.tsv")}
@@ -35,6 +38,7 @@ def main():
     problems = [f"unjudged: {cid}" for cid in owner if not verdicts.get(cid)]
     problems += [f"unknown category {verdicts[cid]!r}: {cid}" for cid in owner
                  if verdicts.get(cid) and verdicts[cid] not in CATEGORIES]
+    problems += [f"not in runs.tsv: {label}" for label in sorted(set(owner.values()) - set(runs))]
     if problems:
         print("\n".join(problems), file=sys.stderr)
         return 2
@@ -47,14 +51,22 @@ def main():
     for label in sorted(runs):
         arms.setdefault(label.split("-", 1)[0], []).append(label)
 
-    print("| arm | runs | " + " | ".join(CATEGORIES) + " | narration+restatement per run |")
-    print("|---" * (len(CATEGORIES) + 3) + "|")
+    print("| arm | runs | " + " | ".join(CATEGORIES)
+          + " | bad per run | comment share | labelled | stale kept |")
+    print("|---" * (len(CATEGORIES) + 6) + "|")
     for arm, labels in arms.items():
         means = [f"{sum(counts[l][c] for l in labels) / len(labels):.1f}" for c in CATEGORIES]
-        per_run = ", ".join(str(counts[l]["narration"] + counts[l]["restatement"]) for l in labels)
-        print(f"| {arm} | {len(labels)} | " + " | ".join(means) + f" | {per_run} |")
+        per_run = ", ".join(str(sum(counts[l][c] for c in BAD)) for l in labels)
+        code = sum(int(runs[l][1]) for l in labels)
+        comment = sum(int(runs[l][2]) for l in labels)
+        share = f"{round(100 * comment / code)}%" if code else "-"
+        labelled = sum(int(runs[l][3]) for l in labels)
+        stale = [runs[l][4] for l in labels]
+        kept = "-" if "-" in stale else f"{sum(int(s) for s in stale)}/{len(labels)}"
+        print(f"| {arm} | {len(labels)} | " + " | ".join(means)
+              + f" | {per_run} | {share} | {labelled} | {kept} |")
 
-    unchanged = [label for label, added in sorted(runs.items()) if added == 0]
+    unchanged = [label for label, row in sorted(runs.items()) if row[0] == "0"]
     if unchanged:
         print()
         print("no change: " + ", ".join(unchanged))
