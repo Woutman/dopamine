@@ -1,0 +1,534 @@
+diff --git a/docs/superpowers/plans/2026-02-02-batch-writes-and-report.md b/docs/superpowers/plans/2026-02-02-batch-writes-and-report.md
+new file mode 100644
+index 0000000..706f8ec
+--- /dev/null
++++ b/docs/superpowers/plans/2026-02-02-batch-writes-and-report.md
+@@ -0,0 +1,528 @@
++# Batch writes and run report Implementation Plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
++
++**Goal:** The export job writes with `put_many` in batches of at most 25 while keeping the request budget and the cursor exact, and `python3 -m exporter.report` runs one export over a JSON file and prints its one-line report.
++
++**Architecture:** `exporter/job.py` keeps one `run` function. It reads source pages from its own read position, holds read-but-unwritten records in a `pending` list, and deals with them (writes the live ones in one `put_many`, counts the drafts, moves the cursor) only when a request succeeds, so a stop at the budget never moves the cursor past a record that was not written. `RunResult` gains `requests`, the store requests this run made, which is what the budget checks and the report prints. `exporter/report.py` replaces its placeholder with a thin CLI: it validates arguments and the JSON file, calls `job.run` with a fresh `Store`, and prints the line.
++
++**Tech Stack:** Python 3 standard library only, `unittest`. Run tests with `python3 -m unittest` from the repository root.
++
++**Spec:** `docs/superpowers/specs/2026-01-08-exporter-design.md` (this plan covers §2.2, §3.1 and §3.2 as they apply to batch writes, and §4). The earlier plan, `docs/superpowers/plans/2026-01-10-export-job.md`, built the single-`put` loop this plan replaces.
++
++## Global Constraints
++
++- The exporter writes with `put_many`, in batches of at most 25 (`MAX_BATCH` in `exporter/store.py`). A larger batch is refused and nothing in it is written.
++- The job's page-size constant is `SOURCE_PAGE_SIZE` (value 100), so it cannot be confused with the store's batch limit. `PAGE_SIZE` no longer exists.
++- A run makes at most `MAX_REQUESTS` (500) store requests. It checks the budget before every request, and stops rather than exceed it, recording that it stopped (`stopped_by_budget = True`).
++- A run returns a cursor: the id of the last record it has dealt with, whether written or skipped. The next run starts after it, so a run that stops at the budget loses nothing and repeats nothing.
++- A record whose status is `draft` is counted as skipped and not written.
++- `python3 -m exporter.report RECORDS_JSON [CURSOR]` prints one line: `exported=N skipped=N requests=N stopped_by_budget=yes|no cursor=ID`.
++- The report exits 0 when the run completed or stopped at the budget, and 2 on a usage error.
++
++## Review Focus
++
++1. **Drafts read after a live record that is still waiting for its batch, when the budget stops the run.** The cursor must stay before the first unwritten live record, and those drafts must not be counted as skipped (the next run will count them). Drafts read while nothing is waiting are dealt with at once, so a stop still passes them. Pinned in Task 1 by `test_a_stop_leaves_the_cursor_before_the_first_unwritten_record` and `test_resuming_after_a_stop_loses_and_repeats_nothing`.
++2. **A batch that spans two source pages.** The next page must be read after the last record *read*, not after the cursor, or pending records are fetched again and written twice (or the loop never ends). Pinned in Task 1 by `test_a_batch_spans_source_pages_without_rereading`.
++3. **A run that uses its last allowed request and then reaches the end of the source**, possibly through trailing drafts that need no request. That run completed: `stopped_by_budget` is false and the cursor is the last draft. Pinned in Task 1 by `test_finishing_on_the_last_allowed_request_is_not_a_stop`.
++4. **A store object that already carries requests from an earlier run.** The budget is per run (§3.1 "A run makes at most"), so the new run still gets its full 500. Pinned in Task 1 by `test_the_budget_counts_only_this_runs_requests`.
++5. **A records file the report cannot use:** missing, a directory, not JSON, not an array, or holding a record without a string `id` and string `status` (a numeric id would crash the source's id comparison). Each is a usage error: exit 2, a message and the usage line on stderr, nothing on stdout, no traceback. Pinned in Task 2 by `test_usage_errors_exit_2`.
++
++---
++
++### Task 1: Batch writes under the budget and cursor rules
++
++**Files:**
++- Modify: `exporter/job.py` (whole file)
++- Test: `tests/test_job.py` (whole file)
++
++**Interfaces:**
++- Consumes: `exporter.store.Store` (`put_many(records)` takes a list of `(key, record)` pairs, raises `StoreError` above `MAX_BATCH`; `records` dict), `exporter.store.MAX_BATCH` (25), `exporter.source.Source.page(after: str, size: int) -> list[dict]`.
++- Produces (Task 2 relies on these):
++  - `job.SOURCE_PAGE_SIZE = 100`, `job.MAX_REQUESTS = 500` (module globals, read at call time so tests can patch them).
++  - `job.RunResult` dataclass with fields `exported: int = 0`, `skipped: int = 0`, `requests: int = 0`, `cursor: str = ""`, `stopped_by_budget: bool = False`.
++  - `job.run(source, store, cursor: str = "") -> RunResult`.
++
++- [ ] **Step 1: Write the failing tests**
++
++Replace the whole of `tests/test_job.py` with:
++
++```python
++import unittest
++from unittest import mock
++
++from exporter import job
++from exporter.source import Source
++from exporter.store import Store
++
++
++def record(id, status="live"):
++    return {"id": id, "status": status}
++
++
++def numbered(count, drafts=()):
++    """Records r000, r001, ... up to count-1, in id order; the numbers in `drafts` are drafts."""
++    return [record(f"r{n:03d}", "draft" if n in drafts else "live") for n in range(count)]
++
++
++class RecordingStore(Store):
++    """A Store that keeps the keys of every batch it writes and refuses single puts."""
++
++    def __init__(self):
++        super().__init__()
++        self.batches = []
++
++    def put(self, key, record):
++        raise AssertionError("the job must write with put_many")
++
++    def put_many(self, records):
++        super().put_many(records)
++        self.batches.append([key for key, _ in records])
++
++
++class RunTest(unittest.TestCase):
++    def test_the_page_size_is_named_for_the_source(self):
++        self.assertEqual(job.SOURCE_PAGE_SIZE, 100)
++        self.assertFalse(hasattr(job, "PAGE_SIZE"))
++
++    def test_exports_live_records_and_skips_drafts(self):
++        """Drafts are counted as skipped and never written."""
++        store = RecordingStore()
++        result = job.run(Source([record("a"), record("b", "draft"), record("c")]), store)
++        self.assertEqual(sorted(store.records), ["a", "c"])
++        self.assertEqual((result.exported, result.skipped, result.cursor), (2, 1, "c"))
++
++    def test_resumes_after_the_cursor(self):
++        store = RecordingStore()
++        job.run(Source([record("a"), record("b"), record("c")]), store, cursor="a")
++        self.assertEqual(sorted(store.records), ["b", "c"])
++
++    def test_nothing_after_the_cursor_returns_the_cursor(self):
++        result = job.run(Source(numbered(3)), RecordingStore(), cursor="r002")
++        self.assertEqual(
++            (result.exported, result.requests, result.cursor, result.stopped_by_budget),
++            (0, 0, "r002", False),
++        )
++
++    def test_writes_with_put_many_in_batches_of_at_most_25(self):
++        store = RecordingStore()
++        result = job.run(Source(numbered(60)), store)
++        self.assertEqual([len(batch) for batch in store.batches], [25, 25, 10])
++        self.assertEqual((result.exported, result.requests, result.cursor), (60, 3, "r059"))
++
++    def test_drafts_take_no_place_in_a_batch(self):
++        store = RecordingStore()
++        result = job.run(Source(numbered(30, drafts={5, 10, 15, 20, 25})), store)
++        self.assertEqual([len(batch) for batch in store.batches], [25])
++        self.assertEqual((result.exported, result.skipped, result.cursor), (25, 5, "r029"))
++
++    def test_only_drafts_makes_no_request(self):
++        store = RecordingStore()
++        result = job.run(Source(numbered(3, drafts={0, 1, 2})), store)
++        self.assertEqual(
++            (store.batches, result.requests, result.skipped, result.cursor),
++            ([], 0, 3, "r002"),
++        )
++
++    def test_a_batch_spans_source_pages_without_rereading(self):
++        store = RecordingStore()
++        with mock.patch.object(job, "SOURCE_PAGE_SIZE", 10):
++            job.run(Source(numbered(30)), store)
++        written = [key for batch in store.batches for key in batch]
++        self.assertEqual(written, [f"r{n:03d}" for n in range(30)])
++        self.assertEqual([len(batch) for batch in store.batches], [25, 5])
++
++    def test_stops_at_the_request_budget(self):
++        """The run stops before the request that would exceed the budget, and says so."""
++        store = RecordingStore()
++        with mock.patch.object(job, "MAX_REQUESTS", 2):
++            result = job.run(Source(numbered(60)), store)
++        self.assertTrue(result.stopped_by_budget)
++        self.assertEqual(len(store.batches), 2)
++        self.assertEqual((result.exported, result.requests, result.cursor), (50, 2, "r049"))
++
++    def test_finishing_on_the_last_allowed_request_is_not_a_stop(self):
++        store = RecordingStore()
++        with mock.patch.object(job, "MAX_REQUESTS", 2):
++            result = job.run(Source(numbered(52, drafts={50, 51})), store)
++        self.assertFalse(result.stopped_by_budget)
++        self.assertEqual(
++            (result.exported, result.skipped, result.requests, result.cursor),
++            (50, 2, 2, "r051"),
++        )
++
++    def test_a_stop_leaves_the_cursor_before_the_first_unwritten_record(self):
++        """A draft read while nothing waits is dealt with; a draft behind an unwritten record is not."""
++        store = RecordingStore()
++        # r000-r024 fill the one allowed batch; r025 is a draft with nothing waiting;
++        # r026 is live and waits for a batch that the budget refuses; r027 is a draft behind it.
++        with mock.patch.object(job, "MAX_REQUESTS", 1):
++            result = job.run(Source(numbered(28, drafts={25, 27})), store)
++        self.assertTrue(result.stopped_by_budget)
++        self.assertEqual((result.exported, result.skipped, result.cursor), (25, 1, "r025"))
++
++    def test_resuming_after_a_stop_loses_and_repeats_nothing(self):
++        records = numbered(80, drafts={3, 24, 25, 26, 49, 50, 77})
++        first, second = RecordingStore(), RecordingStore()
++        with mock.patch.object(job, "MAX_REQUESTS", 2):
++            stopped = job.run(Source(records), first)
++        finished = job.run(Source(records), second, cursor=stopped.cursor)
++        self.assertTrue(stopped.stopped_by_budget)
++        self.assertFalse(finished.stopped_by_budget)
++        written = [key for store in (first, second) for batch in store.batches for key in batch]
++        self.assertEqual(written, [r["id"] for r in records if r["status"] != "draft"])
++        self.assertEqual(stopped.skipped + finished.skipped, 7)
++        self.assertEqual(finished.cursor, "r079")
++
++    def test_the_budget_counts_only_this_runs_requests(self):
++        store = RecordingStore()
++        store.requests = job.MAX_REQUESTS  # requests an earlier run made against the same store
++        result = job.run(Source(numbered(30)), store)
++        self.assertFalse(result.stopped_by_budget)
++        self.assertEqual((result.exported, result.requests), (30, 2))
++
++
++if __name__ == "__main__":
++    unittest.main()
++```
++
++- [ ] **Step 2: Run the tests to verify they fail**
++
++Run: `python3 -m unittest tests.test_job -v`
++Expected: FAIL. `test_the_page_size_is_named_for_the_source` and `test_a_batch_spans_source_pages_without_rereading` fail with `AttributeError` (no `SOURCE_PAGE_SIZE`); the tests that export a live record fail with `AssertionError: the job must write with put_many`; `test_nothing_after_the_cursor_returns_the_cursor` and `test_only_drafts_makes_no_request` fail with `AttributeError: 'RunResult' object has no attribute 'requests'`.
++
++- [ ] **Step 3: Write the implementation**
++
++Replace the whole of `exporter/job.py` with:
++
++```python
++"""The export job: copies records from the source to the store within a request budget."""
++
++from dataclasses import dataclass
++
++from exporter.store import MAX_BATCH
++
++SOURCE_PAGE_SIZE = 100
++MAX_REQUESTS = 500
++
++
++@dataclass
++class RunResult:
++    exported: int = 0
++    skipped: int = 0
++    requests: int = 0
++    cursor: str = ""
++    stopped_by_budget: bool = False
++
++
++def run(source, store, cursor=""):
++    """Export every record after `cursor` with put_many, in batches of at most MAX_BATCH.
++
++    The run makes at most MAX_REQUESTS store requests of its own and stops, with
++    stopped_by_budget set, rather than exceed them. The result's cursor is the id of the last
++    record dealt with, written or skipped, so the next run resumes after it and neither loses
++    nor repeats a record.
++    """
++    result = RunResult(cursor=cursor)
++    # Pages are read after the last record read, which runs ahead of the cursor while
++    # records wait in `pending` for their batch.
++    read_after = cursor
++    # Records read but not yet dealt with, in id order. The first is always live: a draft
++    # with nothing ahead of it is dealt with at once.
++    pending = []
++    live_pending = 0
++    while True:
++        page = source.page(read_after, SOURCE_PAGE_SIZE)
++        if not page:
++            break
++        for record in page:
++            read_after = record["id"]
++            if _is_draft(record) and not pending:
++                result.skipped += 1
++                result.cursor = record["id"]
++                continue
++            pending.append(record)
++            if not _is_draft(record):
++                live_pending += 1
++            if live_pending == MAX_BATCH:
++                if not _write(store, pending, result):
++                    return result
++                pending, live_pending = [], 0
++    if pending:
++        _write(store, pending, result)
++    return result
++
++
++def _is_draft(record):
++    return record["status"] == "draft"
++
++
++def _write(store, pending, result):
++    """Write the live records in `pending` in one request, and deal with all of `pending`.
++
++    Returns False, having written nothing and left the cursor alone, when the request would
++    exceed MAX_REQUESTS.
++    """
++    if result.requests >= MAX_REQUESTS:
++        result.stopped_by_budget = True
++        return False
++    live = [(record["id"], record) for record in pending if not _is_draft(record)]
++    store.put_many(live)
++    result.requests += 1
++    result.exported += len(live)
++    result.skipped += len(pending) - len(live)
++    result.cursor = pending[-1]["id"]
++    return True
++```
++
++- [ ] **Step 4: Run the tests to verify they pass**
++
++Run: `python3 -m unittest tests.test_job -v`
++Expected: all 13 tests PASS.
++
++- [ ] **Step 5: Run the whole suite**
++
++Run: `python3 -m unittest`
++Expected: OK (`tests.test_report` still holds only the placeholder test, which still passes).
++
++- [ ] **Step 6: Commit**
++
++```bash
++git add exporter/job.py tests/test_job.py
++git commit -m "feat: write in put_many batches of at most 25 within the budget and cursor rules"
++```
++
++### Task 2: The run report
++
++**Files:**
++- Modify: `exporter/report.py` (whole file; removes the `STUB` placeholder)
++- Test: `tests/test_report.py` (whole file; removes `test_is_a_placeholder`)
++
++**Interfaces:**
++- Consumes: `job.run(source, store, cursor: str = "") -> RunResult` and `RunResult.exported`, `.skipped`, `.requests`, `.stopped_by_budget`, `.cursor` from Task 1; `job.MAX_REQUESTS` (patched in a test); `Source(records: list[dict])`; `Store()`.
++- Produces:
++  - `report.main(argv: list[str] | None = None) -> int`: `argv` excludes the program name; `None` means `sys.argv[1:]`. Returns 0 after printing the report line to stdout, 2 after printing an error and the usage line to stderr.
++  - `report.load_records(path: str) -> list[dict]`, raising `report.UsageError` for input it cannot use.
++  - `report.format_report(result: RunResult) -> str`, the line without a trailing newline.
++  - `report.USAGE = "usage: python3 -m exporter.report RECORDS_JSON [CURSOR]"`.
++
++- [ ] **Step 1: Write the failing tests**
++
++Replace the whole of `tests/test_report.py` with:
++
++```python
++import contextlib
++import io
++import json
++import subprocess
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++from unittest import mock
++
++from exporter import job, report
++
++ROOT = Path(__file__).resolve().parent.parent
++USAGE = "usage: python3 -m exporter.report RECORDS_JSON [CURSOR]"
++
++
++def record(id, status="live"):
++    return {"id": id, "status": status}
++
++
++class ReportTest(unittest.TestCase):
++    def setUp(self):
++        tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(tmp.cleanup)
++        self.dir = Path(tmp.name)
++
++    def write(self, content, name="records.json"):
++        """Write `content` (a str as it is, anything else as JSON) and return the file's path."""
++        path = self.dir / name
++        text = content if isinstance(content, str) else json.dumps(content)
++        path.write_text(text, encoding="utf-8")
++        return str(path)
++
++    def main(self, *args):
++        out, err = io.StringIO(), io.StringIO()
++        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
++            code = report.main(list(args))
++        return code, out.getvalue(), err.getvalue()
++
++    def test_prints_one_report_line(self):
++        path = self.write([record("a"), record("b", "draft"), record("c")])
++        self.assertEqual(
++            self.main(path),
++            (0, "exported=2 skipped=1 requests=1 stopped_by_budget=no cursor=c\n", ""),
++        )
++
++    def test_starts_after_the_given_cursor(self):
++        path = self.write([record("a"), record("b", "draft"), record("c")])
++        self.assertEqual(
++            self.main(path, "a"),
++            (0, "exported=1 skipped=1 requests=1 stopped_by_budget=no cursor=c\n", ""),
++        )
++
++    def test_a_stop_at_the_budget_exits_0(self):
++        path = self.write([record(f"r{n:03d}") for n in range(30)])
++        with mock.patch.object(job, "MAX_REQUESTS", 1):
++            result = self.main(path)
++        self.assertEqual(
++            result,
++            (0, "exported=25 skipped=0 requests=1 stopped_by_budget=yes cursor=r024\n", ""),
++        )
++
++    def test_no_records_prints_an_empty_cursor(self):
++        self.assertEqual(
++            self.main(self.write([])),
++            (0, "exported=0 skipped=0 requests=0 stopped_by_budget=no cursor=\n", ""),
++        )
++
++    def test_usage_errors_exit_2(self):
++        cases = {
++            "no arguments": [],
++            "too many arguments": [self.write([]), "a", "b"],
++            "missing file": [str(self.dir / "absent.json")],
++            "a directory": [str(self.dir)],
++            "not JSON": [self.write("{not json", "bad.json")],
++            "not an array": [self.write(record("a"), "object.json")],
++            "record not an object": [self.write(["a"], "string.json")],
++            "record without a status": [self.write([{"id": "a"}], "nostatus.json")],
++            "numeric id": [self.write([{"id": 7, "status": "live"}], "numeric.json")],
++        }
++        for name, args in cases.items():
++            with self.subTest(name):
++                code, out, err = self.main(*args)
++                self.assertEqual((code, out), (2, ""))
++                self.assertIn("error: ", err)
++                self.assertIn(USAGE, err)
++
++    def test_runs_as_a_module(self):
++        path = self.write([record("a"), record("b", "draft")])
++        done = subprocess.run(
++            [sys.executable, "-m", "exporter.report", path],
++            cwd=ROOT, capture_output=True, text=True,
++        )
++        self.assertEqual(
++            (done.returncode, done.stdout, done.stderr),
++            (0, "exported=1 skipped=1 requests=1 stopped_by_budget=no cursor=b\n", ""),
++        )
++        done = subprocess.run(
++            [sys.executable, "-m", "exporter.report"],
++            cwd=ROOT, capture_output=True, text=True,
++        )
++        self.assertEqual((done.returncode, done.stdout), (2, ""))
++        self.assertIn(USAGE, done.stderr)
++
++
++if __name__ == "__main__":
++    unittest.main()
++```
++
++- [ ] **Step 2: Run the tests to verify they fail**
++
++Run: `python3 -m unittest tests.test_report -v`
++Expected: FAIL. Every test except the subprocess one errors with `NotImplementedError: the run report is not implemented yet`; `test_runs_as_a_module` fails on a non-zero return code with a traceback on stderr.
++
++- [ ] **Step 3: Write the implementation**
++
++Replace the whole of `exporter/report.py` with:
++
++```python
++"""Command-line entrypoint: runs one export over a JSON file of records and prints its report.
++
++    python3 -m exporter.report RECORDS_JSON [CURSOR]
++
++Prints `exported=N skipped=N requests=N stopped_by_budget=yes|no cursor=ID` and exits 0, whether
++the run completed or stopped at the budget. Exits 2 on a usage error. The cursor is empty when the
++run dealt with no record and no CURSOR was given.
++"""
++
++import json
++import sys
++
++from exporter import job
++from exporter.source import Source
++from exporter.store import Store
++
++USAGE = "usage: python3 -m exporter.report RECORDS_JSON [CURSOR]"
++EXIT_USAGE = 2
++
++
++class UsageError(Exception):
++    pass
++
++
++def load_records(path):
++    """The records in the JSON file at `path`: an array of objects with a string id and status."""
++    try:
++        with open(path, encoding="utf-8") as file:
++            records = json.load(file)
++    except OSError as error:
++        raise UsageError(f"cannot read {path}: {error.strerror or error}")
++    except ValueError as error:  # JSONDecodeError and UnicodeDecodeError
++        raise UsageError(f"{path} is not valid JSON: {error}")
++    if not isinstance(records, list):
++        raise UsageError(f"{path} must hold a JSON array of records")
++    for index, record in enumerate(records):
++        if not (
++            isinstance(record, dict)
++            and isinstance(record.get("id"), str)
++            and isinstance(record.get("status"), str)
++        ):
++            raise UsageError(f"record {index} in {path} needs a string id and a string status")
++    return records
++
++
++def format_report(result):
++    stopped = "yes" if result.stopped_by_budget else "no"
++    return (
++        f"exported={result.exported} skipped={result.skipped} requests={result.requests} "
++        f"stopped_by_budget={stopped} cursor={result.cursor}"
++    )
++
++
++def main(argv=None):
++    args = sys.argv[1:] if argv is None else list(argv)
++    try:
++        if len(args) not in (1, 2):
++            raise UsageError("expected RECORDS_JSON and an optional CURSOR")
++        records = load_records(args[0])
++    except UsageError as error:
++        print(f"error: {error}\n{USAGE}", file=sys.stderr)
++        return EXIT_USAGE
++    cursor = args[1] if len(args) == 2 else ""
++    result = job.run(Source(records), Store(), cursor)
++    print(format_report(result))
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
++```
++
++- [ ] **Step 4: Run the tests to verify they pass**
++
++Run: `python3 -m unittest tests.test_report -v`
++Expected: all 6 tests PASS (the usage-error test runs 9 subtests).
++
++- [ ] **Step 5: Run the whole suite and the command by hand**
++
++Run: `python3 -m unittest`
++Expected: OK, 19 tests.
++
++Run:
++```bash
++printf '[{"id":"a","status":"live"},{"id":"b","status":"draft"}]' > /tmp/records.json
++python3 -m exporter.report /tmp/records.json; echo "exit=$?"
++python3 -m exporter.report; echo "exit=$?"
++```
++Expected: `exported=1 skipped=1 requests=1 stopped_by_budget=no cursor=b` then `exit=0`; then `error: expected RECORDS_JSON and an optional CURSOR`, the usage line, and `exit=2`.
++
++- [ ] **Step 6: Commit**
++
++```bash
++git add exporter/report.py tests/test_report.py
++git commit -m "feat: the run report command"
++```

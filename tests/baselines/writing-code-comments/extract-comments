@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""Pool the comments added across baseline runs into one blinded list.
+
+Usage: extract-comments RUNS_DIR OUT_DIR [--seed N] [--stale REGEX] [--py-only]
+
+Each subdirectory of RUNS_DIR holding a .git is one run, set up by setup-run.
+A comment counts as added when any of its lines is added relative to the tag
+baseline-base, so work the run committed and files it created both count.
+Comments in a Markdown file's python code blocks count too: a plan's code is
+the code that ships.
+With --py-only, only .py files are read: an execution's plan edits are not its code.
+
+Writes to OUT_DIR:
+  comments.md   every added comment with surrounding code, shuffled, no run label
+  key.tsv       id, run, file, first line, last line, kind
+  runs.tsv      per run: lines added, added code lines, added comment lines,
+                comments carrying a process label, and whether --stale matched
+                the code of a file the run changed ("-" without --stale); a
+                plan's prose is not its code
+  verdicts.tsv  one row per id with an empty category, for the judge
+  diffs/        each run's full diff, so a later judge can re-read the raw output
+"""
+import ast
+import io
+import os
+import random
+import re
+import subprocess
+import sys
+import textwrap
+import tokenize
+
+CONTEXT = 3
+USAGE = "usage: extract-comments RUNS_DIR OUT_DIR [--seed N] [--stale REGEX] [--py-only]"
+FENCE = re.compile(r"^\s*(`{3,})\s*(\S*)\s*$")
+LABEL = re.compile(r"\b(?:Task|Phase|Step|Critical|Important|Minor|Ruling|Finding|[Rr]ound)\s*#?\d+"
+                   r"|§\s*\d+|Review Focus|review round|fix round")
+
+
+def git(run, *args):
+    return subprocess.run(["git", "-C", run, *args], check=True,
+                          capture_output=True, text=True).stdout
+
+
+def added_lines(patch):
+    added, current, line = {}, None, 0
+    for text in patch.splitlines():
+        if text.startswith("+++ "):
+            path = text[4:]
+            current = None if path == "/dev/null" else path[2:]
+            continue
+        hunk = re.match(r"@@ -\S+ \+(\d+)", text)
+        if hunk:
+            line = int(hunk.group(1))
+            continue
+        if current and text.startswith("+"):
+            added.setdefault(current, set()).add(line)
+            line += 1
+    return added
+
+
+def fallback_units(source):
+    # Code that does not parse, often a plan's partial snippet, is read line by line:
+    # runs of '#' lines, inline '#' comments, and triple-quoted spans.
+    units, opened = [], None
+    for n, text in enumerate(source.splitlines(), 1):
+        stripped = text.strip()
+        if opened is not None:
+            if '"""' in text:
+                units.append((opened, n, "unparsed"))
+                opened = None
+        elif stripped.startswith(('"""', 'r"""')):
+            if stripped.count('"""') >= 2:
+                units.append((n, n, "unparsed"))
+            else:
+                opened = n
+        elif stripped.startswith("#") and units and units[-1][1] == n - 1 \
+                and source.splitlines()[n - 2].strip().startswith("#"):
+            units[-1] = (units[-1][0], n, "unparsed")
+        elif "#" in text:
+            units.append((n, n, "unparsed"))
+    return units
+
+
+def comment_units(source):
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+        tree = ast.parse(source)
+    except (SyntaxError, tokenize.TokenError):
+        return fallback_units(source)
+    units = []
+    # Adjacent comment lines are read as one comment, so they are judged as one.
+    for n in (t.start[0] for t in tokens if t.type == tokenize.COMMENT):
+        if units and units[-1][1] == n - 1:
+            units[-1] = (units[-1][0], n, "comment")
+        else:
+            units.append((n, n, "comment"))
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            first = node.body[0] if node.body else None
+            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)):
+                units.append((first.lineno, first.end_lineno, "docstring"))
+    return sorted(units)
+
+
+def python_blocks(text):
+    """(first line, lines) of each python code block in a Markdown text; first is 1-based."""
+    blocks, fence, python, start, body = [], None, False, 0, []
+    for n, line in enumerate(text.splitlines(), 1):
+        match = FENCE.match(line)
+        if fence is None:
+            if match and match.group(2):
+                fence, python, start, body = match.group(1), match.group(2) in ("python", "py"), n + 1, []
+            elif match:
+                fence, python, start, body = match.group(1), False, n + 1, []
+        elif match and not match.group(2) and len(match.group(1)) >= len(fence):
+            if python:
+                blocks.append((start, body))
+            fence = None
+        else:
+            body.append(line)
+    return blocks
+
+
+def code_regions(name, source):
+    """(offset, lines) pairs: the whole file for Python, each python code block for Markdown."""
+    if name.endswith(".py"):
+        return [(0, source.splitlines())]
+    if name.endswith(".md"):
+        return [(start - 1, body) for start, body in python_blocks(source)]
+    return []
+
+
+def main():
+    args = sys.argv[1:]
+    py_only = "--py-only" in args
+    args = [arg for arg in args if arg != "--py-only"]
+    options = {"--seed": None, "--stale": None}
+    for flag in options:
+        if flag in args:
+            at = args.index(flag)
+            options[flag] = args[at + 1]
+            del args[at:at + 2]
+    if len(args) != 2:
+        print(USAGE, file=sys.stderr)
+        return 2
+    runs_dir, out = args
+    seed = None if options["--seed"] is None else int(options["--seed"])
+    stale = None if options["--stale"] is None else re.compile(options["--stale"])
+    os.makedirs(os.path.join(out, "diffs"), exist_ok=True)
+
+    entries, runs = [], []
+    for label in sorted(os.listdir(runs_dir)):
+        run = os.path.join(runs_dir, label)
+        if not os.path.isdir(os.path.join(run, ".git")):
+            continue
+        git(run, "add", "-A")
+        with open(os.path.join(out, "diffs", label + ".diff"), "w", encoding="utf-8") as f:
+            f.write(git(run, "diff", "--cached", "--no-color", "baseline-base", "--"))
+        added = added_lines(git(run, "diff", "--cached", "--no-color", "-U0", "baseline-base", "--"))
+        code = comment = labelled = 0
+        stale_hit = False
+        for name, numbers in sorted(added.items()):
+            path = os.path.join(run, name)
+            if not os.path.isfile(path) or not name.endswith(".py" if py_only else (".py", ".md")):
+                continue
+            with open(path, encoding="utf-8") as f:
+                source = f.read()
+            for offset, lines in code_regions(name, source):
+                block = textwrap.dedent("\n".join(lines))
+                stale_hit = stale_hit or bool(stale and stale.search(block))
+                shown_lines = block.splitlines()
+                code += len(numbers & set(range(offset + 1, offset + len(lines) + 1)))
+                for first, last, kind in comment_units(block):
+                    span = set(range(offset + first, offset + last + 1))
+                    if numbers.isdisjoint(span):
+                        continue
+                    comment += len(numbers & span)
+                    text = "\n".join(shown_lines[first - 1:last])
+                    labelled += bool(LABEL.search(text))
+                    lo, hi = max(1, first - CONTEXT), min(len(shown_lines), last + CONTEXT)
+                    shown = [("> " if first <= n <= last else "  ") + shown_lines[n - 1]
+                             for n in range(lo, hi + 1)]
+                    entries.append((label, name, offset + first, offset + last, kind, "\n".join(shown)))
+        runs.append((label, sum(len(lines) for lines in added.values()), code, comment, labelled,
+                     "-" if stale is None else int(stale_hit)))
+
+    random.Random(seed).shuffle(entries)
+    with open(os.path.join(out, "comments.md"), "w", encoding="utf-8") as md, \
+            open(os.path.join(out, "key.tsv"), "w", encoding="utf-8") as key, \
+            open(os.path.join(out, "verdicts.tsv"), "w", encoding="utf-8") as verdicts:
+        key.write("id\trun\tfile\tfirst\tlast\tkind\n")
+        verdicts.write("id\tcategory\n")
+        for n, (label, name, first, last, kind, shown) in enumerate(entries, 1):
+            cid = f"c{n:03d}"
+            md.write(f"### {cid} — {name}\n\n```python\n{shown}\n```\n\n")
+            key.write(f"{cid}\t{label}\t{name}\t{first}\t{last}\t{kind}\n")
+            verdicts.write(f"{cid}\t\n")
+    with open(os.path.join(out, "runs.tsv"), "w", encoding="utf-8") as f:
+        f.write("run\tadded\tcode\tcomment\tlabels\tstale\n")
+        for row in runs:
+            f.write("\t".join(str(value) for value in row) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

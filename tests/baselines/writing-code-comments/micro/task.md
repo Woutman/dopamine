@@ -1,0 +1,19 @@
+{GUIDANCE}You are writing an implementation plan with superpowers:writing-plans, for a log-shipping agent. The plan's Task 2 creates `shipper/batch.py`. The spec's decisions section reads:
+
+<spec>
+### 4.1 Flush a batch by size, not by age
+
+Age-based flushing at 5 s sent 41% of peak-hour batches under 8 KB, and the collector's per-request cost dominated. At peak a 512 KB batch fills in about 2 s, so flushing at 512 KB keeps p99 delivery under 9 s. Off-peak a batch could wait indefinitely; a 30 s ceiling bounds it.
+
+### 4.2 Give up on a batch after five attempts, not retry forever
+
+In 30 days of collector logs, no batch that failed five times later succeeded. Unbounded retries held the spool at 2 GB through the March outage. A batch given up on is moved to `dead/` for a person.
+
+### 4.3 Resume from the offset file, not from the collector's acknowledgements
+
+The collector acknowledges before its own write is durable, so an acknowledgement can outlive a collector crash. The offset file is written only after a 200 and an fsync.
+</spec>
+
+Write the code block for Task 2's implementation step: `shipper/batch.py`, with `MAX_BATCH_BYTES`, `MAX_BATCH_AGE_S`, `MAX_ATTEMPTS`, `should_flush(batch, now)`, `after_failure(batch)` (returns `"retry"` or `"dead"`), and `resume_offset(path)`. Write it as it would appear in the plan.
+
+Reply with the python code block only.

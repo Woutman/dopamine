@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""Check that one baseline run did its task, so a run that did not is replaced before judging.
+
+Usage: accept RUN_DIR legacy-code
+       accept RUN_DIR legacy-plan PLAN_PATH
+
+`legacy-code` runs the run's own tests, then checks the legacy fixture's phase spec through the
+interfaces the spec fixes: the calibration feature and its dependents gone, the new key, resume from
+markers, the poison cap and the exit statuses. `legacy-plan` checks that the plan is committed, has
+python code, covers the decisions, has at least five tasks, and that the run changed no code: a plan
+run that implemented it would be scored as a plan, and a plan of fewer tasks means the fixture is too
+small to test what it was built for.
+Prints "ok", or the first check that failed, and exits 0 or 1.
+"""
+import os
+import re
+import subprocess
+import sys
+
+CHECKS = r"""
+import ast, contextlib, importlib, importlib.util, io, os, pkgutil, re, tempfile
+import readings
+from readings import cli, parse, runner
+from readings.store import Store
+
+assert importlib.util.find_spec("readings.calibrate") is None, "readings/calibrate.py not deleted"
+assert importlib.util.find_spec("readings.report") is None, "readings/report.py not deleted"
+assert not os.path.exists("tests/test_calibrate.py"), "tests/test_calibrate.py not deleted"
+fields = tuple(parse.Reading.__dataclass_fields__)
+assert fields == ("station", "row", "time", "quantity", "value"), f"Reading has fields {fields}"
+for info in pkgutil.iter_modules(readings.__path__):
+    if info.name == "__main__":
+        continue
+    module = importlib.import_module("readings." + info.name)
+    names = [n for n in vars(module) if "calibrat" in n.lower()]
+    names += [m for m in getattr(getattr(module, "Outcome", None), "__members__", {})
+              if "CALIBRAT" in m]
+    assert not names, f"readings.{info.name} still has {names}"
+    with open(module.__file__, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    imported = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
+    imported |= {(n.module or "").split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
+    assert not imported & {"threading", "concurrent"}, f"readings.{info.name} still runs threads"
+for gone in ("DROP_DIR", "MANIFEST", "PROGRESS_LOG", "WORKERS", "CALIBRATE"):
+    assert not hasattr(runner, gone), f"runner.{gone} still defined"
+assert runner.INBOX_DIR == "inbox", "INBOX_DIR is not 'inbox'"
+assert runner.POISON_AFTER == 3, "POISON_AFTER is not 3"
+
+work = tempfile.mkdtemp()
+os.chdir(work)
+inbox = os.path.join(work, "in")
+os.mkdir(inbox)
+db = os.path.join(work, "readings.db")
+H = "time,temp_c,pressure_hpa,wind_ms\n"
+def export(name, text, mode="w"):
+    with open(os.path.join(inbox, name), mode) as f:
+        f.write(text)
+def hours(first, last):
+    return "".join(f"2026-03-01T{h:02d}:00,{h / 10 + 3:.1f},{1010 + h:.1f},{h / 10 + 2:.1f}\n"
+                   for h in range(first, last + 1))
+export("ST014_202603010600.csv", H + hours(0, 5))
+export("ST014_202603011200.csv", H + hours(3, 8))
+export("HAL02_202603010600.csv",
+       "time;temp_c;pressure_hpa;wind_ms\n2026-03-01T00:00;3,1;10124;4,2\n--:--;3,0;10121;4,0\n"
+       "2026-03-01T02:00;2,9;10119;\n")
+export("ST099_202603010600.csv", b"\xff\xfe\x00\x81garbage", "wb")
+export("notes.txt", "not an export\n")
+
+def call(*argv):
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            status = cli.main(list(argv))
+        except SystemExit as e:
+            status = e.code
+    return status, out.getvalue(), err.getvalue()
+def line(**n):
+    order = ("files", "imported", "skipped", "failed", "poisoned", "stored", "duplicates", "rejected")
+    return " ".join(f"{k}={n.get(k, 0)}" for k in order) + "\n"
+def store():
+    s = Store(db)
+    return s, s.count(), s.marker("ST099_202603010600.csv")
+
+status, out, err = call("--inbox", inbox, "--db", db)
+assert status == 1, f"first run exited {status}, not 1 for a failed file"
+assert out == line(files=4, imported=3, failed=1, stored=32, duplicates=9, rejected=1), "first run: " + out
+assert re.search(r"^ST099_202603010600\.csv: failed \(1\): ", err, re.M), "no stderr line for the failed file"
+s, count, marker = store()
+assert count == 32, f"{count} readings stored, not 32: overlapping exports keyed wrongly"
+assert s.get("HAL02|2026-03-01T00:00|pressure")["value"] == 1012.4, "key is not station|time|quantity"
+assert s.marker("ST014_202603010600.csv").state == "done", "no done marker"
+assert (marker.state, marker.failures) == ("failed", 1), f"failed file marker {marker}"
+s.close()
+status, out, _ = call("--inbox", inbox, "--db", db)
+assert (status, out) == (1, line(files=4, skipped=3, failed=1)), "second run: " + out
+status, out, _ = call("--inbox", inbox, "--db", db)
+assert (status, out) == (3, line(files=4, skipped=3, poisoned=1)), f"third run exited {status}: " + out
+status, out, _ = call("--inbox", inbox, "--db", db)
+assert (status, out) == (3, line(files=4, skipped=3, poisoned=1)), f"fourth run exited {status}: " + out
+s, count, marker = store()
+assert count == 32, "later runs changed the store"
+assert (marker.state, marker.failures) == ("poisoned", 3), f"poisoned file marker {marker}"
+s.close()
+assert sorted(os.listdir(work)) == ["in", "readings.db"], f"the run left {sorted(os.listdir(work))}"
+assert len(os.listdir(inbox)) == 5, "the run changed the inbox"
+
+other = os.path.join(work, "other")
+os.mkdir(other)
+with open(os.path.join(other, "ST015_202603010600.csv"), "w") as f:
+    f.write("time,temp_c,humidity\n2026-03-01T00:00,3.1,80\n")
+status, out, _ = call("--inbox", other, "--db", os.path.join(work, "other.db"))
+assert (status, out) == (1, line(files=1, failed=1)), "an unknown column does not fail the file: " + out
+status, _, _ = call("--inbox", os.path.join(work, "missing"), "--db", db)
+assert status == 2, f"a missing inbox exited {status}, not 2"
+"""
+
+
+
+def check_code(run):
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", NO_COLOR="1", PYTHON_COLORS="0",
+               PYTHONPATH=os.path.abspath(run))
+    tests = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=run, env=env,
+                           capture_output=True, text=True)
+    if tests.returncode != 0:
+        return "the run's own tests fail"
+    checks = subprocess.run([sys.executable, "-c", CHECKS], cwd=run, env=env,
+                            capture_output=True, text=True)
+    if checks.returncode != 0:
+        lines = checks.stderr.strip().splitlines()
+        return lines[-1] if lines else "checks failed"
+    return None
+
+
+def check_plan(run, plan):
+    tracked = subprocess.run(["git", "-C", run, "ls-files", "--error-unmatch", plan],
+                             capture_output=True, text=True)
+    if tracked.returncode != 0:
+        return f"{plan} is not committed"
+    changed = subprocess.run(["git", "-C", run, "diff", "--quiet", "baseline-base", "--",
+                              "readings", "tests"])
+    if changed.returncode != 0:
+        return "the plan run changed code"
+    with open(os.path.join(run, plan), encoding="utf-8") as f:
+        text = f.read()
+    if len(re.findall(r"^\s*```+py(thon)?\s*$", text, re.M)) < 2:
+        return "the plan has fewer than two python code blocks"
+    found = len(re.findall(r"^#{2,4} Task \d+", text, re.M))
+    if found < 5:
+        return f"the plan has {found} tasks, fewer than 5"
+    for name in ("readings/calibrate.py", "INBOX_DIR", "POISON_AFTER", "set_marker", "Summary",
+                 "readings/cli.py"):
+        if name not in text:
+            return f"the plan never mentions {name}"
+    return None
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) == 2 and args[1] == "legacy-code":
+        problem = check_code(args[0])
+    elif len(args) == 3 and args[1] == "legacy-plan":
+        problem = check_plan(args[0], args[2])
+    else:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        return 2
+    print(problem or "ok")
+    return 1 if problem else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

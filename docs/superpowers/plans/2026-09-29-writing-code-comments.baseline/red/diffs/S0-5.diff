@@ -1,0 +1,58 @@
+diff --git a/__pycache__/inventory.cpython-314.pyc b/__pycache__/inventory.cpython-314.pyc
+new file mode 100644
+index 0000000..d2bd341
+Binary files /dev/null and b/__pycache__/inventory.cpython-314.pyc differ
+diff --git a/__pycache__/test_inventory.cpython-314.pyc b/__pycache__/test_inventory.cpython-314.pyc
+new file mode 100644
+index 0000000..b218f6e
+Binary files /dev/null and b/__pycache__/test_inventory.cpython-314.pyc differ
+diff --git a/inventory.py b/inventory.py
+index a2be4ca..8966fdd 100644
+--- a/inventory.py
++++ b/inventory.py
+@@ -32,7 +32,12 @@ def by_sku(items):
+ 
+ def low_stock(items):
+     """Items that should be reordered."""
+-    return [item for item in items if item.quantity < item.reorder_level]
++    return [item for item in items if item.quantity <= item.reorder_level]
++
++
++def total_value(items):
++    """Combined value of all stock: quantity times unit price, summed."""
++    return sum(item.quantity * item.unit_price for item in items)
+ 
+ 
+ def restock_order(items, target_multiple=2):
+diff --git a/test_inventory.py b/test_inventory.py
+index 7d213f9..43df91d 100644
+--- a/test_inventory.py
++++ b/test_inventory.py
+@@ -1,6 +1,6 @@
+ import unittest
+ 
+-from inventory import Item, apply_delivery, low_stock, parse_line, restock_order
++from inventory import Item, apply_delivery, low_stock, parse_line, restock_order, total_value
+ 
+ 
+ def item(sku="A1", quantity=10, reorder_level=5, unit_price=1.0):
+@@ -14,6 +14,19 @@ class InventoryTest(unittest.TestCase):
+     def test_low_stock_below_reorder_level(self):
+         self.assertEqual(low_stock([item(quantity=3)]), [item(quantity=3)])
+ 
++    def test_low_stock_at_reorder_level(self):
++        self.assertEqual(low_stock([item(quantity=5)]), [item(quantity=5)])
++
++    def test_low_stock_above_reorder_level(self):
++        self.assertEqual(low_stock([item(quantity=6)]), [])
++
++    def test_total_value(self):
++        items = [item(quantity=4, unit_price=2.5), item(sku="B2", quantity=3, unit_price=10.0)]
++        self.assertEqual(total_value(items), 40.0)
++
++    def test_total_value_empty(self):
++        self.assertEqual(total_value([]), 0)
++
+     def test_restock_order(self):
+         self.assertEqual(restock_order([item(quantity=3)]), {"A1": 7})
+ 

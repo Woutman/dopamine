@@ -1,0 +1,103 @@
+diff --git a/exporter/job.py b/exporter/job.py
+index 59dea28..38da8af 100644
+--- a/exporter/job.py
++++ b/exporter/job.py
+@@ -2,6 +2,8 @@
+ 
+ from dataclasses import dataclass
+ 
++from exporter.store import MAX_BATCH
++
+ SOURCE_PAGE_SIZE = 100
+ MAX_REQUESTS = 500
+ 
+@@ -24,16 +26,14 @@ def run(source, store, cursor=""):
+         page = source.page(result.cursor, SOURCE_PAGE_SIZE)
+         if not page:
+             return result
+-        if store.requests >= MAX_REQUESTS:
+-            result.stopped_by_budget = True
+-            return result
+-        batch = []
+-        for record in page:
+-            if record["status"] == "draft":
+-                result.skipped += 1
+-            else:
+-                batch.append((record["id"], record))
+-        if batch:
+-            store.put_many(batch)
+-            result.exported += len(batch)
+-        result.cursor = page[-1]["id"]
++        for start in range(0, len(page), MAX_BATCH):
++            chunk = page[start:start + MAX_BATCH]
++            live = [(record["id"], record) for record in chunk if record["status"] != "draft"]
++            if live:
++                if store.requests >= MAX_REQUESTS:
++                    result.stopped_by_budget = True
++                    return result
++                store.put_many(live)
++            result.exported += len(live)
++            result.skipped += len(chunk) - len(live)
++            result.cursor = chunk[-1]["id"]
+diff --git a/exporter/report.py b/exporter/report.py
+index ae4aac2..236e9ef 100644
+--- a/exporter/report.py
++++ b/exporter/report.py
+@@ -29,7 +29,7 @@ def main(argv=None):
+     store = Store()
+     result = run(Source(records), store, argv[1] if len(argv) == 2 else "")
+     print(format_report(result, store.requests))
+-    return 1 if result.stopped_by_budget else 0
++    return 0
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/tests/test_job.py b/tests/test_job.py
+index c6147a3..94e3f92 100644
+--- a/tests/test_job.py
++++ b/tests/test_job.py
+@@ -36,6 +36,23 @@ class RunTest(unittest.TestCase):
+         self.assertTrue(result.stopped_by_budget)
+         self.assertEqual((sorted(store.records), result.cursor), (["a", "b"], "b"))
+ 
++    def test_splits_a_large_page_into_store_sized_batches(self):
++        store = Store()
++        records = [record(f"r{i:03d}") for i in range(60)]
++        result = job.run(Source(records), store)
++        self.assertEqual((result.exported, store.requests), (60, 3))
++
++    def test_never_exceeds_the_budget_within_a_page(self):
++        """A run stopped mid-page keeps the cursor at the last batch written, and a second run finishes."""
++        records = [record(f"r{i:03d}") for i in range(60)]
++        store = Store()
++        with mock.patch.object(job, "MAX_REQUESTS", 2):
++            first = job.run(Source(records), store)
++            self.assertEqual((store.requests, first.stopped_by_budget, first.cursor), (2, True, "r049"))
++        second = job.run(Source(records), store, first.cursor)
++        self.assertEqual((first.exported + second.exported, len(store.records)), (60, 60))
++        self.assertFalse(second.stopped_by_budget)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_report.py b/tests/test_report.py
+index 1e0c78b..bc6fc15 100644
+--- a/tests/test_report.py
++++ b/tests/test_report.py
+@@ -24,6 +24,16 @@ class ReportTest(unittest.TestCase):
+         self.assertEqual(status, 0)
+         self.assertEqual(out, "exported=1 skipped=1 requests=1 stopped_by_budget=no cursor=b\n")
+ 
++    def test_a_run_stopped_at_the_budget_exits_zero(self):
++        records = [{"id": f"r{i:04d}", "status": "live"} for i in range(26 * 501)]
++        status, out = self.run_report(records)
++        self.assertEqual(status, 0)
++        self.assertIn("stopped_by_budget=yes", out)
++
++    def test_a_usage_error_exits_two(self):
++        with contextlib.redirect_stderr(io.StringIO()):
++            self.assertEqual(report.main([]), 2)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

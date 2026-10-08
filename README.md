@@ -21,7 +21,7 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | Piece | What it does |
 |---|---|
 | `.dopamine/config` | Declares which paths hold which artifact tier. The plugin hard-codes no project's document set |
-| `SessionStart` hook | ~120 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules. Silent in a repo with no config |
+| `SessionStart` hook | ~140 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules. Silent in a repo with no config |
 | `dopamine:adopting-a-repo` | Writes the config, surveys existing code, and reconstructs the living documents — marking what was inferred |
 | `dopamine:brainstorm-design` | Wraps superpowers' brainstorming at system scope and derives `DESIGN.md` |
 | `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` |
@@ -29,6 +29,7 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 | `dopamine:writing-living-documents` | The slots each living document has, one schema file per document, and the rules for writing into them |
 | `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |
+| `dopamine:writing-code-comments` | What a code comment states — a why, a contract or a warning — and where a design's argument and a change's story go instead |
 | `dopamine:finishing-work` | Seal the ledger, drain it along terms derived from it, commit, and report the line counts |
 
 ## Install
@@ -69,6 +70,7 @@ Python 3 is used by the **test suite** — `tests/` parses JSON and skill frontm
 - **No ledger outside `subagent-driven-development`.** `executing-plans` and ad-hoc work have none, so the sweep falls back to reconstruction there. A reconstruction opens with a line saying so, which is how later readers know it is the weaker record.
 - **The `living:` tier does not say which path plays which role.** The authoring recipes take the declared path whose basename matches the document they own — `DESIGN.md` for `dopamine:brainstorm-design`, and so on — and ask the human where no path matches. A project using different filenames therefore answers one question per recipe, once. A `role:` field in the config is the escalation if that proves annoying.
 - **Whether sweeps happen at all is answered only after the fact.** `git log --grep='^sweep:'` shows which units of work closed with one; nothing prompts for the ones that did not. Line-count growth in the commit messages is the signal that routing is being skipped, and it has to be read by a human.
+- **Implementers are not handed the comment contract.** The baseline found that implementers copy a plan's comments and add almost none of their own, so the injection points the plan's author at the skill instead; `finishing-work`'s exit gate is the backstop for comments written outside a plan.
 
 ## Tests
 

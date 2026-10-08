@@ -1,0 +1,112 @@
+diff --git a/exporter/job.py b/exporter/job.py
+index 59dea28..697977d 100644
+--- a/exporter/job.py
++++ b/exporter/job.py
+@@ -2,6 +2,8 @@
+ 
+ from dataclasses import dataclass
+ 
++from exporter.store import MAX_BATCH
++
+ SOURCE_PAGE_SIZE = 100
+ MAX_REQUESTS = 500
+ 
+@@ -17,23 +19,22 @@ class RunResult:
+ def run(source, store, cursor=""):
+     """Export every record after `cursor`, stopping before the store would exceed MAX_REQUESTS.
+ 
+-    The result's cursor is the id of the last record dealt with, so the next run resumes after it.
++    Each source page is written in batches of at most MAX_BATCH records, one request per batch. The
++    result's cursor is the id of the last record dealt with, so the next run resumes after it.
+     """
+     result = RunResult(cursor=cursor)
+     while True:
+         page = source.page(result.cursor, SOURCE_PAGE_SIZE)
+         if not page:
+             return result
+-        if store.requests >= MAX_REQUESTS:
+-            result.stopped_by_budget = True
+-            return result
+-        batch = []
+-        for record in page:
+-            if record["status"] == "draft":
+-                result.skipped += 1
+-            else:
+-                batch.append((record["id"], record))
+-        if batch:
+-            store.put_many(batch)
+-            result.exported += len(batch)
+-        result.cursor = page[-1]["id"]
++        for start in range(0, len(page), MAX_BATCH):
++            chunk = page[start:start + MAX_BATCH]
++            live = [(record["id"], record) for record in chunk if record["status"] != "draft"]
++            if live:
++                if store.requests >= MAX_REQUESTS:
++                    result.stopped_by_budget = True
++                    return result
++                store.put_many(live)
++            result.exported += len(live)
++            result.skipped += len(chunk) - len(live)
++            result.cursor = chunk[-1]["id"]
+diff --git a/exporter/report.py b/exporter/report.py
+index ae4aac2..236e9ef 100644
+--- a/exporter/report.py
++++ b/exporter/report.py
+@@ -29,7 +29,7 @@ def main(argv=None):
+     store = Store()
+     result = run(Source(records), store, argv[1] if len(argv) == 2 else "")
+     print(format_report(result, store.requests))
+-    return 1 if result.stopped_by_budget else 0
++    return 0
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/tests/test_job.py b/tests/test_job.py
+index c6147a3..c5ddfce 100644
+--- a/tests/test_job.py
++++ b/tests/test_job.py
+@@ -36,6 +36,23 @@ class RunTest(unittest.TestCase):
+         self.assertTrue(result.stopped_by_budget)
+         self.assertEqual((sorted(store.records), result.cursor), (["a", "b"], "b"))
+ 
++    def test_splits_a_large_page_into_batches_of_at_most_25(self):
++        store = Store()
++        records = [record(f"{i:03}") for i in range(60)]
++        result = job.run(Source(records), store)
++        self.assertEqual((len(store.records), result.exported, store.requests), (60, 60, 3))
++
++    def test_budget_is_checked_before_every_request_within_a_page(self):
++        """A run stopped mid-page keeps the cursor at the last batch written; resuming loses and repeats nothing."""
++        records = [record(f"{i:03}") for i in range(60)]
++        store = Store()
++        with mock.patch.object(job, "MAX_REQUESTS", 2):
++            first = job.run(Source(records), store)
++        self.assertTrue(first.stopped_by_budget)
++        self.assertEqual((store.requests, first.exported, first.cursor), (2, 50, "049"))
++        second = job.run(Source(records), store, first.cursor)
++        self.assertEqual((first.exported + second.exported, len(store.records), store.requests), (60, 60, 3))
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_report.py b/tests/test_report.py
+index 1e0c78b..33ece13 100644
+--- a/tests/test_report.py
++++ b/tests/test_report.py
+@@ -24,6 +24,16 @@ class ReportTest(unittest.TestCase):
+         self.assertEqual(status, 0)
+         self.assertEqual(out, "exported=1 skipped=1 requests=1 stopped_by_budget=no cursor=b\n")
+ 
++    def test_stopping_at_the_budget_exits_0(self):
++        records = [{"id": f"{i:04}", "status": "live"} for i in range(13000)]
++        status, out = self.run_report(records)
++        self.assertEqual(status, 0)
++        self.assertIn("stopped_by_budget=yes", out)
++
++    def test_usage_error_exits_2(self):
++        with contextlib.redirect_stderr(io.StringIO()):
++            self.assertEqual(report.main([]), 2)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

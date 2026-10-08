@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Set up one baseline run: a fresh repository holding the legacy fixture, its
+# starting point tagged baseline-base so extract-comments finds what the run
+# added even after the run commits its own work. An execution run passes its
+# plan as an overlay: it is committed on top of the fixture and becomes the
+# starting point.
+#
+# Usage: setup-run RUNS_DIR LABEL [OVERLAY_DIR]   (prints the run's directory)
+set -euo pipefail
+
+USAGE="usage: setup-run RUNS_DIR LABEL [OVERLAY_DIR]"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 2 ] || [ $# -eq 3 ] || { echo "$USAGE" >&2; exit 2; }
+run="$1/$2"
+[ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
+
+commit() {
+    git -C "$run" add -A
+    git -C "$run" -c user.name=baseline -c user.email=baseline@localhost commit -qm "$1"
+}
+
+mkdir -p "$run"
+cp -R "$HERE/legacy-fixture/." "$run/"
+find "$run" -name __pycache__ -prune -exec rm -rf {} +
+git -C "$run" init -q
+commit fixture
+if [ $# -eq 3 ]; then
+    cp -R "$3/." "$run/"
+    commit "plan: Phase 2, unattended import from the inbox"
+fi
+git -C "$run" tag baseline-base
+cd "$run" && pwd

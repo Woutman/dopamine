@@ -74,6 +74,9 @@ assert_contains "names the skill loaded before writing to a living document" \
     "$ctx" "dopamine:writing-living-documents"
 assert_contains "names the skill loaded before writing to the instructions file" \
     "$ctx" "dopamine:writing-claude-md"
+assert_contains "names the skill loaded before writing a code comment" \
+    "$ctx" "dopamine:writing-code-comments"
+assert_contains "including a comment in a plan's code" "$ctx" "plan's code block"
 assert_contains "points at superpowers' existing ledger" "$ctx" "ledger"
 assert_contains "names the living documents it governs" "$ctx" "living document"
 assert_not_contains "no reference to the renamed skill survives" "$ctx" "dopamine:sweep"

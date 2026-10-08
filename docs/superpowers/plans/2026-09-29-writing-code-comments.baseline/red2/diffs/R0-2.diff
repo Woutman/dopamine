@@ -1,0 +1,147 @@
+diff --git a/exporter/job.py b/exporter/job.py
+index 59dea28..867793b 100644
+--- a/exporter/job.py
++++ b/exporter/job.py
+@@ -2,6 +2,8 @@
+ 
+ from dataclasses import dataclass
+ 
++from exporter.store import MAX_BATCH
++
+ SOURCE_PAGE_SIZE = 100
+ MAX_REQUESTS = 500
+ 
+@@ -14,26 +16,40 @@ class RunResult:
+     stopped_by_budget: bool = False
+ 
+ 
++def _flush(store, result, batch, drafts, last_id):
++    """Write `batch` and advance the result to `last_id`; False, changing nothing, if the budget is spent."""
++    if batch:
++        if store.requests >= MAX_REQUESTS:
++            return False
++        store.put_many(batch)
++    result.exported += len(batch)
++    result.skipped += drafts
++    result.cursor = last_id
++    return True
++
++
+ def run(source, store, cursor=""):
+     """Export every record after `cursor`, stopping before the store would exceed MAX_REQUESTS.
+ 
+-    The result's cursor is the id of the last record dealt with, so the next run resumes after it.
++    Writes in batches of at most MAX_BATCH. The result's cursor is the id of the last record dealt
++    with, so the next run resumes after it, even when the run stopped part-way through a page.
+     """
+     result = RunResult(cursor=cursor)
+     while True:
+         page = source.page(result.cursor, SOURCE_PAGE_SIZE)
+         if not page:
+             return result
+-        if store.requests >= MAX_REQUESTS:
+-            result.stopped_by_budget = True
+-            return result
+-        batch = []
++        batch, drafts = [], 0
+         for record in page:
+             if record["status"] == "draft":
+-                result.skipped += 1
++                drafts += 1
+             else:
+                 batch.append((record["id"], record))
+-        if batch:
+-            store.put_many(batch)
+-            result.exported += len(batch)
+-        result.cursor = page[-1]["id"]
++            if len(batch) == MAX_BATCH:
++                if not _flush(store, result, batch, drafts, record["id"]):
++                    result.stopped_by_budget = True
++                    return result
++                batch, drafts = [], 0
++        if not _flush(store, result, batch, drafts, page[-1]["id"]):
++            result.stopped_by_budget = True
++            return result
+diff --git a/exporter/report.py b/exporter/report.py
+index ae4aac2..236e9ef 100644
+--- a/exporter/report.py
++++ b/exporter/report.py
+@@ -29,7 +29,7 @@ def main(argv=None):
+     store = Store()
+     result = run(Source(records), store, argv[1] if len(argv) == 2 else "")
+     print(format_report(result, store.requests))
+-    return 1 if result.stopped_by_budget else 0
++    return 0
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/tests/test_job.py b/tests/test_job.py
+index c6147a3..e816f98 100644
+--- a/tests/test_job.py
++++ b/tests/test_job.py
+@@ -36,6 +36,32 @@ class RunTest(unittest.TestCase):
+         self.assertTrue(result.stopped_by_budget)
+         self.assertEqual((sorted(store.records), result.cursor), (["a", "b"], "b"))
+ 
++    def test_splits_a_large_page_into_batches_of_at_most_25(self):
++        store = Store()
++        result = job.run(Source([record(f"{n:03d}") for n in range(60)]), store)
++        self.assertEqual((result.exported, store.requests), (60, 3))
++
++    def test_never_exceeds_the_budget_and_resumes_mid_page(self):
++        """A run stopped between batches of one page keeps its cursor at the last batch written."""
++        records = [record(f"{n:03d}") for n in range(60)]
++        store = Store()
++        with mock.patch.object(job, "MAX_REQUESTS", 2):
++            first = job.run(Source(records), store)
++        self.assertTrue(first.stopped_by_budget)
++        self.assertEqual((store.requests, first.exported, first.cursor), (2, 50, "049"))
++        second = job.run(Source(records), store, first.cursor)
++        self.assertEqual((len(store.records), first.exported + second.exported), (60, 60))
++        self.assertFalse(second.stopped_by_budget)
++
++    def test_drafts_after_an_unwritten_batch_are_not_counted_or_passed(self):
++        records = [record(f"{n:03d}") for n in range(25)] + [record("025", "draft"), record("026")]
++        store = Store()
++        with mock.patch.object(job, "MAX_REQUESTS", 1):
++            first = job.run(Source(records), store)
++        self.assertEqual((first.exported, first.skipped, first.cursor), (25, 0, "024"))
++        second = job.run(Source(records), store, first.cursor)
++        self.assertEqual((second.exported, second.skipped), (1, 1))
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_report.py b/tests/test_report.py
+index 1e0c78b..e1ba22c 100644
+--- a/tests/test_report.py
++++ b/tests/test_report.py
+@@ -4,8 +4,9 @@ import json
+ import os
+ import tempfile
+ import unittest
++from unittest import mock
+ 
+-from exporter import report
++from exporter import job, report
+ 
+ 
+ class ReportTest(unittest.TestCase):
+@@ -24,6 +25,17 @@ class ReportTest(unittest.TestCase):
+         self.assertEqual(status, 0)
+         self.assertEqual(out, "exported=1 skipped=1 requests=1 stopped_by_budget=no cursor=b\n")
+ 
++    def test_a_run_stopped_at_the_budget_exits_0(self):
++        with mock.patch.object(job, "MAX_REQUESTS", 1), mock.patch.object(job, "SOURCE_PAGE_SIZE", 1):
++            status, out = self.run_report([{"id": "a", "status": "live"}, {"id": "b", "status": "live"}])
++        self.assertEqual(status, 0)
++        self.assertIn("stopped_by_budget=yes", out)
++
++    def test_a_usage_error_exits_2(self):
++        err = io.StringIO()
++        with contextlib.redirect_stderr(err):
++            self.assertEqual(report.main([]), 2)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

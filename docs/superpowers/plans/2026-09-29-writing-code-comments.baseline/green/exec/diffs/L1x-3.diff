@@ -1,0 +1,744 @@
+diff --git a/readings/__main__.py b/readings/__main__.py
+new file mode 100644
+index 0000000..8b0ab56
+--- /dev/null
++++ b/readings/__main__.py
+@@ -0,0 +1,6 @@
++"""python3 -m readings: one import run over the inbox."""
++import sys
++
++from .cli import main
++
++sys.exit(main())
+diff --git a/readings/calibrate.py b/readings/calibrate.py
+deleted file mode 100644
+index 06a6cee..0000000
+--- a/readings/calibrate.py
++++ /dev/null
+@@ -1,36 +0,0 @@
+-"""Remote calibration: per-sensor offsets from the calibration service.
+-
+-The service fits an offset for each station and quantity against the reference
+-stations nearby. Applying it fills a reading's calibrated_value.
+-"""
+-import json
+-import urllib.request
+-
+-CALIBRATION_MODEL = "drift-offsets-v3"
+-SERVICE_URL = "https://calibration.invalid/v1/offsets"
+-TIMEOUT = 10  # seconds
+-
+-
+-class CalibrationError(RuntimeError):
+-    pass
+-
+-
+-def fetch_offsets(station, opener=urllib.request.urlopen):
+-    """{quantity: offset} for a station, under CALIBRATION_MODEL."""
+-    url = f"{SERVICE_URL}?station={station}&model={CALIBRATION_MODEL}"
+-    try:
+-        with opener(url, timeout=TIMEOUT) as response:
+-            body = json.load(response)
+-    except OSError as e:
+-        raise CalibrationError(f"calibration service: {e}") from None
+-    # the service answers 200 with an empty body while a model is refitting
+-    if not body.get("offsets"):
+-        raise CalibrationError(f"no offsets for {station}")
+-    return body["offsets"]
+-
+-
+-def apply(readings, offsets):
+-    for reading in readings:
+-        # add the offset
+-        reading.calibrated_value = round(reading.value + offsets.get(reading.quantity, 0.0), 2)
+-        reading.calibration_version = CALIBRATION_MODEL
+diff --git a/readings/cli.py b/readings/cli.py
+new file mode 100644
+index 0000000..9c60b4d
+--- /dev/null
++++ b/readings/cli.py
+@@ -0,0 +1,50 @@
++"""The command line: python3 -m readings [--inbox DIR] [--db PATH]."""
++import argparse
++import dataclasses
++import os
++
++from . import runner
++from .store import Store
++
++DB_PATH = "readings.db"
++
++
++def summary_line(summary):
++    """'files=4 imported=2 ...': every Summary field, in declaration order."""
++    return " ".join(f"{field.name}={getattr(summary, field.name)}"
++                    for field in dataclasses.fields(summary))
++
++
++def exit_status(summary):
++    """3 when a poisoned file is in the inbox, else 1 when a file failed this run, else 0."""
++    if summary.poisoned:
++        return 3
++    if summary.failed:
++        return 1
++    return 0
++
++
++def main(argv=None):
++    """Run one import over the inbox and return the process's exit status.
++
++    0: nothing needs a person. 1: a file failed and will be retried. 2: usage
++    error. 3: a poisoned file is in the inbox. An exception from the store
++    propagates.
++    """
++    parser = argparse.ArgumentParser(prog="python3 -m readings")
++    parser.add_argument("--inbox", default=runner.INBOX_DIR)
++    parser.add_argument("--db", default=DB_PATH)
++    try:
++        args = parser.parse_args(argv)
++        if not os.path.isdir(args.inbox):
++            parser.error(f"inbox not found: {args.inbox}")
++    except SystemExit as e:
++        # argparse exits on a usage error; main returns the status instead.
++        return e.code
++    store = Store(args.db)
++    try:
++        summary = runner.run(args.inbox, store)
++    finally:
++        store.close()
++    print(summary_line(summary))
++    return exit_status(summary)
+diff --git a/readings/parse.py b/readings/parse.py
+index 880c4a2..92fdbec 100644
+--- a/readings/parse.py
++++ b/readings/parse.py
+@@ -16,8 +16,6 @@ class Reading:
+     time: str
+     quantity: str
+     value: float
+-    calibrated_value: float = None
+-    calibration_version: str = None
+ 
+ 
+ class FileError(ValueError):
+@@ -34,8 +32,9 @@ def station_of(path):
+ def parse_file(path):
+     """(readings, rejected row numbers) for one export.
+ 
+-    Raises FileError when the file has no station name, is not text, or has no
+-    time column.
++    Raises FileError when the file has no station name, is not UTF-8, has no
++    delimiter in its header, has no time column, or has a column units.COLUMNS
++    does not know.
+     """
+     station = station_of(path)
+     try:
+@@ -50,9 +49,13 @@ def parse_file(path):
+     header, *body = dialect.rows(text, found)
+     if not header or header[0] != "time":
+         raise FileError("first column is not time")
++    # Checked before any row, so an unmapped column fails the file instead of
++    # rejecting each of its rows.
++    unknown = [column for column in header[1:] if column not in units.COLUMNS]
++    if unknown:
++        raise FileError(f"unknown columns: {', '.join(unknown)}")
+ 
+     readings, rejected = [], []
+-    # row numbers are stable because a station never rewrites a file it has exported
+     for row, fields in enumerate(body, 1):
+         if len(fields) != len(header):
+             rejected.append(row)
+@@ -60,7 +63,7 @@ def parse_file(path):
+         try:
+             time = datetime.fromisoformat(fields[0]).isoformat(timespec="minutes")
+             values = [units.convert(c, f, found.decimal) for c, f in zip(header[1:], fields[1:])]
+-        except (KeyError, ValueError):
++        except ValueError:
+             rejected.append(row)
+             continue
+         for converted in values:
+diff --git a/readings/report.py b/readings/report.py
+deleted file mode 100644
+index 35efcee..0000000
+--- a/readings/report.py
++++ /dev/null
+@@ -1,15 +0,0 @@
+-"""A one-line account of a runner.run, for the notebook's log cell."""
+-from .runner import Outcome
+-
+-ORDER = (Outcome.STORED, Outcome.DUPLICATE, Outcome.REJECTED, Outcome.FAILED,
+-         Outcome.CALIBRATION_FAILED)
+-
+-
+-def format_counts(counts):
+-    """'stored=12 duplicate=0 ...', every Outcome present, in ORDER."""
+-    return " ".join(f"{outcome.value}={counts.get(outcome, 0)}" for outcome in ORDER)
+-
+-
+-def worth_a_look(counts):
+-    # anything but stored and duplicate means someone should open the files
+-    return any(counts.get(o, 0) for o in ORDER if o not in (Outcome.STORED, Outcome.DUPLICATE))
+diff --git a/readings/runner.py b/readings/runner.py
+index b303d8c..b57265b 100644
+--- a/readings/runner.py
++++ b/readings/runner.py
+@@ -1,89 +1,92 @@
+-"""Import every export the manifest lists.
+-
+-Spike: run by hand on the notebook host, after the notebook has written the manifest.
+-"""
++"""Import every station export in the inbox into the store, one file at a time."""
++import dataclasses
+ import os
+-import threading
+-from collections import Counter
+-from concurrent.futures import ThreadPoolExecutor
+-from dataclasses import asdict
+-from enum import Enum
++import sys
++from dataclasses import dataclass
+ 
+-from . import calibrate
+ from .parse import FileError, parse_file
+ 
+-DROP_DIR = "drop"
+-MANIFEST = "manifest.txt"
+-PROGRESS_LOG = "progress.log"
+-WORKERS = 8  # eight keeps the notebook host busy without swapping
+-CALIBRATE = False  # off until the calibration service is back
++INBOX_DIR = "inbox"
++POISON_AFTER = 3
+ 
+ 
+-class Outcome(Enum):
+-    STORED = "stored"
+-    DUPLICATE = "duplicate"
+-    REJECTED = "rejected"
+-    FAILED = "failed"
+-    CALIBRATION_FAILED = "calibration_failed"
++@dataclass
++class Summary:
++    files: int = 0       # *.csv files in the inbox
++    imported: int = 0    # read this run and marked done
++    skipped: int = 0     # already done, not opened
++    failed: int = 0      # failed this run, will be retried
++    poisoned: int = 0    # poisoned, this run or before
++    stored: int = 0
++    duplicates: int = 0
++    rejected: int = 0
+ 
+ 
+ def key(reading):
+-    # Keyed by station and row: importing the same file again maps its rows to
+-    # the same keys, so nothing is stored twice.
+-    return f"{reading.station}:{reading.row}:{reading.quantity}"
++    """The reading's store key: the same in every export that carries it."""
++    return f"{reading.station}|{reading.time}|{reading.quantity}"
++
+ 
++def exports(inbox):
++    """Names of the *.csv files in inbox, in name order."""
++    return sorted(name for name in os.listdir(inbox)
++                  if name.endswith(".csv") and os.path.isfile(os.path.join(inbox, name)))
+ 
+-def load_progress(path):
+-    if not os.path.exists(path):
+-        return set()
+-    with open(path, encoding="utf-8") as f:
+-        return {line.strip() for line in f if line.strip()}
+ 
++def run(inbox, store):
++    """Import every *.csv file in inbox into store, in name order; return a Summary.
++
++    A file's readings and its marker are committed together. A FileError fails
++    that file and the run goes on; any other exception rolls back the file in
++    hand and propagates.
++    """
++    summary = Summary()
++    for name in exports(inbox):
++        summary.files += 1
++        marker = store.marker(name)
++        state = marker.state if marker else None
++        if state == "done":
++            summary.skipped += 1
++        elif state == "poisoned":
++            summary.poisoned += 1
++        else:
++            try:
++                _import(inbox, name, marker, store, summary)
++            except BaseException:
++                store.rollback()
++                raise
++    return summary
+ 
+-def import_file(path, sink, done, log, lock):
+-    counts = Counter()
++
++def _import(inbox, name, marker, store, summary):
+     try:
+-        readings, rejected = parse_file(path)
+-    except FileError:
+-        counts[Outcome.FAILED] += 1
+-        return counts
+-    counts[Outcome.REJECTED] += len(rejected)
+-    if CALIBRATE:
+-        try:
+-            calibrate.apply(readings, calibrate.fetch_offsets(readings[0].station))
+-        except calibrate.CalibrationError:
+-            counts[Outcome.CALIBRATION_FAILED] += 1
++        readings, rejected = parse_file(os.path.join(inbox, name))
++    except FileError as e:
++        _fail(name, marker, str(e), store, summary)
++        return
++    stored = duplicates = 0
+     for reading in readings:
+-        k = key(reading)
+-        with lock:
+-            if k in done or k in sink:
+-                counts[Outcome.DUPLICATE] += 1
+-                continue
+-            sink[k] = asdict(reading)
+-            # One line per stored reading, so a crash loses at most the
+-            # reading being written.
+-            log.write(k + "\n")
+-            log.flush()
+-            done.add(k)
+-        counts[Outcome.STORED] += 1
+-    return counts
+-
++        if store.add(key(reading), dataclasses.asdict(reading)):
++            stored += 1
++        else:
++            duplicates += 1
++    store.set_marker(name, "done", 0,
++                     f"{stored} stored, {duplicates} duplicates, {len(rejected)} rejected")
++    store.commit()
++    summary.imported += 1
++    summary.stored += stored
++    summary.duplicates += duplicates
++    summary.rejected += len(rejected)
+ 
+-def run(base, sink):
+-    """Import the files listed in base/MANIFEST from base/DROP_DIR into sink.
+ 
+-    Returns a Counter of Outcomes.
+-    """
+-    with open(os.path.join(base, MANIFEST), encoding="utf-8") as f:
+-        names = [line.strip() for line in f if line.strip()]
+-    done = load_progress(os.path.join(base, PROGRESS_LOG))
+-    lock = threading.Lock()
+-    total = Counter()
+-    with open(os.path.join(base, PROGRESS_LOG), "a", encoding="utf-8") as log, \
+-            ThreadPoolExecutor(WORKERS) as pool:
+-        futures = [pool.submit(import_file, os.path.join(base, DROP_DIR, name), sink, done, log, lock)
+-                   for name in names]
+-        # collect the results
+-        for future in futures:
+-            total.update(future.result())
+-    return total
++def _fail(name, marker, detail, store, summary):
++    store.rollback()
++    failures = (marker.failures if marker else 0) + 1
++    state = "poisoned" if failures >= POISON_AFTER else "failed"
++    store.set_marker(name, state, failures, detail)
++    store.commit()
++    if state == "poisoned":
++        summary.poisoned += 1
++    else:
++        summary.failed += 1
++    print(f"{name}: {state} ({failures}): {detail}", file=sys.stderr)
+diff --git a/tests/test_calibrate.py b/tests/test_calibrate.py
+deleted file mode 100644
+index a6d032e..0000000
+--- a/tests/test_calibrate.py
++++ /dev/null
+@@ -1,31 +0,0 @@
+-import io
+-import json
+-import unittest
+-
+-from readings import calibrate
+-from readings.parse import Reading
+-
+-
+-def answering(body):
+-    def opener(url, timeout):
+-        return io.BytesIO(json.dumps(body).encode())
+-    return opener
+-
+-
+-class CalibrateTest(unittest.TestCase):
+-    def test_offsets_are_applied(self):
+-        readings = [Reading("ST014", 1, "2026-01-15T00:00", "temperature", 3.1)]
+-        offsets = calibrate.fetch_offsets("ST014", answering({"offsets": {"temperature": -0.4}}))
+-        calibrate.apply(readings, offsets)
+-        self.assertEqual(readings[0].calibrated_value, 2.7)
+-        self.assertEqual(readings[0].calibration_version, calibrate.CALIBRATION_MODEL)
+-
+-    def test_refitting_service_is_an_error(self):
+-        with self.assertRaises(calibrate.CalibrationError):
+-            calibrate.fetch_offsets("ST014", answering({}))
+-
+-    def test_unreachable_service_is_an_error(self):
+-        def down(url, timeout):
+-            raise OSError("connection refused")
+-        with self.assertRaises(calibrate.CalibrationError):
+-            calibrate.fetch_offsets("ST014", down)
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+new file mode 100644
+index 0000000..a641f74
+--- /dev/null
++++ b/tests/test_cli.py
+@@ -0,0 +1,101 @@
++import contextlib
++import io
++import os
++import subprocess
++import sys
++import unittest
++
++from readings import cli
++from readings.store import Store
++from tests.helpers import HEADER, temp_dir, write
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++GOOD = "ST014_202601150600.csv"
++OVERLAPPING = "ST014_202601151200.csv"
++BROKEN = "ST020_202601150600.csv"
++ALSO_BROKEN = "ST021_202601150600.csv"
++ROW_0000 = "2026-01-15T00:00,3.1,1012.4,4.2\n"
++ROW_0100 = "2026-01-15T01:00,3.0,1012.1,4.0\n"
++
++
++def line(**counts):
++    fields = ("files", "imported", "skipped", "failed", "poisoned", "stored", "duplicates", "rejected")
++    return " ".join(f"{name}={counts.get(name, 0)}" for name in fields) + "\n"
++
++
++class MainTest(unittest.TestCase):
++    def setUp(self):
++        self.inbox = temp_dir(self)
++        self.db = os.path.join(temp_dir(self), "readings.db")
++
++    def main(self, argv=None):
++        """(status, stdout, stderr) of one cli.main call."""
++        out, err = io.StringIO(), io.StringIO()
++        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
++            status = cli.main(["--inbox", self.inbox, "--db", self.db] if argv is None else argv)
++        return status, out.getvalue(), err.getvalue()
++
++    def stored(self):
++        store = Store(self.db)
++        try:
++            return store.count()
++        finally:
++            store.close()
++
++    def test_clean_run_exits_0(self):
++        write(self.inbox, GOOD, HEADER + ROW_0000)
++        self.assertEqual(self.main(), (0, line(files=1, imported=1, stored=3), ""))
++        self.assertEqual(self.stored(), 3)
++
++    def test_summary_counts_every_kind_of_file(self):
++        write(self.inbox, GOOD, HEADER + ROW_0000)
++        self.main()
++        write(self.inbox, OVERLAPPING, HEADER + ROW_0000 + "--:--,3.0,1012.1,4.0\n" + ROW_0100)
++        write(self.inbox, BROKEN, "garbage\n")
++        self.assertEqual(self.main(),
++                         (1, line(files=3, imported=1, skipped=1, failed=1, stored=3, duplicates=3, rejected=1),
++                          f"{BROKEN}: failed (1): header has no delimiter\n"))
++        self.assertEqual(self.stored(), 6)
++
++    def test_unreadable_file_exits_1_1_3_3(self):
++        write(self.inbox, BROKEN, "garbage\n")
++        self.assertEqual([self.main()[0] for _ in range(4)], [1, 1, 3, 3])
++        self.assertEqual(self.stored(), 0)
++
++    def test_poisoned_outranks_failed(self):
++        write(self.inbox, BROKEN, "garbage\n")
++        for _ in range(3):
++            self.main()
++        write(self.inbox, ALSO_BROKEN, "garbage\n")
++        self.assertEqual(self.main(),
++                         (3, line(files=2, failed=1, poisoned=1),
++                          f"{ALSO_BROKEN}: failed (1): header has no delimiter\n"))
++
++    def test_empty_inbox_exits_0(self):
++        self.assertEqual(self.main(), (0, line(), ""))
++
++    def test_missing_inbox_is_a_usage_error(self):
++        status, out, err = self.main(["--inbox", os.path.join(self.inbox, "absent"), "--db", self.db])
++        self.assertEqual((status, out), (2, ""))
++        self.assertIn("inbox not found", err)
++        self.assertFalse(os.path.exists(self.db))
++
++
++class ModuleTest(unittest.TestCase):
++    def setUp(self):
++        self.inbox = temp_dir(self)
++
++    def module(self, db):
++        return subprocess.run([sys.executable, "-m", "readings", "--inbox", self.inbox, "--db", db],
++                              cwd=ROOT, capture_output=True, text=True)
++
++    def test_exits_with_mains_status(self):
++        write(self.inbox, GOOD, HEADER + ROW_0000)
++        result = self.module(os.path.join(temp_dir(self), "readings.db"))
++        self.assertEqual((result.returncode, result.stdout), (0, line(files=1, imported=1, stored=3)))
++
++    def test_store_that_cannot_open_stops_the_run_with_1(self):
++        write(self.inbox, GOOD, HEADER + ROW_0000)
++        result = self.module(temp_dir(self))  # a directory: sqlite cannot open it
++        self.assertEqual((result.returncode, result.stdout), (1, ""))
++        self.assertIn("OperationalError", result.stderr)
+diff --git a/tests/test_parse.py b/tests/test_parse.py
+index 7703c38..cf1bcb2 100644
+--- a/tests/test_parse.py
++++ b/tests/test_parse.py
+@@ -1,3 +1,4 @@
++import dataclasses
+ import unittest
+ 
+ from readings import parse
+@@ -45,3 +46,27 @@ class ParseFileTest(unittest.TestCase):
+         path = write(self.dir, "ST014_202601150600.csv", "temp_c,wind_ms\n3.1,4.2\n")
+         with self.assertRaises(parse.FileError):
+             parse.parse_file(path)
++
++    def test_reading_has_no_calibration_fields(self):
++        self.assertEqual([field.name for field in dataclasses.fields(parse.Reading)],
++                         ["station", "row", "time", "quantity", "value"])
++
++    def test_unknown_column_fails_the_file(self):
++        path = write(self.dir, "ST014_202601150600.csv",
++                     "time,temp_c,humidity\n2026-01-15T00:00,3.1,80\n")
++        with self.assertRaisesRegex(parse.FileError, "^unknown columns: humidity$"):
++            parse.parse_file(path)
++
++    def test_unknown_column_fails_a_file_without_rows(self):
++        path = write(self.dir, "ST014_202601150600.csv", "time,humidity\n")
++        with self.assertRaises(parse.FileError):
++            parse.parse_file(path)
++
++    def test_header_only_export_has_nothing_to_read(self):
++        path = write(self.dir, "ST014_202601150600.csv", HEADER)
++        self.assertEqual(parse.parse_file(path), ([], []))
++
++    def test_empty_file(self):
++        path = write(self.dir, "ST014_202601150600.csv", "")
++        with self.assertRaisesRegex(parse.FileError, "^header has no delimiter$"):
++            parse.parse_file(path)
+diff --git a/tests/test_report.py b/tests/test_report.py
+deleted file mode 100644
+index 4bca11a..0000000
+--- a/tests/test_report.py
++++ /dev/null
+@@ -1,17 +0,0 @@
+-import unittest
+-from collections import Counter
+-
+-from readings import report
+-from readings.runner import Outcome
+-
+-
+-class ReportTest(unittest.TestCase):
+-    def test_every_outcome_in_order(self):
+-        self.assertEqual(report.format_counts(Counter({Outcome.STORED: 3})),
+-                         "stored=3 duplicate=0 rejected=0 failed=0 calibration_failed=0")
+-
+-    def test_duplicates_alone_are_fine(self):
+-        self.assertFalse(report.worth_a_look(Counter({Outcome.STORED: 3, Outcome.DUPLICATE: 2})))
+-
+-    def test_a_failure_is_worth_a_look(self):
+-        self.assertTrue(report.worth_a_look(Counter({Outcome.FAILED: 1})))
+diff --git a/tests/test_runner.py b/tests/test_runner.py
+index febfd66..5c2fba9 100644
+--- a/tests/test_runner.py
++++ b/tests/test_runner.py
+@@ -1,49 +1,145 @@
++import contextlib
++import io
+ import os
++import sqlite3
+ import unittest
+-from unittest import mock
+ 
+ from readings import runner
+-from readings.runner import Outcome
++from readings.parse import Reading
++from readings.runner import Summary
++from readings.store import Marker, Store
+ from tests.helpers import HEADER, temp_dir, write
+ 
++FIRST = "ST014_202601150600.csv"
++SECOND = "ST014_202601151200.csv"
++ROW_0000 = "2026-01-15T00:00,3.1,1012.4,4.2\n"
++ROW_0100 = "2026-01-15T01:00,3.0,1012.1,4.0\n"
++ROW_0200 = "2026-01-15T02:00,2.9,1011.9,3.8\n"
+ 
+-class RunnerTest(unittest.TestCase):
++
++class FailingStore(Store):
++    """A real store whose add raises once `adds` readings have been added."""
++
++    def __init__(self, path, adds):
++        super().__init__(path)
++        self.adds = adds
++
++    def add(self, key, reading):
++        if self.adds == 0:
++            raise sqlite3.OperationalError("disk I/O error")
++        self.adds -= 1
++        return super().add(key, reading)
++
++
++class RunTest(unittest.TestCase):
+     def setUp(self):
+-        self.base = temp_dir(self)
+-        os.mkdir(os.path.join(self.base, runner.DROP_DIR))
+-
+-    def drop(self, name, text):
+-        write(os.path.join(self.base, runner.DROP_DIR), name, text)
+-        with open(os.path.join(self.base, runner.MANIFEST), "a", encoding="utf-8") as f:
+-            f.write(name + "\n")
+-
+-    def test_imports_listed_files(self):
+-        self.drop("ST014_202601150600.csv", HEADER + "2026-01-15T00:00,3.1,1012.4,4.2\n")
+-        sink = {}
+-        counts = runner.run(self.base, sink)
+-        self.assertEqual(counts[Outcome.STORED], 3)
+-        self.assertIn("ST014:1:temperature", sink)
+-
+-    def test_second_run_resumes_from_progress_log(self):
+-        self.drop("ST014_202601150600.csv", HEADER + "2026-01-15T00:00,3.1,1012.4,4.2\n")
+-        runner.run(self.base, {})
+-        counts = runner.run(self.base, {})
+-        self.assertEqual(counts[Outcome.STORED], 0)
+-        self.assertEqual(counts[Outcome.DUPLICATE], 3)
+-
+-    def test_unreadable_file_is_counted(self):
+-        self.drop("ST014_202601150600.csv", "garbage\n")
+-        self.assertEqual(runner.run(self.base, {})[Outcome.FAILED], 1)
+-
+-    def test_rejected_rows_are_counted(self):
+-        self.drop("ST014_202601150600.csv", HEADER + "yesterday,3.1,1012.4,4.2\n")
+-        self.assertEqual(runner.run(self.base, {})[Outcome.REJECTED], 1)
+-
+-    def test_calibration_failure_still_stores(self):
+-        self.drop("ST014_202601150600.csv", HEADER + "2026-01-15T00:00,3.1,1012.4,4.2\n")
+-        with mock.patch.object(runner, "CALIBRATE", True), \
+-                mock.patch.object(runner.calibrate, "fetch_offsets",
+-                                  side_effect=runner.calibrate.CalibrationError("down")):
+-            counts = runner.run(self.base, {})
+-        self.assertEqual(counts[Outcome.CALIBRATION_FAILED], 1)
+-        self.assertEqual(counts[Outcome.STORED], 3)
++        self.inbox = temp_dir(self)
++        self.db = os.path.join(temp_dir(self), "readings.db")
++        self.store = Store(self.db)
++        self.addCleanup(self.store.close)
++
++    def run_once(self, store=None):
++        """(Summary, stderr) of one run."""
++        err = io.StringIO()
++        with contextlib.redirect_stderr(err):
++            summary = runner.run(self.inbox, store or self.store)
++        return summary, err.getvalue()
++
++    def test_key_is_station_time_quantity(self):
++        reading = Reading("ST014", 7, "2026-01-15T00:00", "temperature", 3.1)
++        self.assertEqual(runner.key(reading), "ST014|2026-01-15T00:00|temperature")
++
++    def test_overlapping_exports_store_each_reading_once(self):
++        # Written in reverse name order: the run's order must come from the names.
++        write(self.inbox, SECOND, HEADER + ROW_0100 + ROW_0200)
++        write(self.inbox, FIRST, HEADER + ROW_0000 + ROW_0100)
++        self.assertEqual(self.run_once(),
++                         (Summary(files=2, imported=2, stored=9, duplicates=3), ""))
++        self.assertEqual(self.store.count(), 9)
++        self.assertEqual(self.store.get("ST014|2026-01-15T01:00|temperature"),
++                         {"station": "ST014", "row": 2, "time": "2026-01-15T01:00",
++                          "quantity": "temperature", "value": 3.0})
++        self.assertEqual(self.store.marker(FIRST), Marker("done", 0, "6 stored, 0 duplicates, 0 rejected"))
++        self.assertEqual(self.store.marker(SECOND), Marker("done", 0, "3 stored, 3 duplicates, 0 rejected"))
++
++    def test_second_run_skips_without_opening(self):
++        write(self.inbox, FIRST, HEADER + ROW_0000)
++        self.run_once()
++        write(self.inbox, FIRST, "garbage\n")
++        self.assertEqual(self.run_once(), (Summary(files=1, skipped=1), ""))
++        self.assertEqual(self.store.count(), 3)
++        self.assertEqual(self.store.get("ST014|2026-01-15T00:00|temperature")["value"], 3.1)
++        self.assertEqual(self.store.marker(FIRST), Marker("done", 0, "3 stored, 0 duplicates, 0 rejected"))
++
++    def test_bad_row_is_rejected_and_the_file_imports(self):
++        write(self.inbox, FIRST, HEADER + "--:--,3.1,1012.4,4.2\n" + ROW_0100)
++        self.assertEqual(self.run_once(), (Summary(files=1, imported=1, stored=3, rejected=1), ""))
++        self.assertEqual(self.store.count(), 3)
++        self.assertEqual(self.store.marker(FIRST), Marker("done", 0, "3 stored, 0 duplicates, 1 rejected"))
++
++    def test_only_csv_files_are_work(self):
++        write(self.inbox, FIRST, HEADER + ROW_0000)
++        write(self.inbox, "notes.txt", "not an export\n")
++        write(self.inbox, SECOND + ".part", HEADER)
++        os.mkdir(os.path.join(self.inbox, "archive.csv"))
++        self.assertEqual(self.run_once(), (Summary(files=1, imported=1, stored=3), ""))
++        for name in ("notes.txt", SECOND + ".part", "archive.csv"):
++            self.assertIsNone(self.store.marker(name))
++
++    def test_empty_inbox(self):
++        self.assertEqual(self.run_once(), (Summary(), ""))
++        self.assertEqual(self.store.count(), 0)
++
++    def test_unreadable_file_is_poisoned_on_its_third_failure(self):
++        write(self.inbox, FIRST, "garbage\n")
++        detail = "header has no delimiter"
++        expected = [
++            (Summary(files=1, failed=1), f"{FIRST}: failed (1): {detail}\n", Marker("failed", 1, detail)),
++            (Summary(files=1, failed=1), f"{FIRST}: failed (2): {detail}\n", Marker("failed", 2, detail)),
++            (Summary(files=1, poisoned=1), f"{FIRST}: poisoned (3): {detail}\n", Marker("poisoned", 3, detail)),
++            (Summary(files=1, poisoned=1), "", Marker("poisoned", 3, detail)),
++        ]
++        for number, (summary, stderr, marker) in enumerate(expected, 1):
++            with self.subTest(run=number):
++                self.assertEqual(self.run_once(), (summary, stderr))
++                self.assertEqual(self.store.marker(FIRST), marker)
++        self.assertEqual(self.store.count(), 0)
++
++    def test_unknown_column_fails_and_keeps_nothing(self):
++        write(self.inbox, FIRST, "time,temp_c,humidity\n2026-01-15T00:00,3.1,80\n")
++        self.assertEqual(self.run_once(),
++                         (Summary(files=1, failed=1), f"{FIRST}: failed (1): unknown columns: humidity\n"))
++        self.assertEqual(self.store.count(), 0)
++        self.assertEqual(self.store.marker(FIRST), Marker("failed", 1, "unknown columns: humidity"))
++
++    def test_partial_copy_imports_once_complete(self):
++        write(self.inbox, FIRST, "")
++        self.assertEqual(self.run_once()[0], Summary(files=1, failed=1))
++        write(self.inbox, FIRST, HEADER + ROW_0000)
++        self.assertEqual(self.run_once(), (Summary(files=1, imported=1, stored=3), ""))
++        self.assertEqual(self.store.count(), 3)
++        self.assertEqual(self.store.marker(FIRST), Marker("done", 0, "3 stored, 0 duplicates, 0 rejected"))
++
++    def test_store_error_keeps_nothing_of_the_file(self):
++        write(self.inbox, FIRST, HEADER + ROW_0000 + ROW_0100)
++        failing = FailingStore(self.db, adds=3)
++        self.addCleanup(failing.close)
++        with self.assertRaises(sqlite3.OperationalError):
++            self.run_once(failing)
++        failing.commit()  # would land anything the run left uncommitted
++        self.assertEqual(self.store.count(), 0)
++        self.assertIsNone(self.store.marker(FIRST))
++
++    def test_store_error_on_a_later_file_keeps_the_earlier_ones(self):
++        write(self.inbox, FIRST, HEADER + ROW_0000)
++        write(self.inbox, SECOND, HEADER + ROW_0200)
++        failing = FailingStore(self.db, adds=4)
++        self.addCleanup(failing.close)
++        with self.assertRaises(sqlite3.OperationalError):
++            self.run_once(failing)
++        failing.commit()  # would land anything the run left uncommitted
++        self.assertEqual(self.store.count(), 3)
++        self.assertEqual(self.store.marker(FIRST), Marker("done", 0, "3 stored, 0 duplicates, 0 rejected"))
++        self.assertIsNone(self.store.marker(SECOND))
++        self.assertEqual(self.run_once(), (Summary(files=2, imported=1, skipped=1, stored=3), ""))
++        self.assertEqual(self.store.count(), 6)

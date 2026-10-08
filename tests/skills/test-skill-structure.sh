@@ -31,7 +31,13 @@ source "$REPO_ROOT/tests/helpers.sh"
 # and the spec, and its no-ledger branch named an input no subagent could
 # receive. A budget set against an incomplete document is not evidence about
 # a complete one. Not licence to pad.
-BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:700
+# writing-code-comments is 200: it loads on most coding sessions, which is the
+# frequently-loaded budget superpowers:writing-skills sets.
+# finishing-work is raised from 700 to 730: its exit gate gains a sixth check,
+# for comments added in the diff, and that check has to name the skill that
+# holds the contract. Not licence to pad.
+BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:730
+         writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          writing-roadmaps:850 adopting-a-repo:750"
@@ -196,6 +202,9 @@ if [ -f "$fw" ]; then
     assert_contains "no run number entered a living document" "$gate" "describing a run"
     assert_contains "every promotion carries an admission verdict" "$gate" "verdict"
     assert_contains "historical records untouched" "$gate" "Historical records"
+    assert_contains "added comments meet the comment contract" \
+        "$gate" "a why, a contract or a warning"
+    assert_contains "the gate counts its own checks correctly" "$gate" "Six checks"
     assert_contains "the gate is a self-review, not a subagent dispatch" \
         "$gate" "fresh eyes"
 
