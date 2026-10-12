@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Pool the baseline runs' outputs into one blinded list for the judge.
+
+Usage: blind RUNS_DIR OUT_DIR --columns NAME[,NAME...] [--seed N]
+
+Each subdirectory of RUNS_DIR holding a .git is one run, set up by setup-run.
+RUNS_DIR/<label>.reply.md is that run's final message, saved by the main
+session. An item is the final message, then every file the run added or
+changed since the tag baseline-base, committed or not.
+
+Writes to OUT_DIR:
+  items.md      every item, shuffled, with the run's directory replaced by <repo>
+  key.tsv       id, run
+  verdicts.tsv  one row per id with an empty cell per column, for the judge
+
+Exits 2 when a run has no saved reply: judged without it, a run that only
+asked a question would read as one that did nothing.
+"""
+import os
+import random
+import subprocess
+import sys
+
+USAGE = "usage: blind RUNS_DIR OUT_DIR --columns NAME[,NAME...] [--seed N]"
+
+
+def git(run, *args):
+    return subprocess.run(["git", "-C", run, *args], check=True,
+                          capture_output=True, text=True).stdout
+
+
+def item(run, reply):
+    git(run, "add", "-A")
+    parts = ["#### Final message", "", reply.strip(), ""]
+    for line in git(run, "diff", "--cached", "--name-status", "baseline-base", "--").splitlines():
+        fields = line.split("\t")
+        status, name = fields[0], fields[-1]
+        if status.startswith("D"):
+            parts += [f"#### {name} (deleted)", ""]
+        elif status.startswith("A"):
+            with open(os.path.join(run, name), encoding="utf-8", errors="replace") as f:
+                parts += [f"#### {name} (added)", "", "````", f.read().rstrip(), "````", ""]
+        else:
+            diff = git(run, "diff", "--cached", "--no-color", "baseline-base", "--", name)
+            parts += [f"#### {name} (changed)", "", "````diff", diff.rstrip(), "````", ""]
+    text = "\n".join(parts)
+    # The run's directory contains its label and its stage, either of which
+    # would tell the judge which arm wrote this.
+    for path in {os.path.realpath(run), os.path.abspath(run)}:
+        text = text.replace(path, "<repo>")
+    return text
+
+
+def main():
+    args = sys.argv[1:]
+    options = {}
+    for flag in ("--columns", "--seed"):
+        if flag in args:
+            at = args.index(flag)
+            if at + 1 >= len(args):
+                print(USAGE, file=sys.stderr)
+                return 2
+            options[flag] = args[at + 1]
+            del args[at:at + 2]
+    if len(args) != 2 or "--columns" not in options:
+        print(USAGE, file=sys.stderr)
+        return 2
+    runs_dir, out = args
+    columns = options["--columns"].split(",")
+    seed = int(options["--seed"]) if "--seed" in options else None
+
+    labels = sorted(label for label in os.listdir(runs_dir)
+                    if os.path.isdir(os.path.join(runs_dir, label, ".git")))
+    missing = [label for label in labels
+               if not os.path.isfile(os.path.join(runs_dir, label + ".reply.md"))]
+    if missing:
+        print("no saved reply: " + ", ".join(missing), file=sys.stderr)
+        return 2
+
+    entries = []
+    for label in labels:
+        with open(os.path.join(runs_dir, label + ".reply.md"), encoding="utf-8") as f:
+            entries.append((label, item(os.path.join(runs_dir, label), f.read())))
+    random.Random(seed).shuffle(entries)
+
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "items.md"), "w", encoding="utf-8") as md, \
+            open(os.path.join(out, "key.tsv"), "w", encoding="utf-8") as key, \
+            open(os.path.join(out, "verdicts.tsv"), "w", encoding="utf-8") as verdicts:
+        key.write("id\trun\n")
+        verdicts.write("\t".join(["id", *columns]) + "\n")
+        for n, (label, text) in enumerate(entries, 1):
+            pid = f"p{n:03d}"
+            md.write(f"## {pid}\n\n{text}\n\n")
+            key.write(f"{pid}\t{label}\n")
+            verdicts.write(pid + "\t" * len(columns) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
