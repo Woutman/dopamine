@@ -72,7 +72,8 @@ assert_contains "the schema skill's trigger names the new document" \
 echo "-- both consumers reach every schema through CLAUDE_PLUGIN_ROOT"
 for pair in "brainstorm-design:design-schema.md" \
             "brainstorm-architecture:architecture-schema.md" \
-            "writing-roadmaps:roadmap-schema.md"; do
+            "writing-roadmaps:roadmap-schema.md" \
+            "brainstorm-program-design:program-design-schema.md"; do
     skill="${pair%%:*}"; schema="${pair#*:}"
     sbody=$(cat "$REPO_ROOT/skills/$skill/SKILL.md")
     assert_contains "$skill reaches its schema through the plugin root" \
@@ -92,7 +93,8 @@ echo "-- a slot table lives in exactly one place"
 # as its schema, both are now maintained and one will drift.
 for pair in "brainstorm-design:Open questions" \
             "brainstorm-architecture:Where state lives" \
-            "writing-roadmaps:Observations, not assertions"; do
+            "writing-roadmaps:Observations, not assertions" \
+            "brainstorm-program-design:Public surface"; do
     skill="${pair%%:*}"; slot="${pair#*:}"
     assert_not_contains "$skill no longer carries the '$slot' slot itself" \
         "$(cat "$REPO_ROOT/skills/$skill/SKILL.md")" "$slot"

@@ -148,4 +148,30 @@ else
     fail "skills/adopting-a-repo/survey-prompt.md exists" "not found"
 fi
 
+echo "-- brainstorm-program-design"
+assert_skill_exists brainstorm-program-design
+body=$(read_skill brainstorm-program-design)
+assert_contains "it points at the wrapper contract instead of restating it" \
+    "$body" "dopamine:brainstorm-design"
+assert_contains "it wraps superpowers' brainstorming" "$body" "superpowers:brainstorming"
+assert_contains "it reads its output path from the config" "$body" ".dopamine/config"
+assert_contains "it describes the config format rather than naming a parser" \
+    "$body" "tier: path"
+assert_contains "an absent architecture sends it back a step" \
+    "$body" "dopamine:brainstorm-architecture"
+assert_contains "the human picks every rule" "$body" "The human picks"
+assert_contains "it writes nothing until every slot is answered" "$body" "Write nothing"
+for element in "Superpowers' default" "Observed practice" "recommendation" "alternative"; do
+    assert_contains "each slot question shows: $element" "$body" "$element"
+done
+assert_contains "module depth is never inherited silently" "$body" "Modules is always asked"
+assert_contains "every rule carries a check" "$body" "check"
+assert_contains "Python's idiom takes precedence" "$body" "Python"
+assert_contains "a gap raised by a plan revises one slot in place" "$body" "in place"
+assert_contains "it names the roadmap as pending" "$body" "ROADMAP.md"
+assert_contains "it points at routing-documentation-updates rather than restating it" \
+    "$body" "dopamine:routing-documentation-updates"
+assert_contains "it answers R0's template reason" "$body" "The schema is the template"
+assert_contains "and its imitation reason" "$body" "The code shows what was done"
+
 finish

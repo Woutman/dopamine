@@ -36,10 +36,13 @@ source "$REPO_ROOT/tests/helpers.sh"
 # finishing-work is raised from 700 to 730: its exit gate gains a sixth check,
 # for comments added in the diff, and that check has to name the skill that
 # holds the contract. Not licence to pad.
+# brainstorm-program-design is 650: brainstorm-architecture's recipe plus the
+# contract for each slot question and the one-slot revision a plan's gap runs.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:730
          writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
+         brainstorm-program-design:650
          writing-roadmaps:850 adopting-a-repo:750"
 
 budget_for() {
