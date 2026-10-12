@@ -1,6 +1,6 @@
-id	stopped	types	errors	effects	signatures	layout	modules	constraints	complies
-p001	no	dataclass	sentinel	pure	positional	new-module	deep	no	no
-p002	no	dataclass	sentinel	pure	positional	new-module	deep	no	no
-p003	no	dataclass	sentinel	pure	positional	new-module	deep	no	no
-p004	no	dataclass	sentinel	pure	positional	new-module	deep	no	no
-p005	no	dataclass	sentinel	pure	positional	new-module	deep	no	no
+id	stopped	types	errors	effects	signatures	layout	modules	constraints	complies	store-api	error-base	types-home
+p001	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p002	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p003	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p004	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p005	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models

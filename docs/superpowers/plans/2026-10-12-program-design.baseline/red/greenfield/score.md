@@ -1,3 +1,3 @@
-| arm | runs | stopped | types | errors | effects | signatures | layout | modules | constraints | complies | spread |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| F0 | 5 | 0/5 | dataclass, dataclass, dataclass, dataclass, dataclass | raise, mixed, raise, raise, raise | pure, pure, pure, pure, pure | positional, positional, mixed, positional, mixed | per-component, per-component, per-component, per-component, per-component | shallow, shallow, shallow, shallow, shallow | 0/5 | 0/5 | 2 |
+| arm | runs | stopped | types | errors | effects | signatures | layout | modules | constraints | complies | store-api | error-base | types-home | spread |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| F0 | 5 | 0/5 | dataclass, dataclass, dataclass, dataclass, dataclass | raise, mixed, raise, raise, raise | pure, pure, pure, pure, pure | positional, positional, mixed, positional, mixed | per-component, per-component, per-component, per-component, per-component | deep, deep, deep, deep, deep | 0/5 | 0/5 | class, functions, class, class, functions | flat, flat, flat, flat, flat | scattered, scattered, scattered, scattered, scattered | 3 |

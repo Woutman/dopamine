@@ -12,7 +12,7 @@ Python 3.11, standard library.
 
 - **Rule:** A failure raises a subclass of `FeedwatchError` from `feedwatch/errors.py`, named for what failed. No function returns `None`, `False` or an `(ok, reason)` pair to signal failure. Only `poller` and `cli` catch them.
   *Why:* one convention, and the stack trace survives to wherever the failure is handled.
-  *Check:* every added `raise` raises a `FeedwatchError` subclass or re-raises; no added `return None`, `return False` or `return False, …` on a failure path; no added `except` outside `poller.py` and `cli.py`, except one that turns a library exception into a `FeedwatchError`.
+  *Check:* every added `raise` raises a `FeedwatchError` subclass or re-raises; no added function reports that it could not do its job by returning `None`, `False` or an `(ok, reason)` pair, though a predicate's `False` is an answer, not a failure; no added `except` outside `poller.py` and `cli.py`, except one that turns a library exception into a `FeedwatchError`.
 
 ## Effects
 
@@ -33,9 +33,9 @@ Python 3.11, standard library.
 
 ## Modules
 
-- **Rule:** A new module hides real work behind one or two public functions; a helper is public only once a second module calls it. No pass-through layer.
+- **Rule:** A new module that is not one of `ARCHITECTURE.md`'s components hides real work behind one or two public functions; a helper is public only once a second module calls it. No pass-through layer.
   *Why:* the code base is small, and shallow layers add files without hiding anything.
-  *Check:* a new module has at most two public functions (names without a leading `_`), types aside; no added function whose body only forwards its parameters to another function.
+  *Check:* a new module other than a component has at most two public functions (names without a leading `_`), types aside; no added function whose body only forwards its parameters to another function.
 
 ## Persistence
 

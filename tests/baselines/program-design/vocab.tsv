@@ -14,3 +14,6 @@ complies	yes|no
 concurrency	yes|no
 flagged	yes|no
 misflagged	yes|no
+store-api	class|functions|mixed|undecided
+error-base	common-base|flat|none|undecided
+types-home	models|scattered|undecided
