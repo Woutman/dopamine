@@ -7,7 +7,7 @@ types	dataclass|pydantic|dict|tuple|mixed|undecided
 errors	raise|sentinel|mixed|undecided
 effects	pure|direct|mixed|undecided
 signatures	keyword-only|positional|mixed|undecided
-layout	new-module|existing-modules|undecided
+layout	new-module|existing-modules|per-component|other|undecided
 modules	deep|shallow|undecided
 constraints	yes|no
 complies	yes|no
