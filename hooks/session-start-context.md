@@ -8,4 +8,6 @@ When you do write to a living document, load `dopamine:writing-living-documents`
 
 Before writing or editing a code comment, including one in a plan's code block, load `dopamine:writing-code-comments`.
 
+When writing a plan's File Structure, Interfaces or Global Constraints, read the `PROGRAM-DESIGN.md` declared in `.dopamine/config`, and copy each rule that applies, with its check, into Global Constraints. A structural choice it leaves open stops the plan: put it to the human and record the answer through `dopamine:brainstorm-program-design` before continuing. If the document is declared but absent, ask the human once whether to run that recipe first; if they decline, plan as usual and say so in one line of Global Constraints.
+
 At the end of any plan or ad-hoc unit of work, and before the workspace is cleaned up, invoke the `dopamine:finishing-work` skill.
