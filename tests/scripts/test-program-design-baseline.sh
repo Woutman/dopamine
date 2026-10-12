@@ -89,6 +89,37 @@ assert_exit "a run with no saved reply exits 2" 2 \
     python3 "$B/blind" "$T/runs" "$T/missing" --columns asked
 assert_exit "no columns is bad usage" 2 python3 "$B/blind" "$T/runs" "$T/bad"
 
+# A run executes the fixture's tests, which writes __pycache__ unless told not to.
+run=$(bash "$B/setup-run" "$T/py" Y-1 "$B/overlays/program-design" "$B/overlays/work")
+(cd "$run" && env -u PYTHONDONTWRITEBYTECODE python3 -m unittest discover -q -s tests >/dev/null 2>&1)
+assert_eq "the run did write bytecode" yes \
+    "$([ -d "$run/feedwatch/__pycache__" ] && echo yes || echo no)"
+printf 'DONE\n' > "$T/py/Y-1.reply.md"
+python3 "$B/blind" "$T/py" "$T/py-out" --columns asked >/dev/null 2>&1
+assert_not_contains "bytecode is not part of what the judge sees" \
+    "$(cat "$T/py-out/items.md")" "__pycache__"
+
+# using-git-worktrees puts the work in a nested worktree on its own branch.
+run=$(bash "$B/setup-run" "$T/wt" W-1)
+git -C "$run" worktree add -q .worktrees/feat -b feat
+printf 'committed in the worktree\n' > "$run/.worktrees/feat/wt-committed.txt"
+git -C "$run/.worktrees/feat" add -A && git -C "$run/.worktrees/feat" commit -qm wt
+printf 'uncommitted in the worktree\n' > "$run/.worktrees/feat/wt-loose.txt"
+# A branch whose worktree is gone is still the run's work.
+git -C "$run" worktree add -q "$T/wt-gone" -b other baseline-base
+printf 'only on a branch\n' > "$T/wt-gone/branch-only.txt"
+git -C "$T/wt-gone" add -A && git -C "$T/wt-gone" commit -qm branch
+git -C "$run" worktree remove --force "$T/wt-gone"
+printf 'DONE\n' > "$T/wt/W-1.reply.md"
+RC=0
+python3 "$B/blind" "$T/wt" "$T/wt-out" --columns asked >/dev/null 2>&1 || RC=$?
+assert_eq "a run with a nested worktree exits 0" 0 "$RC"
+items=$(cat "$T/wt-out/items.md")
+assert_contains "a file committed in the worktree is shown" "$items" "committed in the worktree"
+assert_contains "a file left uncommitted in the worktree is shown" "$items" "uncommitted in the worktree"
+assert_contains "a commit on a branch nothing has out is shown" "$items" "only on a branch"
+assert_not_contains "the worktree's path does not leak" "$items" "$T"
+
 echo "-- score"
 S="$T/score"
 mkdir -p "$S"
