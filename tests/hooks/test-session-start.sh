@@ -79,6 +79,7 @@ assert_contains "names the skill loaded before writing a code comment" \
 assert_contains "including a comment in a plan's code" "$ctx" "plan's code block"
 assert_contains "names the program-design document a plan reads" "$ctx" "PROGRAM-DESIGN.md"
 assert_contains "the rules travel through the plan's Global Constraints" "$ctx" "Global Constraints"
+assert_contains "the plan holds its own code to each check, a changed line included" "$ctx" "a changed line included"
 assert_contains "a gap is settled through the recipe" "$ctx" "dopamine:brainstorm-program-design"
 assert_contains "an absent document is asked about once, not stopped on" "$ctx" "ask the human once"
 assert_contains "points at superpowers' existing ledger" "$ctx" "ledger"

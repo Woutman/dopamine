@@ -17,8 +17,8 @@ Python 3.11, standard library.
 ## Effects
 
 - **Inherited default:** dependencies are passed in where a test would otherwise mock them; test-only code stays out of production modules.
-- **Rule:** Only `store` touches the database and only `fetch` the network. Logic between them is pure functions taking and returning values.
-  *Check:* no added `sqlite3` or `conn.` outside `store.py`, except passing `conn` into `store`; no added `urllib` outside `fetch.py`; no added function outside `store`, `poller` and `cli` takes a `conn`.
+- **Rule:** Only `store` touches the database and only `fetch` the network. Logic between them is pure functions taking and returning values. `store` is module functions that take a `conn` as their first parameter; nothing wraps the connection in a class.
+  *Check:* no added `sqlite3` or `conn.` outside `store.py`, except passing `conn` into `store`; no added `urllib` outside `fetch.py`; no added function outside `store`, `poller` and `cli` takes a `conn`; no added class in `store.py` holding a connection.
 
 ## Signatures
 

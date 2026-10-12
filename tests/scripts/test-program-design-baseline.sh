@@ -36,6 +36,10 @@ assert_contains "the full document has a Concurrency slot" \
     "$(cat "$B/overlays/program-design/docs/PROGRAM-DESIGN.md")" "## Concurrency"
 assert_not_contains "the gap variant has none" \
     "$(cat "$B/overlays/gap/docs/PROGRAM-DESIGN.md")" "## Concurrency"
+for doc in program-design gap; do
+    assert_contains "the $doc document settles the store's API" \
+        "$(cat "$B/overlays/$doc/docs/PROGRAM-DESIGN.md")" "module functions that take a \`conn\`"
+done
 
 echo "-- setup-run"
 run=$(bash "$B/setup-run" "$T/runs" R0-1)
