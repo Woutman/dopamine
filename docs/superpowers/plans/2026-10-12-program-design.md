@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **RED gates everything.** If Task 2's controls come back clean against the spec's gate, the plan stops there and no skill is written.
-- **Phase 2 is a draft.** It is revised with the human from the RED findings, and does not start until they approve the revision.
+- **Phase 2 was revised with the human after RED** (2026-10-12; see *Revision after RED*), and does not start until they approve the revision.
 - **Skills are written with `superpowers:writing-skills`**: `description` starts with `Use when`, is under 500 characters, states triggers only.
 - **Word budgets are ratchets.** One is raised only with a recorded reason in `tests/skills/test-skill-structure.sh` or `tests/hooks/test-session-start.sh`.
 - **The injection uses no `never`, `do not` or `don't`** (enforced by `tests/hooks/test-session-start.sh`).
@@ -22,7 +22,7 @@
 - **Scripts are invoked through their interpreter** (`bash setup-run`, `python3 blind`), never by bare path.
 - **Comments follow `dopamine:writing-code-comments`**: a why, a contract or a warning.
 - **`bash tests/run-tests.sh` exits 0 at the end of every task.**
-- **Baseline runs and judging are done by the main session**, not an implementer subagent: they dispatch subagents and continue them, and the judge must not have seen which arm produced what.
+- **Baseline runs are dispatched by the main session**, not an implementer subagent: they dispatch subagents and continue them. **Judging is done by a fresh subagent** per pool that reads only `items.md`: the main session sees every reply with its label while saving it.
 - **A GREEN arm worse than its control is a regression**: micro-test a fix; never record it as a known gap.
 - **No `PROGRAM-DESIGN.md` applies to this plan**: this repository declares none until Task 8.
 
@@ -1128,7 +1128,7 @@ git commit -m "test: baseline harness for program design"
 
 - [ ] **Step 1: Write the prompts**
 
-`tests/baselines/program-design/prompts/session-context.md` — `{INJECTION}` is the full text of `hooks/session-start-context.md` as it stands when the run is dispatched; `{SUPERPOWERS}` is `~/.claude/plugins/cache/claude-plugins-official/superpowers/6.4.1`, expanded; `{DOPAMINE}` is this repository's absolute path:
+`tests/baselines/program-design/prompts/session-context.md` — `{INJECTION}` is the full text of `hooks/session-start-context.md` as it stands when the run is dispatched; `{SUPERPOWERS}` is `~/.claude/plugins/cache/claude-plugins-official/superpowers/6.4.1`, expanded; `{DOPAMINE}` is the installed plugin, `~/.claude/plugins/cache/dopamine/dopamine/0.1.3` (byte-identical to this branch before Phase 2), so that no run can open this feature's spec or plan:
 
 ```markdown
 This context was injected at the start of your session:
@@ -1278,9 +1278,46 @@ Bring to the review:
 
 Phase 2 is revised with the human from these findings before any of it runs.
 
+### Task 2b: the greenfield control (added at the Phase 1 review)
+
+**Done.** Added because P0 showed no spread: with code beside the feature, every plan copied it. F0 asks what plans choose with nothing to copy.
+
+- **Fixture:** `tests/baselines/program-design/greenfield/` — the brownfield fixture's `DESIGN.md`, `ARCHITECTURE.md`, `.dopamine/config` and `.gitignore`, no code, and the spec `docs/superpowers/specs/2026-03-01-feedwatch-v1-design.md` (v1 of feedwatch, with two refusals and a log-and-skip). `setup-run` gained `--fixture DIR`.
+- **Arm F0 ×5:** `plan.md` with `{SPEC}` = the v1 spec, Task 2's session context. Runs at `.dopamine/run/program-design/red/greenfield/runs/`; F0-4 died on an API timeout and was replaced by F0-6.
+- **Judged** by a fresh subagent on the plan columns, with `layout` read as `per-component` (one module per architecture component, plus models or errors modules) or `other`.
+- **Columns added to both plan pools** after F0 showed divergence none recorded, re-judged blind for P0 and F0:
+
+| Column | Allowed | Value |
+|---|---|---|
+| `store-api` | `class`, `functions`, `mixed`, `undecided` | How the rest of the code reaches the database: a `Store`-like class wrapping the connection, or module functions that take a `conn` |
+| `error-base` | `common-base`, `flat`, `none`, `undecided` | `common-base` when every exception class the plan defines derives from one project base; `flat` when from `Exception` or from different bases; `none` when it defines none |
+| `types-home` | `models`, `scattered`, `undecided` | `models` when every domain type lives in one module; `scattered` otherwise |
+
+- **The fixture's full document was tightened** in both overlays: the Modules rule applies only to modules that are not `ARCHITECTURE.md` components (five components with one or two public functions each is not a design anyone chose), and the Errors check reads "no added function reports that it could not do its job by returning `None`, `False` or an `(ok, reason)` pair, though a predicate's `False` is an answer, not a failure" (the `work` overlay's `keep()` returns `False` as an answer).
+
+Results, in `docs/superpowers/plans/2026-10-12-program-design.baseline/red/`:
+
+| Arm | Result |
+|---|---|
+| R0 | wrote without asking **5/5** |
+| P0 | spread **0**: sentinel errors, functions on `conn`, mutable `Filter` in `models.py` ×5 — copied from `store.add_feed` and `models.Feed`; `constraints` 0/5, `complies` 0/5 |
+| F0 | spread **3**: `store-api` class ×3 / functions ×2, `errors` raise ×4 / mixed, `signatures` positional ×3 / mixed ×2; uniform but against the full document on `error-base` (flat ×5) and `types-home` (scattered ×5); `constraints` 0/5, `complies` 0/5 |
+
 ---
 
-## Phase 2 — the document, its recipe, its wiring, and GREEN (draft; revised after the Phase 1 review)
+## Phase 2 — the document, its recipe, its wiring, and GREEN
+
+### Revision after RED
+
+Decided with the human at the Phase 1 review:
+
+- **Both mechanisms stay as the spec has them.** P0 is the spec's own argument for the gap stop (§6: the first narrow plan sets the precedent, and the next copies it) — every P0 plan copied its neighbour. The Global Constraints instruction is measured by P1 against P0, the gap stop by G.
+- **Arm F1 is added to GREEN** (five runs, the greenfield fixture with the full document), against F0.
+- **GREEN's plan pools are judged on the three added columns** as well.
+- **The full document settles the store's API**, since F0 split on it 3/2 and F1 would otherwise stop on a gap the arm is not there to test (Task 7 Step 1).
+- **The recipe answers R0's reasons** in a `## Common mistakes` table (Task 4 Step 4).
+- **GREEN runs read a copy of this branch's plugin**, never the repository: RED's runs read the installed 0.1.3 copy so that no run could open this feature's spec or plan.
+
 
 ### Task 3: The schema
 
@@ -1364,7 +1401,7 @@ Each entry in a slot takes one of two forms.
 
 - **Rule:** A failure raises a subclass of the project's base exception, named for what failed. No function returns `None` or an `(ok, reason)` pair to signal one.
   *Why:* one convention, and the stack trace survives to the handler.
-  *Check:* every added `raise` raises a project exception or re-raises; no added `return None` on a failure path.
+  *Check:* every added `raise` raises a project exception or re-raises; no added function reports that it could not do its job by returning `None` or an `(ok, reason)` pair.
 ```
 
 About one page. Present tense: a changed rule is replaced, not appended beside the old one.
@@ -1540,9 +1577,29 @@ On an existing document, revise slots in place: show the current rule, observed 
 | A `PROGRAM-DESIGN.md` that already exists | Its slots revised in place |
 ````
 
-- [ ] **Step 4: Fit it to what R0 did**
+- [ ] **Step 4: Answer what R0 did**
 
-Read R0's items in `docs/superpowers/plans/2026-10-12-program-design.baseline/red/recipe/items.md`. For each reason an R0 run gave for writing rules without asking — quoted from its final message — check that the skill answers it. Where none does, add a `## Common mistakes` section (create it once) with that reason quoted verbatim in the left cell and the answer in the right. Keep the body within 650 words: `awk '/^---$/ { seen++; next } seen >= 2' skills/brainstorm-program-design/SKILL.md | wc -w`.
+Every R0 run wrote the document and asked afterwards, if at all. Append to `skills/brainstorm-program-design/SKILL.md`:
+
+```markdown
+## Common mistakes
+
+| The thought | The answer |
+|---|---|
+| "There's no template for this document, so I picked the sections myself" | The schema is the template, and its slots are questions for the human |
+| "The code shows the convention" | The code shows what was done, often two ways at once; the human chooses which is the rule |
+| "I'll write the rule the code should follow" | A rule nobody chose is the precedent this document exists to replace |
+| "I'll write it, then ask whether it suits them" | A question after writing asks the human to edit your choices instead of making theirs |
+```
+
+Append to `tests/skills/test-authoring-skills.sh`, in the new section before `finish`:
+
+```bash
+assert_contains "it answers R0's template reason" "$body" "The schema is the template"
+assert_contains "and its imitation reason" "$body" "The code shows what was done"
+```
+
+Keep the body within 650 words: `awk '/^---$/ { seen++; next } seen >= 2' skills/brainstorm-program-design/SKILL.md | wc -w`. If it is over, cut prose elsewhere in the skill, never a row.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
@@ -1780,13 +1837,34 @@ git commit -m "feat: carry program-design rules into plans and check them at clo
 
 **Files:**
 - Create: `tests/baselines/program-design/prompts/gate.md`
+- Modify: `tests/baselines/program-design/overlays/{program-design,gap}/docs/PROGRAM-DESIGN.md` (the store's API)
+- Test: `tests/scripts/test-program-design-baseline.sh`
 - Create: `docs/superpowers/plans/2026-10-12-program-design.baseline/green/` (results)
 - Possibly modify: `skills/brainstorm-program-design/SKILL.md`, `hooks/session-start-context.md`, `skills/finishing-work/SKILL.md` (REFACTOR only)
 
 **Interfaces:**
 - Consumes: the prompts and RED runs from Task 2; the skill, injection and gate from Tasks 3–6.
 
-- [ ] **Step 1: Write the gate prompt**
+- [ ] **Step 1: Settle the store's API in the full document**
+
+Add to `tests/scripts/test-program-design-baseline.sh`, after the gap-variant assertion:
+
+```bash
+for doc in program-design gap; do
+    assert_contains "the $doc document settles the store's API" \
+        "$(cat "$B/overlays/$doc/docs/PROGRAM-DESIGN.md")" "module functions that take a \`conn\`"
+done
+```
+
+Run `bash tests/scripts/test-program-design-baseline.sh` — expected: FAIL on both. Then, in both overlays, append to the Effects rule's text, after `Logic between them is pure functions taking and returning values.`:
+
+```markdown
+ `store` is module functions that take a `conn` as their first parameter; nothing wraps the connection in a class.
+```
+
+and to its *Check:* `; no added class in `store.py` holding a connection`. Re-run — expected: PASS, and `diff` of the two overlays still shows only Concurrency and the asyncio bullet. The brownfield code already does this, so P0's verdicts against the document do not change.
+
+- [ ] **Step 2: Write the gate prompt**
 
 `tests/baselines/program-design/prompts/gate.md`:
 
@@ -1798,7 +1876,7 @@ You are working in the git repository at {RUN_DIR}. The work on this branch is f
 Run the exit gate of dopamine:finishing-work over that diff — only the exit gate: this work has no ledger to seal or drain. Your final message lists each check and what it found.
 ```
 
-- [ ] **Step 2: Set up the GREEN runs, and pool the RED runs in**
+- [ ] **Step 3: Set up the GREEN runs, and pool the RED runs in**
 
 ```bash
 B=tests/baselines/program-design
@@ -1807,52 +1885,58 @@ R=.dopamine/run/program-design/red
 for n in 1 2 3 4 5; do
   bash "$B/setup-run" "$G/recipe/runs" "R1-$n"
   bash "$B/setup-run" "$G/plan/runs" "P1-$n" "$B/overlays/program-design"
+  bash "$B/setup-run" --fixture "$B/greenfield" "$G/greenfield/runs" "F1-$n" "$B/overlays/program-design"
   bash "$B/setup-run" "$G/gap/runs" "G-$n" "$B/overlays/gap"
   bash "$B/setup-run" "$G/gate/runs" "X-$n" "$B/overlays/program-design" "$B/overlays/work"
 done
 for n in 1 2 3; do bash "$B/setup-run" "$G/absent/runs" "N-$n"; done
 cp -R "$R/recipe/runs/." "$G/recipe/runs/"
 cp -R "$R/plan/runs/." "$G/plan/runs/"
+cp -R "$R/greenfield/runs/." "$G/greenfield/runs/"
+mkdir -p "$G/plugin" && cp -R skills hooks "$G/plugin/"
 ```
 
-The copied RED runs carry their `.reply.md` files, so they are re-judged blind beside the GREEN ones.
+The copied RED runs carry their `.reply.md` files, so they are re-judged blind beside the GREEN ones. `$G/plugin` is this branch's skills and hook, outside the tracked tree's `docs/`.
 
-- [ ] **Step 3: Dispatch the arms**
+- [ ] **Step 4: Dispatch the arms**
 
-Twenty-three `general-purpose` Agent calls, no model override. `{SESSION_CONTEXT}` is `session-context.md` filled with the hook **as edited in Task 6**.
+Twenty-eight `general-purpose` Agent calls, no model override. `{SESSION_CONTEXT}` is `session-context.md` filled with the hook **as edited in Task 6**, and `{DOPAMINE}` = the absolute path of `.dopamine/run/program-design/green/plugin`.
 
 | Arm | Prompt | Fills |
 |---|---|---|
 | **R1** ×5 | `recipe.md` | `{LOADED_SKILL}` = `This skill is loaded in your session:` then `<skill name="dopamine:brainstorm-program-design">`, the full `SKILL.md`, `</skill>` |
 | **P1** ×5 | `plan.md` | `{SPEC}` = `docs/superpowers/specs/2026-03-02-keyword-filters-design.md` |
+| **F1** ×5 | `plan.md` | `{SPEC}` = `docs/superpowers/specs/2026-03-01-feedwatch-v1-design.md` |
 | **G** ×5 | `plan.md` | `{SPEC}` = `docs/superpowers/specs/2026-03-09-retry-failed-feeds-design.md` |
 | **X** ×5 | `gate.md` | — |
 | **N** ×3 | `plan.md` | `{SPEC}` = the keyword-filters spec |
 
-- [ ] **Step 4: Save, and continue where the arm calls for it**
+- [ ] **Step 5: Save, and continue where the arm calls for it**
 
-Save each final message to `<pool>/runs/<label>.reply.md` as in Task 2 Step 4.
+Save each final message to `<pool>/runs/<label>.reply.md`, extracted verbatim from the run's transcript as in RED.
 
 - **R1, G, X:** one turn.
-- **P1:** a question is answered `That's your call — write the plan.` once, as P0 was.
+- **P1, F1:** a question is answered `That's your call — write the plan.` once, as P0 was.
 - **N:** a question about running the recipe is answered `No — plan without it.` once. Append `---` and each later final message.
 
 Replace a crashed run as in Task 2 Step 5.
 
-- [ ] **Step 5: Blind, judge, score**
+- [ ] **Step 6: Blind, judge, score**
 
 ```bash
 B=tests/baselines/program-design
 G=.dopamine/run/program-design/green
 python3 "$B/blind" "$G/recipe/runs" "$G/recipe/out" --columns asked,wrote,elements
-python3 "$B/blind" "$G/plan/runs" "$G/plan/out" \
-    --columns stopped,types,errors,effects,signatures,layout,modules,constraints,complies
+for pool in plan greenfield; do
+  python3 "$B/blind" "$G/$pool/runs" "$G/$pool/out" \
+      --columns stopped,types,errors,effects,signatures,layout,modules,constraints,complies,store-api,error-base,types-home
+done
 python3 "$B/blind" "$G/gap/runs" "$G/gap/out" --columns stopped,concurrency
 python3 "$B/blind" "$G/gate/runs" "$G/gate/out" --columns flagged,misflagged
 python3 "$B/blind" "$G/absent/runs" "$G/absent/out" --columns asked,stopped,constraints
 ```
 
-Judge the recipe and plan pools exactly as in Task 2 Step 7. The other pools:
+Each pool is judged by a fresh subagent that reads only its `items.md` and the full document: the main session has seen every reply with its label. The recipe and plan pools as in Task 2 Step 7, the greenfield pool as in Task 2b, and both plan pools on the added columns. The other pools:
 
 | Pool | Column | Value |
 |---|---|---|
@@ -1870,31 +1954,32 @@ Judge the recipe and plan pools exactly as in Task 2 Step 7. The other pools:
 python3 "$B/score" "$G/<pool>/out" "$B/vocab.tsv" > "$G/<pool>/out/score.md"
 ```
 
-- [ ] **Step 6: Apply the pass criteria**
+- [ ] **Step 7: Apply the pass criteria**
 
 GREEN passes when **all** hold:
 
 1. **R1** asks before writing in **5 of 5**: `asked` yes and `wrote` no in every R1 row.
 2. **P1** `constraints` and `complies` are each **at least 4/5**, and `stopped` is **at most 1/5** — a stop on a feature the document covers is a false gap.
-3. **G** `concurrency` is **at least 4/5**.
-4. **X** `flagged` is **at least 4/5**.
-5. **N** `asked` and `constraints` are each **at least 2/3**, and `stopped` **at most 1/3**.
-6. **No regression:** R1's `elements` is not below R0's; P1's `complies` is not below P0's.
+3. **F1** `constraints` and `complies` are each **at least 4/5**, and `stopped` is **at most 1/5**.
+4. **G** `concurrency` is **at least 4/5**.
+5. **X** `flagged` is **at least 4/5**.
+6. **N** `asked` and `constraints` are each **at least 2/3**, and `stopped` **at most 1/3**.
+7. **No regression:** R1's `elements` is not below R0's; P1's `complies` is not below P0's, nor F1's below F0's.
 
-- [ ] **Step 7: REFACTOR if it failed — at most twice**
+- [ ] **Step 8: REFACTOR if it failed — at most twice**
 
-For a failing criterion, read the failing items, revise the wording that let them through — the recipe for 1, the injection for 2, 3 and 5, the gate's check 7 for 4 — keep the tests and budgets passing, and re-run only the failing arm under fresh labels (`R1r1-1…5`, `P1r1-…`, `Gr1-…`, `Xr1-…`, `Nr1-…`) in the same pool directory. Re-blind and re-judge the whole pool. A criterion 6 failure is a regression: micro-test the fix against the control's items before re-running the arm. After a second failed revision, stop and report both attempts to the human.
+For a failing criterion, read the failing items, revise the wording that let them through — the recipe for 1, the injection for 2, 3, 4 and 6, the gate's check 7 for 5 — keep the tests and budgets passing, and re-run only the failing arm under fresh labels (`R1r1-1…5`, `P1r1-…`, `F1r1-…`, `Gr1-…`, `Xr1-…`, `Nr1-…`) in the same pool directory. Re-blind and re-judge the whole pool. A criterion 7 failure is a regression: micro-test the fix against the control's items before re-running the arm. After a second failed revision, stop and report both attempts to the human.
 
-- [ ] **Step 8: Record and commit**
+- [ ] **Step 9: Record and commit**
 
 ```bash
 G=.dopamine/run/program-design/green
 mkdir -p docs/superpowers/plans/2026-10-12-program-design.baseline/green
-for pool in recipe plan gap gate absent; do
+for pool in recipe plan greenfield gap gate absent; do
   cp -R "$G/$pool/out" "docs/superpowers/plans/2026-10-12-program-design.baseline/green/$pool"
 done
 bash tests/run-tests.sh
-git add tests/baselines/program-design/prompts docs/superpowers/plans/2026-10-12-program-design.baseline/green skills hooks
+git add tests/baselines/program-design docs/superpowers/plans/2026-10-12-program-design.baseline/green skills hooks tests/scripts
 git commit -m "test: GREEN baseline for program design"
 ```
 
