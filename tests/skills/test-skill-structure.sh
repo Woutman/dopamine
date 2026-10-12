@@ -36,6 +36,9 @@ source "$REPO_ROOT/tests/helpers.sh"
 # finishing-work is raised from 700 to 730: its exit gate gains a sixth check,
 # for comments added in the diff, and that check has to name the skill that
 # holds the contract. Not licence to pad.
+# adopting-a-repo is raised from 750 to 830: it declares a fourth living
+# document and has to say why adoption writes nothing into it. Not licence
+# to pad.
 # brainstorm-program-design is 650: brainstorm-architecture's recipe plus the
 # contract for each slot question and the one-slot revision a plan's gap runs.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:730
@@ -43,7 +46,7 @@ BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          brainstorm-program-design:650
-         writing-roadmaps:850 adopting-a-repo:750"
+         writing-roadmaps:850 adopting-a-repo:830"
 
 budget_for() {
     local name="$1" entry
@@ -169,6 +172,7 @@ if [ -f "$map" ]; then
         "$body" "tier: path"
     assert_contains "an unadopted repository is routed to adoption" \
         "$body" "dopamine:adopting-a-repo"
+    assert_contains "a rule for how code is shaped has one home" "$body" "PROGRAM-DESIGN.md"
     assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 else
     fail "skills/routing-documentation-updates/SKILL.md exists" "not found"

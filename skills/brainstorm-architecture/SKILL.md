@@ -37,7 +37,7 @@ Use dopamine:writing-living-documents. It holds that schema and the rules for wr
 
 ### 4. Name what is now pending
 
-`ROADMAP.md` is declared and absent. Say so in one line. It is dopamine:writing-roadmaps' output, and phase order is a question about technical dependency that only this document makes answerable.
+`PROGRAM-DESIGN.md` and `ROADMAP.md`, where they are declared and absent. Say so in one line each. The first is dopamine:brainstorm-program-design's output: how code inside these components is shaped. The second is dopamine:writing-roadmaps' output, and phase order is a question about technical dependency that only this document makes answerable.
 
 ## Outcomes
 

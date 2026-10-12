@@ -77,6 +77,8 @@ assert_contains "it points at routing-documentation-updates rather than restatin
     "$body" "dopamine:routing-documentation-updates"
 assert_contains "it hands the document's shape to the schema skill" \
     "$body" "architecture-schema.md"
+assert_contains "it names the program-design recipe as what comes next" \
+    "$body" "dopamine:brainstorm-program-design"
 
 echo "-- writing-roadmaps"
 assert_skill_exists writing-roadmaps
@@ -106,6 +108,8 @@ assert_contains "it describes the config format rather than naming a parser" \
 assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "it hands the phase shape to the schema skill" \
     "$body" "roadmap-schema.md"
+assert_contains "program design is read for risk, never required" \
+    "$body" "read for risk only"
 
 echo "-- adopting-a-repo"
 assert_skill_exists adopting-a-repo
@@ -129,6 +133,12 @@ assert_contains "an instructions-tier candidate goes through the admission test"
     "$body" "dopamine:writing-claude-md"
 assert_contains "it points at routing-documentation-updates rather than restating it" \
     "$body" "dopamine:routing-documentation-updates"
+assert_contains "it declares the program-design document" \
+    "$body" "living: docs/PROGRAM-DESIGN.md"
+assert_contains "observed practice is a candidate, never a rule" \
+    "$body" "never written here"
+assert_contains "it hands the survey to the recipe" \
+    "$body" "dopamine:brainstorm-program-design"
 
 echo "-- adopting-a-repo survey prompt"
 survey="$REPO_ROOT/skills/adopting-a-repo/survey-prompt.md"
@@ -144,6 +154,8 @@ if [ -f "$survey" ]; then
     assert_contains "what was not read is reported too" "$sbody" "Not surveyed"
     assert_contains "the survey returns a file rather than prose" \
         "$sbody" "{FINDINGS_PATH}"
+    assert_contains "the survey knows what to read for program design" \
+        "$sbody" "A program-design document"
 else
     fail "skills/adopting-a-repo/survey-prompt.md exists" "not found"
 fi

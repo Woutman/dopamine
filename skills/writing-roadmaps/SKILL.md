@@ -28,6 +28,8 @@ Two forces set the order, and every phase's position is one or the other:
 
 An order set by neither is a preference, and a preference does not survive contact with a schedule.
 
+`PROGRAM-DESIGN.md`, where it is present, is read for risk only: a rule not yet proven in this project may justify an early vertical slice, named as that phase's **Why here**. It creates no dependencies between phases, so its absence blocks nothing.
+
 ### 3. Write the phases
 
 The phase slots, and the document's own, are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/roadmap-schema.md`.
