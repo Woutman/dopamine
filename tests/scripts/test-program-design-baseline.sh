@@ -58,6 +58,26 @@ RC=0
 (cd "$run" && python3 -m unittest discover -q -s tests >/dev/null 2>&1) || RC=$?
 assert_eq "the work's tests pass" 0 "$RC"
 
+echo "-- the greenfield fixture"
+G="$B/greenfield"
+assert_eq "it has no code to imitate" no \
+    "$([ -e "$G/feedwatch" ] || [ -e "$G/tests" ] && echo yes || echo no)"
+assert_eq "it keeps the brownfield design" "$(cat "$B/fixture/docs/DESIGN.md")" "$(cat "$G/docs/DESIGN.md")"
+assert_eq "and architecture" "$(cat "$B/fixture/docs/ARCHITECTURE.md")" "$(cat "$G/docs/ARCHITECTURE.md")"
+assert_eq "and config, so the document is declared" \
+    "$(cat "$B/fixture/.dopamine/config")" "$(cat "$G/.dopamine/config")"
+assert_eq "and the document is absent" no \
+    "$([ -e "$G/docs/PROGRAM-DESIGN.md" ] && echo yes || echo no)"
+v1="$(cat "$G/docs/superpowers/specs/2026-03-01-feedwatch-v1-design.md")"
+assert_contains "its spec asks for a refusal, so errors must be chosen" "$v1" "is refused"
+assert_contains "and for a skip on failure" "$v1" "logged and skipped"
+run=$(bash "$B/setup-run" --fixture "$G" "$T/greenfield-runs" F0-1)
+assert_eq "setup-run takes another fixture" no \
+    "$(git -C "$run" cat-file -e baseline-base:feedwatch/store.py 2>/dev/null && echo yes || echo no)"
+assert_exit "with the spec in its starting point" 0 \
+    git -C "$run" cat-file -e baseline-base:docs/superpowers/specs/2026-03-01-feedwatch-v1-design.md
+assert_exit "a missing fixture is bad usage" 2 bash "$B/setup-run" --fixture "$T/nowhere" "$T/greenfield-runs" F0-2
+
 echo "-- blind"
 # R0-1 asked a question and changed nothing; its reply names its own directory.
 printf 'Before I write anything: %s/feedwatch raises in fetch but returns None in parse. Which?\n' \
