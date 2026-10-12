@@ -19,6 +19,7 @@ asked a question would read as one that did nothing.
 """
 import os
 import random
+import re
 import subprocess
 import sys
 
@@ -67,7 +68,7 @@ def worktrees(run):
     return found
 
 
-def item(run, reply):
+def item(run, reply, labels):
     parts = ["#### Final message", "", reply.strip(), ""]
     # A worktree deleted without `git worktree remove` is still listed. Its
     # branch then counts as checked out nowhere, so its commits are still read.
@@ -89,6 +90,11 @@ def item(run, reply):
              *(os.path.realpath(p) for p, _ in checkouts)}
     for path in sorted(paths, key=len, reverse=True):
         text = text.replace(path, "<repo>")
+    # A control copied in from another stage still names the directory it ran
+    # in, and a run can name its label in scratch paths outside its own.
+    text = re.sub(r"/(red|green)/", "/<stage>/", text)
+    for label in sorted(labels, key=len, reverse=True):
+        text = text.replace(label, "<run>")
     return text
 
 
@@ -121,7 +127,7 @@ def main():
     entries = []
     for label in labels:
         with open(os.path.join(runs_dir, label + ".reply.md"), encoding="utf-8") as f:
-            entries.append((label, item(os.path.join(runs_dir, label), f.read())))
+            entries.append((label, item(os.path.join(runs_dir, label), f.read(), labels)))
     random.Random(seed).shuffle(entries)
 
     os.makedirs(out, exist_ok=True)

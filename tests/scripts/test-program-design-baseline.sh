@@ -112,6 +112,15 @@ rm "$T/runs/X-1.reply.md"
 assert_exit "a run with no saved reply exits 2" 2 \
     python3 "$B/blind" "$T/runs" "$T/missing" --columns asked
 assert_exit "no columns is bad usage" 2 python3 "$B/blind" "$T/runs" "$T/bad"
+# A control run copied in from RED still names the stage and directory it ran in.
+bash "$B/setup-run" "$T/red/plan/runs" P0-9 >/dev/null
+mkdir -p "$T/pool" && cp -R "$T/red/plan/runs/." "$T/pool/"
+printf 'Saw %s/feedwatch/store.py and built it in /tmp/fw-P0-9-x.\n' \
+    "$T/red/plan/runs/P0-9" > "$T/pool/P0-9.reply.md"
+python3 "$B/blind" "$T/pool" "$T/pool-out" --columns asked >/dev/null 2>&1
+copied=$(cat "$T/pool-out/items.md")
+assert_not_contains "a copied run's label is gone" "$copied" "P0-9"
+assert_not_contains "a copied run's stage is gone" "$copied" "/red/"
 
 # A run executes the fixture's tests, which writes __pycache__ unless told not to.
 run=$(bash "$B/setup-run" "$T/py" Y-1 "$B/overlays/program-design" "$B/overlays/work")

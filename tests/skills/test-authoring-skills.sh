@@ -177,6 +177,7 @@ for element in "Superpowers' default" "Observed practice" "recommendation" "alte
     assert_contains "each slot question shows: $element" "$body" "$element"
 done
 assert_contains "module depth is never inherited silently" "$body" "Modules is always asked"
+assert_contains "taking the recommendations still leaves Modules asked" "$body" "every slot but Modules"
 assert_contains "every rule carries a check" "$body" "check"
 assert_contains "Python's idiom takes precedence" "$body" "Python"
 assert_contains "a gap raised by a plan revises one slot in place" "$body" "in place"
