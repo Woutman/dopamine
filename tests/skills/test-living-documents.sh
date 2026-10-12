@@ -18,7 +18,7 @@ source "$REPO_ROOT/tests/helpers.sh"
 
 DIR="$REPO_ROOT/skills/writing-living-documents"
 
-echo "-- the skill exists and links all three schemas"
+echo "-- the skill exists and links all four schemas"
 if [ -f "$DIR/SKILL.md" ]; then
     pass "skills/writing-living-documents/SKILL.md exists"
     body=$(cat "$DIR/SKILL.md")
@@ -28,7 +28,7 @@ if [ -f "$DIR/SKILL.md" ]; then
     assert_contains "a change replaces what it makes wrong" "$body" "Change what changed"
     assert_contains "a run's number is cited from the ledger, not copied in" \
         "$body" "sealed ledger"
-    for schema in design architecture roadmap; do
+    for schema in design architecture roadmap program-design; do
         assert_contains "SKILL.md links $schema-schema.md" "$body" "$schema-schema.md"
     done
 else
@@ -60,6 +60,14 @@ check_schema architecture-schema.md \
 check_schema roadmap-schema.md \
     "What drives the order" "The phases" "External asks" \
     "Lands" "Why here" "Exit" "Observations, not assertions"
+check_schema program-design-schema.md \
+    "Types" "Errors" "Effects" "Signatures" "Layout" "Modules" \
+    "Concurrency" "Persistence" "Public surface" "Project slots" "Not this" \
+    "Inherited default" "how to check a diff against it" "Python"
+assert_contains "the architecture defers how code inside a component is shaped" \
+    "$(cat "$DIR/architecture-schema.md")" "PROGRAM-DESIGN.md"
+assert_contains "the schema skill's trigger names the new document" \
+    "$(cat "$DIR/SKILL.md")" "PROGRAM-DESIGN.md"
 
 echo "-- both consumers reach every schema through CLAUDE_PLUGIN_ROOT"
 for pair in "brainstorm-design:design-schema.md" \
