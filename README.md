@@ -21,10 +21,11 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | Piece | What it does |
 |---|---|
 | `.dopamine/config` | Declares which paths hold which artifact tier. The plugin hard-codes no project's document set |
-| `SessionStart` hook | ~140 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules. Silent in a repo with no config |
+| `SessionStart` hook | ~230 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules. Silent in a repo with no config |
 | `dopamine:adopting-a-repo` | Writes the config, surveys existing code, and reconstructs the living documents — marking what was inferred |
 | `dopamine:brainstorm-design` | Wraps superpowers' brainstorming at system scope and derives `DESIGN.md` |
 | `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` |
+| `dopamine:brainstorm-program-design` | One level down again: the human picks the rules for types, errors, effects, signatures, layout and module depth, deriving `PROGRAM-DESIGN.md` |
 | `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` |
 | `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 | `dopamine:writing-living-documents` | The slots each living document has, one schema file per document, and the rules for writing into them |
@@ -72,6 +73,7 @@ Python 3 is used by the **test suite** — `tests/` parses JSON and skill frontm
 - **The `living:` tier does not say which path plays which role.** The authoring recipes take the declared path whose basename matches the document they own — `DESIGN.md` for `dopamine:brainstorm-design`, and so on — and ask the human where no path matches. A project using different filenames therefore answers one question per recipe, once. A `role:` field in the config is the escalation if that proves annoying.
 - **Whether sweeps happen at all is answered only after the fact.** `git log --grep='^sweep:'` shows which units of work closed with one; nothing prompts for the ones that did not. Line-count growth in the commit messages is the signal that routing is being skipped, and it has to be read by a human.
 - **Implementers are not handed the comment contract.** The baseline found that implementers copy a plan's comments and add almost none of their own, so the injection points the plan's author at the skill instead; `finishing-work`'s exit gate is the backstop for comments written outside a plan.
+- **A plan's author copies the program-design rules by instruction.** The injection asks for the applicable rules in each plan's Global Constraints; nothing checks that they arrived. `finishing-work`'s seventh check is the backstop, and the baseline's arm P1 measured how often they did.
 
 ## Tests
 
@@ -83,4 +85,4 @@ bash tests/run-tests.sh
 
 All three original slices were built — the spine, the `CLAUDE.md` guard, and the authoring skills — and the first two have since been replaced by rules. The design they now implement is `docs/superpowers/specs/2026-09-01-dopamine-rules-over-mechanism-design.md`, which supersedes the hooks and the sweep pipeline in `docs/superpowers/specs/2026-08-28-dopamine-design.md` while leaving its artifact model intact.
 
-This repository has not yet run its own authoring recipes on itself: `docs/DESIGN.md`, `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` are declared in `.dopamine/config` and are absent, which is the mechanism working rather than a gap in it.
+This repository has not yet run its own authoring recipes on itself: `docs/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/PROGRAM-DESIGN.md` and `docs/ROADMAP.md` are declared in `.dopamine/config` and are absent, which is the mechanism working rather than a gap in it.
