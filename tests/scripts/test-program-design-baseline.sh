@@ -120,6 +120,19 @@ assert_contains "a file left uncommitted in the worktree is shown" "$items" "unc
 assert_contains "a commit on a branch nothing has out is shown" "$items" "only on a branch"
 assert_not_contains "the worktree's path does not leak" "$items" "$T"
 
+# A worktree deleted by hand is still listed by git; its branch's commits count.
+run=$(bash "$B/setup-run" "$T/gone" G-1)
+git -C "$run" worktree add -q .worktrees/g -b g
+printf 'committed in a deleted worktree\n' > "$run/.worktrees/g/gone.txt"
+git -C "$run/.worktrees/g" add -A && git -C "$run/.worktrees/g" commit -qm gone
+rm -rf "$run/.worktrees/g"
+printf 'DONE\n' > "$T/gone/G-1.reply.md"
+RC=0
+python3 "$B/blind" "$T/gone" "$T/gone-out" --columns asked >/dev/null 2>&1 || RC=$?
+assert_eq "a run with a deleted worktree exits 0" 0 "$RC"
+assert_contains "the deleted worktree's committed file is shown" \
+    "$(cat "$T/gone-out/items.md" 2>/dev/null)" "committed in a deleted worktree"
+
 echo "-- score"
 S="$T/score"
 mkdir -p "$S"

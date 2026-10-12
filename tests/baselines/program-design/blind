@@ -69,7 +69,9 @@ def worktrees(run):
 
 def item(run, reply):
     parts = ["#### Final message", "", reply.strip(), ""]
-    checkouts = worktrees(run)
+    # A worktree deleted without `git worktree remove` is still listed. Its
+    # branch then counts as checked out nowhere, so its commits are still read.
+    checkouts = [(path, branch) for path, branch in worktrees(run) if os.path.isdir(path)]
     # Work on any checkout counts, committed or not: agents following
     # using-git-worktrees do it in a nested worktree on its own branch.
     for path, _ in checkouts:
