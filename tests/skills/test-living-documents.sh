@@ -89,6 +89,9 @@ assert_contains "and a widened surface is named in the plan" "$pd" "named in the
 assert_contains "the worked example carries the admission rule" "$pd" "**Rule (admission):**"
 assert_contains "a test fake counts as a second implementation" "$pd" "a test fake counts as a second one"
 assert_contains "the surface's location is the variable part" "$pd" "\`api.py\`"
+road=$(cat "$DIR/roadmap-schema.md")
+assert_contains "Lands names the interface a phase publishes" "$road" "the interface it publishes"
+assert_contains "pointing at How they talk rather than restating it" "$road" "*How they talk*"
 assert_contains "the schema skill's trigger names the new document" \
     "$(cat "$DIR/SKILL.md")" "PROGRAM-DESIGN.md"
 

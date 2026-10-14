@@ -114,8 +114,14 @@ assert_contains "it describes the config format rather than naming a parser" \
 assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "it hands the phase shape to the schema skill" \
     "$body" "roadmap-schema.md"
-assert_contains "program design is read for risk, never required" \
-    "$body" "read for risk only"
+assert_contains "program design is still read for risk" "$body" "also read for risk"
+assert_not_contains "its absence no longer blocks nothing" "$body" "blocks nothing"
+assert_contains "a new roadmap or new phases wait for Modules" \
+    "$body" "Writing a roadmap, or adding phases"
+assert_contains "it hands off to the program-design recipe" "$body" "dopamine:brainstorm-program-design"
+assert_contains "a close still proceeds, with Modules named pending" \
+    "$body" "Striking a closed phase, or re-ordering what remains"
+assert_contains "and the pending line is said" "$body" "name Modules as pending"
 
 echo "-- adopting-a-repo"
 assert_skill_exists adopting-a-repo

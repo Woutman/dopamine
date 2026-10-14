@@ -47,12 +47,15 @@ source "$REPO_ROOT/tests/helpers.sh"
 # brainstorm-program-design is raised from 650 to 680: Modules now reads the
 # boundaries ARCHITECTURE.md draws, and the recipe has to say so before the
 # question is asked. Not licence to pad.
+# writing-roadmaps is raised from 850: stage 1 now stops a new roadmap until
+# program design's Modules slot is answered, and has to say why a close still
+# proceeds. Not licence to pad.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:790
          writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          brainstorm-program-design:680
-         writing-roadmaps:850 adopting-a-repo:830"
+         writing-roadmaps:880 adopting-a-repo:830"
 
 budget_for() {
     local name="$1" entry

@@ -19,6 +19,11 @@ description: Use when a design and an architecture are settled and the order of 
 
 Read `.dopamine/config`; it declares one `tier: path` per line, and its `living:` paths give all three. The roadmap is the declared path whose basename is `ROADMAP.md`. A declared path that does not exist is **absent**, not an error. Where no declared path matches, ask which one is meant rather than creating a second. `DESIGN.md` says what must exist; `ARCHITECTURE.md` says what depends on what. With either absent the phases would be guesses — run dopamine:brainstorm-design and dopamine:brainstorm-architecture first. No `.dopamine/config` means the repository has not adopted dopamine — run dopamine:adopting-a-repo first.
 
+`PROGRAM-DESIGN.md` absent, or its **Modules** slot deferred, is decided by what this run is for:
+
+- **Writing a roadmap, or adding phases** — stop, and run dopamine:brainstorm-program-design first. A later phase is a new caller of an earlier phase's components, and Modules is the rule that keeps it from reaching past what they offer.
+- **Striking a closed phase, or re-ordering what remains** — proceed, and name Modules as pending in one line, so a project part-way through its roadmap keeps closing phases.
+
 ### 2. Order by dependency and risk, and say which one placed each phase
 
 Two forces set the order, and every phase's position is one or the other:
@@ -28,7 +33,7 @@ Two forces set the order, and every phase's position is one or the other:
 
 An order set by neither is a preference, and a preference does not survive contact with a schedule.
 
-`PROGRAM-DESIGN.md`, where it is present, is read for risk only: a rule not yet proven in this project may justify an early vertical slice, named as that phase's **Why here**. It creates no dependencies between phases, so its absence blocks nothing.
+`PROGRAM-DESIGN.md` is also read for risk: a rule not yet proven in this project may justify an early vertical slice, named as that phase's **Why here**. It creates no dependencies between phases.
 
 ### 3. Write the phases
 
@@ -57,6 +62,7 @@ The ledger is immutable, so the trail cannot rot; its header names the plan, whi
 | A settled design and architecture | `ROADMAP.md` at the declared path: what drives the order, the phases, and the external asks |
 | An architecture still open on one component | The phases up to that question, and the question named as what unblocks the rest |
 | A phase that has just closed | It is struck through above its ledger pointer, its outcome placed, and the remaining order re-decided if what closed changed it |
+| `PROGRAM-DESIGN.md` absent, or its Modules slot deferred | For a new roadmap or new phases, the handoff to dopamine:brainstorm-program-design; at a close, the strike, with Modules named as pending |
 
 ## Common mistakes
 
