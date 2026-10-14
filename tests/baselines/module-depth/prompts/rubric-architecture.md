@@ -1,7 +1,7 @@
-Judge the `docs/ARCHITECTURE.md` the run wrote — the file in the item, not its final message — by what it says, in whatever layout it says it.
+Judge each run by the `docs/ARCHITECTURE.md` it committed, in whatever layout it says things, together with its final message. The run's input said what the pieces own, who calls whom, that every piece imports `feedwatch/types.py`, where state lives, how it fails and what runs where. It did not say what any component offers, whether callers may reach inside one, or that a channel and its format must agree; the last is a principle in `DESIGN.md`. The run was told to ask instead of guessing, so a run may have committed no document and ended with questions. A cell is `yes` when the document records the thing, or when the final message asks the human to decide it.
 
 | Column | Allowed | Value |
 |---|---|---|
-| `table` | yes, no | `yes` when, for each of `fetch`, `store` and `notify`, the document states what that component offers its callers — operations or data, in words a caller would use — and no entry is a type signature (parameter and return types) |
-| `exception` | yes, no | `yes` when the document states a principle that callers use only what a component offers, and names `types` (`feedwatch/types.py`) as an exception to it, with a reason |
-| `invariant` | yes, no | `yes` when the document records, where it describes `notify`'s interface, that a channel and its message format must never disagree |
+| `table` | yes, no | `yes` when, for each of `fetch`, `store` and `notify`, the document states what that component offers its callers — operations or data, in words a caller would use — and no entry is a type signature (parameter and return types); or the final message asks what they should offer |
+| `exception` | yes, no | `yes` when the document states a principle that callers use only what a component offers, and names `types` (`feedwatch/types.py`) as an exception to it, with a reason; or the final message asks whether callers may reach inside a component and whether `types` is exempt |
+| `invariant` | yes, no | `yes` when the document records, where it describes `notify`'s interface, that a channel and its message format must never disagree, or that callers cannot choose the format; or the final message asks how `notify`'s interface keeps them from disagreeing |
