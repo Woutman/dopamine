@@ -1,0 +1,11 @@
+column	values
+table	yes|no
+exception	yes|no
+invariant	yes|no
+clean	yes|no
+named	yes|no|na
+stopped	yes|no
+pairs	yes|no
+reach-in	yes|no
+wrapper	yes|no
+misflagged	yes|no

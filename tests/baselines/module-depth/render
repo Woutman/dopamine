@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Fill a baseline prompt template, so every run of an arm gets the same prompt.
+
+Usage: render TEMPLATE KEY=VALUE|KEY=@PATH ...
+
+Each {KEY} in TEMPLATE, KEY in capitals and underscores, is replaced by VALUE
+or by the contents of PATH, trailing newline dropped. A filled-in value is not
+scanned again, so a skill or a document pasted in may contain braces of its own.
+
+Exits 2 when a {KEY} in the template has no value, or a KEY given does not
+appear in it: either way the run would receive a prompt nobody meant to send.
+"""
+import re
+import sys
+
+PLACEHOLDER = re.compile(r"\{([A-Z_]+)\}")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
+        return 2
+    with open(sys.argv[1], encoding="utf-8") as f:
+        template = f.read()
+    values = {}
+    for arg in sys.argv[2:]:
+        key, sep, value = arg.partition("=")
+        if not sep or not PLACEHOLDER.fullmatch("{" + key + "}"):
+            print(f"not KEY=VALUE: {arg}", file=sys.stderr)
+            return 2
+        if value.startswith("@"):
+            with open(value[1:], encoding="utf-8") as f:
+                value = f.read().rstrip("\n")
+        values[key] = value
+    wanted = set(PLACEHOLDER.findall(template))
+    problems = [f"no value for {{{k}}}" for k in sorted(wanted - values.keys())]
+    problems += [f"{k} is not in {sys.argv[1]}" for k in sorted(values.keys() - wanted)]
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
+    sys.stdout.write(PLACEHOLDER.sub(lambda m: values[m.group(1)], template))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
