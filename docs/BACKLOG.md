@@ -63,3 +63,45 @@ together:
   is when the product is already live.
 - Whether intake is a recipe at all, or a section of the `SessionStart` injection pointing an
   ordinary brainstorm at the right documents.
+
+## Give each project a glossary
+
+**The idea.** A short list of the project's own terms, one line each, each pointing at the code
+that defines it. None of dopamine's documents holds one: `DESIGN.md` says what the system is for,
+`ARCHITECTURE.md` what its components are, `PROGRAM-DESIGN.md` how its code is shaped, and none
+says what a word the code and its users share actually means.
+
+**Why.** It came out of the 2026-10-14 review of `gls-global`, which used dopamine's documents as
+its yardstick for how ready a repository is for coding agents. Vocabulary scored only partly: the
+engine's lead bands (`hot/warm/nurture/excluded`) and the portal's (Hot/Warm/Koud/Geen
+fit/Neutraal) had drifted apart, and "withheld", "excluded" and "unresolved" were defined nowhere
+in prose. The review recommended a glossary of at most 20 terms, each pointing at its defining
+code. An agent arriving cold either guesses what a term means or coins a synonym, and every synonym
+is a drift the next agent copies. Many agents from different developers on one repository make that
+worse.
+
+**What it would contain** — suggestions, none decided:
+
+- **A home.** A **Vocabulary** slot in `DESIGN.md`, beside what the system does. Or a part of
+  `PROGRAM-DESIGN.md`'s **Types**, which already asks how domain concepts are represented. Or a
+  fifth living document.
+- **An entry**: the term, one line saying what it means, and the code that defines it: a type, an
+  enum or a constant. Pointing at code keeps an entry checkable. The sweep can confirm the
+  definition is still where the entry says.
+- **Bounded**: about 20 terms, the ones an agent would otherwise get wrong, not every noun in the
+  code. That keeps it O(system).
+- **Kept by the sweep**: a ledger entry that introduces, renames or retires a term is routed to the
+  glossary, and `finishing-work` flags a diff that names a listed concept a second way.
+- **Seeded at adoption**: `adopting-a-repo`'s survey collects the terms components use
+  inconsistently, as the review had to by hand.
+
+**Revisit before building.** Still to decide together:
+
+- **Which home**, and whether the glossary is core or conditional. A trigger could be two
+  components naming the same concept, or a user-facing language that differs from the code's.
+- **How a term spelled differently in the code and the UI is recorded**: one term with two
+  spellings, or drift to fix.
+- **Whether the drift check is mechanical**, a grep for listed synonyms, or a judgement the sweep
+  makes.
+- **Whether RED shows the gap at all**: whether an agent without a glossary actually misreads or
+  re-coins terms in a fixture, or reads the defining code anyway.
