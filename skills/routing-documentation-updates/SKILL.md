@@ -32,7 +32,7 @@ This repository's own paths are declared in `.dopamine/config`, one `tier: path`
 | What we decided and why | Spec (what we meant) plus the **sealed ledger** (what we actually did) | The deviation between them is the decision archive |
 | A dated observation that stays true — "we tried X, it failed because Y" | `LESSONS.md`, with the error text, symbol and version a future agent would grep for | Nothing consults it as current truth, so it never needs verifying |
 | A prescription — "do not use X" | A living document or `CLAUDE.md` | A prescription **does** go stale, so it has to sit where staleness is checked |
-| A rule for how code is shaped — types, errors, effects, signatures, layout, module depth | `PROGRAM-DESIGN.md`, never `CLAUDE.md` or `LESSONS.md` | Every plan copies it and every close checks the diff against it, so it sits where both read |
+| A rule for how code is shaped — types, errors, effects, signatures, layout, module boundaries and admission | `PROGRAM-DESIGN.md`, never `CLAUDE.md` or `LESSONS.md` | Every plan copies it and every close checks the diff against it, so it sits where both read |
 
 ## Once the destination is decided
 

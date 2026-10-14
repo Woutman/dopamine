@@ -185,6 +185,10 @@ if [ -f "$map" ]; then
     assert_contains "an unadopted repository is routed to adoption" \
         "$body" "dopamine:adopting-a-repo"
     assert_contains "a rule for how code is shaped has one home" "$body" "PROGRAM-DESIGN.md"
+    assert_contains "program design holds how boundaries are enforced" \
+        "$body" "module boundaries and admission"
+    assert_not_contains "depth at a boundary is no longer routed to program design" \
+        "$body" "layout, module depth"
     assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 else
     fail "skills/routing-documentation-updates/SKILL.md exists" "not found"

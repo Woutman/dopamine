@@ -120,7 +120,7 @@ assert_contains "a new roadmap or new phases wait for Modules" \
     "$body" "Writing a roadmap, or adding phases"
 assert_contains "it hands off to the program-design recipe" "$body" "dopamine:brainstorm-program-design"
 assert_contains "a close still proceeds, with Modules named pending" \
-    "$body" "Striking a closed phase, or re-ordering what remains"
+    "$body" "Striking a closed phase, or re-ordering what remains** — proceed"
 assert_contains "and the pending line is said" "$body" "name Modules as pending"
 
 echo "-- adopting-a-repo"
