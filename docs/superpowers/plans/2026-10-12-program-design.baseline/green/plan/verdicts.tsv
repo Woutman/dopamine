@@ -1,0 +1,16 @@
+id	stopped	types	errors	effects	signatures	layout	modules	constraints	complies	store-api	error-base	types-home
+p001	no	dataclass	raise	pure	keyword-only	new-module	deep	yes	yes	functions	common-base	models
+p002	no	dataclass	raise	pure	keyword-only	new-module	deep	yes	yes	functions	common-base	models
+p003	no	dataclass	raise	pure	mixed	new-module	deep	yes	no	functions	common-base	models
+p004	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p005	no	dataclass	raise	pure	keyword-only	new-module	deep	yes	no	functions	common-base	models
+p006	no	dataclass	raise	pure	keyword-only	new-module	deep	yes	yes	functions	common-base	models
+p007	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p008	no	dataclass	raise	pure	keyword-only	new-module	deep	yes	yes	functions	common-base	models
+p009	no	dataclass	raise	pure	keyword-only	new-module	deep	yes	yes	functions	common-base	models
+p010	no	dataclass	raise	pure	mixed	new-module	deep	yes	no	functions	common-base	models
+p011	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p012	no	dataclass	raise	pure	mixed	new-module	deep	yes	no	functions	common-base	models
+p013	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models
+p014	no	dataclass	raise	pure	keyword-only	new-module	deep	yes	yes	functions	common-base	models
+p015	no	dataclass	sentinel	pure	positional	new-module	deep	no	no	functions	none	models

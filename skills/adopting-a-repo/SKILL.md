@@ -22,6 +22,7 @@ Write `.dopamine/config` at the repository root. It is the opt-in: without it ev
 ```
 living: docs/DESIGN.md
 living: docs/ARCHITECTURE.md
+living: docs/PROGRAM-DESIGN.md
 living: docs/ROADMAP.md
 instructions: CLAUDE.md
 lessons: docs/LESSONS.md
@@ -41,7 +42,7 @@ The source tree answers it.
 
 ### 3. Survey — one subagent per document, dispatched in parallel
 
-For each `living:` document that is absent — and, when the human confirms a present one has drifted from the code, for that one too, since re-surveying a document already written is a second O(project) read and is theirs to authorise, dispatch one subagent with `survey-prompt.md`, naming which document it is surveying for. They read disjoint parts of the repository — entry points and history for the design, module boundaries and data flow for the architecture, unfinished work for the roadmap — so there is no shared expensive read that one pass would save.
+For each `living:` document that is absent — and, when the human confirms a present one has drifted from the code, for that one too, since re-surveying a document already written is a second O(project) read and is theirs to authorise, dispatch one subagent with `survey-prompt.md`, naming which document it is surveying for. They read disjoint parts of the repository — entry points and history for the design, module boundaries and data flow for the architecture, a sample per slot of how code is written for the program design, unfinished work for the roadmap — so there is no shared expensive read that one pass would save.
 
 Fill `{FINDINGS_PATH}` with `<plans>/adoption-<document-basename>.survey.md`, taking `<plans>` from the `plans:` tier. Each returns that findings file, which stage 4 consumes when it fills the document's slots, and which is deleted once it has. The repository's contents never enter this session.
 
@@ -58,6 +59,8 @@ Where a document needs more than filling in — an order that has to be argued, 
 
 That section is the handoff. Walk it with the human, move what they confirm into the body, and delete the section when it empties. A reconstruction that does not separate the two is a document nobody can trust and everybody re-derives.
 
+**`PROGRAM-DESIGN.md` is never written here.** Even a convention the code follows everywhere is only a candidate: the code shows what was done, not what was chosen. Hand its findings file to dopamine:brainstorm-program-design as observed practice; the human picks each rule there.
+
 ### 5. Place what is not a living document
 
 A survey turns up gotchas, dated observations and always-loaded rules. Route them: a dated observation to the lessons tier, an always-loaded rule to `CLAUDE.md` only if it survives dopamine:writing-claude-md's admission test, and anything derivable by reading the code nowhere at all.
@@ -66,6 +69,6 @@ A survey turns up gotchas, dated observations and always-loaded rules. Route the
 
 | The repository holds | Adoption produces |
 |---|---|
-| Code and no living documents | The config, the documents, and one `Reconstructed, unconfirmed` section per document |
+| Code and no living documents | The config, the documents except `PROGRAM-DESIGN.md`, one `Reconstructed, unconfirmed` section per document, and the program-design findings handed to dopamine:brainstorm-program-design |
 | Code and documents that have drifted | The config, and each document's slots checked against the survey rather than rewritten from it |
 | No code yet | The config alone, and the handoff to dopamine:brainstorm-design |

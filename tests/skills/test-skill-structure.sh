@@ -36,11 +36,20 @@ source "$REPO_ROOT/tests/helpers.sh"
 # finishing-work is raised from 700 to 730: its exit gate gains a sixth check,
 # for comments added in the diff, and that check has to name the skill that
 # holds the contract. Not licence to pad.
-BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:730
+# adopting-a-repo is raised from 750 to 830: it declares a fourth living
+# document and has to say why adoption writes nothing into it. Not licence
+# to pad.
+# finishing-work is raised from 730 to 790: its exit gate gains a seventh check,
+# for the program-design rules, and that check has to say it applies only
+# where the document exists. Not licence to pad.
+# brainstorm-program-design is 650: brainstorm-architecture's recipe plus the
+# contract for each slot question and the one-slot revision a plan's gap runs.
+BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:790
          writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
-         writing-roadmaps:850 adopting-a-repo:750"
+         brainstorm-program-design:650
+         writing-roadmaps:850 adopting-a-repo:830"
 
 budget_for() {
     local name="$1" entry
@@ -166,6 +175,7 @@ if [ -f "$map" ]; then
         "$body" "tier: path"
     assert_contains "an unadopted repository is routed to adoption" \
         "$body" "dopamine:adopting-a-repo"
+    assert_contains "a rule for how code is shaped has one home" "$body" "PROGRAM-DESIGN.md"
     assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 else
     fail "skills/routing-documentation-updates/SKILL.md exists" "not found"
@@ -204,7 +214,10 @@ if [ -f "$fw" ]; then
     assert_contains "historical records untouched" "$gate" "Historical records"
     assert_contains "added comments meet the comment contract" \
         "$gate" "a why, a contract or a warning"
-    assert_contains "the gate counts its own checks correctly" "$gate" "Six checks"
+    assert_contains "added lines follow the program-design rules" "$gate" "PROGRAM-DESIGN.md"
+    assert_contains "each rule is judged by its own check" "$gate" "its own check"
+    assert_contains "the check applies only where the document exists" "$gate" "declared and present"
+    assert_contains "the gate counts its own checks correctly" "$gate" "Seven checks"
     assert_contains "the gate is a self-review, not a subagent dispatch" \
         "$gate" "fresh eyes"
 

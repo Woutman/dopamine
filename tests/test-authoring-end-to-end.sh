@@ -85,13 +85,14 @@ echo "-- the documented config is well-formed under the format the skills descri
 # document shows a human is actually in that shape.
 malformed=$(printf '%s\n' "$from_skill" | grep -vE '^[a-z]+: [A-Za-z0-9._/-]+$' | grep -c . || true)
 assert_eq "every documented line is one tier: path pair" "0" "$malformed"
-assert_eq "it declares six paths" "6" "$(printf '%s\n' "$from_skill" | grep -c ':')"
-assert_eq "three of them are the living tier" "3" \
+assert_eq "it declares seven paths" "7" "$(printf '%s\n' "$from_skill" | grep -c ':')"
+assert_eq "four of them are the living tier" "4" \
     "$(printf '%s\n' "$from_skill" | grep -c '^living:')"
 
 echo "-- every living document a config declares has a recipe that authors it"
 for pair in "DESIGN.md:brainstorm-design" \
             "ARCHITECTURE.md:brainstorm-architecture" \
+            "PROGRAM-DESIGN.md:brainstorm-program-design" \
             "ROADMAP.md:writing-roadmaps"; do
     doc="${pair%%:*}"; owner="${pair#*:}"
     assert_contains "$doc is named by the recipe that produces it" \

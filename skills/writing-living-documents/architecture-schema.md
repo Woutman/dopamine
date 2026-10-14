@@ -14,3 +14,5 @@ The assembly that realises `DESIGN.md`, in the present tense.
 A number that describes the system now — a size limit, a timeout, a budget — belongs here as a bounded set, replaced when it changes. A number that describes one run belongs in the sealed ledger and is cited from here rather than copied into it.
 
 Component boundaries follow from what the system is for, so a change here that contradicts `DESIGN.md` is a finding for `DESIGN.md` first.
+
+How code inside each component is shaped, the depth of its interfaces included, is `PROGRAM-DESIGN.md`'s **Modules** slot. This document says what the components are and how they talk.

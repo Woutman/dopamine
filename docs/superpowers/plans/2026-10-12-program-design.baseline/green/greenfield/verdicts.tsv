@@ -1,0 +1,16 @@
+id	stopped	types	errors	effects	signatures	layout	modules	constraints	complies	store-api	error-base	types-home
+p001	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	no	functions	common-base	models
+p002	no	dataclass	raise	pure	mixed	per-component	deep	no	no	functions	flat	scattered
+p003	no	dataclass	raise	pure	mixed	per-component	deep	yes	no	functions	common-base	models
+p004	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	no	functions	common-base	models
+p005	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	yes	functions	common-base	models
+p006	no	dataclass	raise	pure	positional	per-component	deep	no	no	class	flat	scattered
+p007	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	yes	functions	common-base	models
+p008	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	no	functions	common-base	models
+p009	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	yes	functions	common-base	models
+p010	no	dataclass	raise	pure	positional	per-component	deep	no	no	class	flat	scattered
+p011	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	yes	functions	common-base	models
+p012	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	yes	functions	common-base	models
+p013	no	dataclass	raise	pure	mixed	per-component	deep	no	no	class	flat	scattered
+p014	no	dataclass	raise	pure	keyword-only	per-component	deep	yes	yes	functions	common-base	models
+p015	no	dataclass	mixed	pure	positional	per-component	deep	no	no	functions	flat	scattered

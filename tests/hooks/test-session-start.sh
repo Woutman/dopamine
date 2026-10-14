@@ -77,15 +77,23 @@ assert_contains "names the skill loaded before writing to the instructions file"
 assert_contains "names the skill loaded before writing a code comment" \
     "$ctx" "dopamine:writing-code-comments"
 assert_contains "including a comment in a plan's code" "$ctx" "plan's code block"
+assert_contains "names the program-design document a plan reads" "$ctx" "PROGRAM-DESIGN.md"
+assert_contains "the rules travel through the plan's Global Constraints" "$ctx" "Global Constraints"
+assert_contains "the plan holds its own code to each check, a changed line included" "$ctx" "a changed line included"
+assert_contains "a gap is settled through the recipe" "$ctx" "dopamine:brainstorm-program-design"
+assert_contains "an absent document is asked about once, not stopped on" "$ctx" "ask the human once"
 assert_contains "points at superpowers' existing ledger" "$ctx" "ledger"
 assert_contains "names the living documents it governs" "$ctx" "living document"
 assert_not_contains "no reference to the renamed skill survives" "$ctx" "dopamine:sweep"
 
+# 240, raised from 200: the program-design paragraph has to say where the rules
+# go in a plan, what a gap does, and what an absent document does, since the
+# plan's author learns all three only from here.
 words=$(wc -w < "$CONTEXT_FILE" | tr -d ' ')
-if [ "$words" -le 200 ]; then
-    pass "the injection is within its 200-word budget ($words words)"
+if [ "$words" -le 240 ]; then
+    pass "the injection is within its 240-word budget ($words words)"
 else
-    fail "the injection is within its 200-word budget" "got: $words words"
+    fail "the injection is within its 240-word budget" "got: $words words"
 fi
 
 echo "-- the injection is a conditional, not a prohibition"
