@@ -25,7 +25,7 @@ I ran the exit gate of dopamine:finishing-work over `git diff baseline-base...HE
 - None of the living documents lists the CLI commands, so the new commands don't leave them out of date.
 - Apart from the commit, I wrote no files.
 
-Files changed: `/home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/gate/runs/<run>/feedwatch/cli.py` and `/home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/gate/runs/<run>/feedwatch/store/__init__.py`.
+Files changed: `<repo>/feedwatch/cli.py` and `<repo>/feedwatch/store/__init__.py`.
 
 #### feedwatch/cli.py (changed)
 
@@ -96,6 +96,199 @@ index 3d166ed..16167cd 100644
 
 #### Final message
 
+I ran the exit gate of dopamine:finishing-work over `git diff baseline-base...HEAD`. The diff was one commit, 0d741eb: two new commands in `feedwatch/cli.py`, `check` and `failing`. Checks 1–6 found nothing. Check 7 found two violations of `docs/PROGRAM-DESIGN.md`'s Modules rules, and I fixed both in commit 9e7aa99. The 3 unit tests pass (`python3 -m unittest`), and `feedwatch failing` runs cleanly against an empty database.
+
+1. **Right tier:** nothing to judge. The diff changes no living document or `CLAUDE.md`.
+2. **Changed what changed:** nothing to judge. No document text was added or replaced.
+3. **No number describing a run in a living document:** passes. No living document was touched.
+4. **Every promotion to the instructions tier carries an admission verdict:** nothing to judge. There were no promotions.
+5. **Historical records untouched:** passes. No spec, plan or ledger was touched.
+6. **Added comments state a why, a contract or a warning:** passes. The diff adds no comments.
+7. **Added lines follow `PROGRAM-DESIGN.md`:**
+   - **Types:** passes. No domain type was added.
+   - **Errors:** passes. The only added `except` is in `cli.py`, and no added function signals failure by returning `None` or a flag.
+   - **Modules, boundary:** violation, fixed. `from feedwatch.store.queries import latest_failures` reached past `store`'s `__init__.py`. I exported `latest_failures` from `feedwatch/store/__init__.py` (import and `__all__`), and `cli.py` now calls `store.latest_failures(conn)`. `from feedwatch.fetch import FetchError` is fine because `fetch` exports it.
+   - **Modules, admission:** violation, fixed. The added `_feeds(conn)` did nothing but forward to `store.feeds(conn)`. I removed it, and the call site now uses `store.feeds(conn)`.
+
+Three things for you to decide:
+- **Wider store surface:** the rule wants every name added to a public surface named in the plan. This is ad-hoc work with no plan, so `latest_failures` is recorded only in this report and the commit.
+- **ARCHITECTURE.md is behind:** `store` now gives the reason a feed is failing, not only which feeds. Its row in `docs/ARCHITECTURE.md` still reads "which feeds are failing". I left the living document alone because only the gate was in scope. A sweep would change it to "which feeds are failing, and why".
+- **Older violation outside the diff:** `from feedwatch.store.schema import database_path` in `cli.py` also reaches past `store`'s surface. It is not an added line, so the gate doesn't cover it, and I left it.
+
+Files changed:
+- <repo>/feedwatch/cli.py
+- <repo>/feedwatch/store/__init__.py
+
+No scratch files were left behind.
+
+#### feedwatch/cli.py (changed)
+
+````diff
+diff --git a/feedwatch/cli.py b/feedwatch/cli.py
+index edb642e..600d087 100644
+--- a/feedwatch/cli.py
++++ b/feedwatch/cli.py
+@@ -4,6 +4,7 @@ import argparse
+ import sys
+ 
+ from feedwatch import fetch, notify, store
++from feedwatch.fetch import FetchError
+ from feedwatch.store.schema import database_path
+ 
+ 
+@@ -15,15 +16,30 @@ def main(argv: list[str] | None = None) -> int:
+     poll.add_argument("--channel", choices=sorted(notify.CHANNELS), default="desktop")
+     poll.add_argument("--format", choices=sorted(notify.FORMATS), default="one-line")
+     commands.add_parser("where", help="print where the database is")
++    check = commands.add_parser("check", help="fetch one feed once, without saving it")
++    check.add_argument("url")
++    commands.add_parser("failing", help="list the feeds whose last poll failed, and why")
+     args = parser.parse_args(argv)
+ 
+     if args.command == "where":
+         print(database_path())
+         return 0
++    if args.command == "check":
++        try:
++            print(f"{len(fetch.fetch_entries(args.url, 0))} entries")
++        except FetchError as exc:
++            print(exc, file=sys.stderr)
++            return 1
++        return 0
+     conn = store.connect()
+     if args.command == "add":
+         store.add_feed(conn, args.url, args.url)
+         return 0
++    if args.command == "failing":
++        titles = {feed.id: feed.title for feed in store.feeds(conn)}
++        for feed_id, message in store.latest_failures(conn).items():
++            print(f"{titles[feed_id]}: {message}")
++        return 0
+     for feed in store.feeds(conn):
+         try:
+             entries = fetch.fetch_entries(feed.url, feed.id)
+````
+
+#### feedwatch/store/__init__.py (changed)
+
+````diff
+diff --git a/feedwatch/store/__init__.py b/feedwatch/store/__init__.py
+index 3d166ed..0f5076d 100644
+--- a/feedwatch/store/__init__.py
++++ b/feedwatch/store/__init__.py
+@@ -3,10 +3,11 @@
+ import sqlite3
+ 
+ from feedwatch.store import queries
+-from feedwatch.store.queries import add_feed, feeds, mark_read, record_poll, save_entries, unread
++from feedwatch.store.queries import (add_feed, feeds, latest_failures, mark_read, record_poll,
++                                     save_entries, unread)
+ from feedwatch.store.schema import connect
+ 
+-__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "mark_read",
++__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "latest_failures", "mark_read",
+            "record_poll", "save_entries", "unread"]
+````
+
+
+## p003
+
+#### Final message
+
+I ran the exit gate of dopamine:finishing-work over `git diff baseline-base...HEAD` in <repo>. The diff was 21 added lines, all in `feedwatch/cli.py`: the new `check` and `failing` commands. Checks 1–6 found nothing. Check 7 found three violations of the Modules rule, which I fixed inline and committed as d6ce633. The 3 unit tests pass after the fix.
+
+**Checks 1–5 (living documents and records):** pass, because the diff touches no document. Nothing in `docs/` changed, so:
+1. **Right tier:** nothing was routed to a tier.
+2. **Changed what changed:** no document text was appended or replaced.
+3. **No run numbers in a living document:** none entered one.
+4. **Admission verdicts:** nothing was promoted to the instructions tier.
+5. **Historical records:** specs, plans and ledgers are untouched.
+
+**Check 6 (comments):** pass. The diff adds no comments or docstrings.
+
+**Check 7 (`docs/PROGRAM-DESIGN.md`):**
+- **Types:** pass. No domain type was added.
+- **Errors:** pass. No added function signals failure with `None` or a flag, and the one added `except fetch.FetchError` is in `cli.py`.
+- **Effects:** pass. No test-only code is in production modules.
+- **Modules** ("units with one clear purpose that communicate through well-defined interfaces"): failed on three points, all fixed:
+  - **Pass-through wrapper:** `def _feeds(conn): return store.feeds(conn)` added nothing, and the poll loop already called `store.feeds` directly. I removed it.
+  - **Bypassed interface:** `from feedwatch.store.queries import latest_failures` reached past the store's public interface; `store/__init__.py` says queries sit "behind the store's public functions", and `__all__` didn't include it. I re-exported `latest_failures` from `feedwatch/store/__init__.py`, added it to `__all__`, and `cli` now calls `store.latest_failures`.
+  - **Duplicate import:** `from feedwatch.fetch import FetchError` was redundant, since the existing code already uses `fetch.FetchError`. I removed it and made the `check` command use `fetch.FetchError`.
+
+**One observation, not fixed:** `check` calls `fetch.fetch_entries(args.url, 0)`. The 0 is a made-up feed id, because `fetch_entries` requires an id even when nothing will be saved. That points to a gap in fetch's interface. Fixing it would change fetch's signature, which is a design call outside this gate, so I'm leaving it for a decision. Separately, the existing `store.failing_feed_ids` is also a thin wrapper, but it was already there before this diff.
+
+Files changed: `feedwatch/cli.py` and `feedwatch/store/__init__.py`. I wrote no scratch files.
+
+#### feedwatch/cli.py (changed)
+
+````diff
+diff --git a/feedwatch/cli.py b/feedwatch/cli.py
+index edb642e..5588ffa 100644
+--- a/feedwatch/cli.py
++++ b/feedwatch/cli.py
+@@ -15,15 +15,30 @@ def main(argv: list[str] | None = None) -> int:
+     poll.add_argument("--channel", choices=sorted(notify.CHANNELS), default="desktop")
+     poll.add_argument("--format", choices=sorted(notify.FORMATS), default="one-line")
+     commands.add_parser("where", help="print where the database is")
++    check = commands.add_parser("check", help="fetch one feed once, without saving it")
++    check.add_argument("url")
++    commands.add_parser("failing", help="list the feeds whose last poll failed, and why")
+     args = parser.parse_args(argv)
+ 
+     if args.command == "where":
+         print(database_path())
+         return 0
++    if args.command == "check":
++        try:
++            print(f"{len(fetch.fetch_entries(args.url, 0))} entries")
++        except fetch.FetchError as exc:
++            print(exc, file=sys.stderr)
++            return 1
++        return 0
+     conn = store.connect()
+     if args.command == "add":
+         store.add_feed(conn, args.url, args.url)
+         return 0
++    if args.command == "failing":
++        titles = {feed.id: feed.title for feed in store.feeds(conn)}
++        for feed_id, message in store.latest_failures(conn).items():
++            print(f"{titles[feed_id]}: {message}")
++        return 0
+     for feed in store.feeds(conn):
+         try:
+             entries = fetch.fetch_entries(feed.url, feed.id)
+````
+
+#### feedwatch/store/__init__.py (changed)
+
+````diff
+diff --git a/feedwatch/store/__init__.py b/feedwatch/store/__init__.py
+index 3d166ed..2a34a49 100644
+--- a/feedwatch/store/__init__.py
++++ b/feedwatch/store/__init__.py
+@@ -3,11 +3,12 @@
+ import sqlite3
+ 
+ from feedwatch.store import queries
+-from feedwatch.store.queries import add_feed, feeds, mark_read, record_poll, save_entries, unread
++from feedwatch.store.queries import (add_feed, feeds, latest_failures, mark_read, record_poll,
++                                    save_entries, unread)
+ from feedwatch.store.schema import connect
+ 
+-__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "mark_read",
+-           "record_poll", "save_entries", "unread"]
++__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "latest_failures",
++           "mark_read", "record_poll", "save_entries", "unread"]
+ 
+ 
+ def failing_feed_ids(conn: sqlite3.Connection) -> set[int]:
+````
+
+
+## p004
+
+#### Final message
+
 I ran the exit gate of dopamine:finishing-work over `git diff baseline-base...HEAD`, which is one commit (0c14132, "feat: check a feed once, and list the failing ones") adding 21 lines to `feedwatch/cli.py`. Checks 1 to 6 found nothing. Check 7 found three problems, which I fixed in place. The fixes are uncommitted in the working tree.
 
 **Checks**
@@ -124,8 +317,8 @@ I ran the exit gate of dopamine:finishing-work over `git diff baseline-base...HE
 - In `failing`, `titles[feed_id]` would raise `KeyError` if a failure row pointed at a feed that no longer exists.
 
 Files changed:
-- `/home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/gate/runs/<run>/feedwatch/cli.py`
-- `/home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/gate/runs/<run>/feedwatch/store/__init__.py`
+- `<repo>/feedwatch/cli.py`
+- `<repo>/feedwatch/store/__init__.py`
 
 #### feedwatch/cli.py (changed)
 
@@ -193,7 +386,7 @@ index 3d166ed..5e5f006 100644
 ````
 
 
-## p003
+## p005
 
 #### Final message
 
@@ -345,106 +538,7 @@ for args in (["add", "http://127.0.0.1:9/x"], ["poll", "--channel", "email"], ["
 ````
 
 
-## p004
-
-#### Final message
-
-I ran the exit gate of dopamine:finishing-work over `git diff baseline-base...HEAD`. The diff was one commit, 0d741eb: two new commands in `feedwatch/cli.py`, `check` and `failing`. Checks 1–6 found nothing. Check 7 found two violations of `docs/PROGRAM-DESIGN.md`'s Modules rules, and I fixed both in commit 9e7aa99. The 3 unit tests pass (`python3 -m unittest`), and `feedwatch failing` runs cleanly against an empty database.
-
-1. **Right tier:** nothing to judge. The diff changes no living document or `CLAUDE.md`.
-2. **Changed what changed:** nothing to judge. No document text was added or replaced.
-3. **No number describing a run in a living document:** passes. No living document was touched.
-4. **Every promotion to the instructions tier carries an admission verdict:** nothing to judge. There were no promotions.
-5. **Historical records untouched:** passes. No spec, plan or ledger was touched.
-6. **Added comments state a why, a contract or a warning:** passes. The diff adds no comments.
-7. **Added lines follow `PROGRAM-DESIGN.md`:**
-   - **Types:** passes. No domain type was added.
-   - **Errors:** passes. The only added `except` is in `cli.py`, and no added function signals failure by returning `None` or a flag.
-   - **Modules, boundary:** violation, fixed. `from feedwatch.store.queries import latest_failures` reached past `store`'s `__init__.py`. I exported `latest_failures` from `feedwatch/store/__init__.py` (import and `__all__`), and `cli.py` now calls `store.latest_failures(conn)`. `from feedwatch.fetch import FetchError` is fine because `fetch` exports it.
-   - **Modules, admission:** violation, fixed. The added `_feeds(conn)` did nothing but forward to `store.feeds(conn)`. I removed it, and the call site now uses `store.feeds(conn)`.
-
-Three things for you to decide:
-- **Wider store surface:** the rule wants every name added to a public surface named in the plan. This is ad-hoc work with no plan, so `latest_failures` is recorded only in this report and the commit.
-- **ARCHITECTURE.md is behind:** `store` now gives the reason a feed is failing, not only which feeds. Its row in `docs/ARCHITECTURE.md` still reads "which feeds are failing". I left the living document alone because only the gate was in scope. A sweep would change it to "which feeds are failing, and why".
-- **Older violation outside the diff:** `from feedwatch.store.schema import database_path` in `cli.py` also reaches past `store`'s surface. It is not an added line, so the gate doesn't cover it, and I left it.
-
-Files changed:
-- <repo>/feedwatch/cli.py
-- <repo>/feedwatch/store/__init__.py
-
-No scratch files were left behind.
-
-#### feedwatch/cli.py (changed)
-
-````diff
-diff --git a/feedwatch/cli.py b/feedwatch/cli.py
-index edb642e..600d087 100644
---- a/feedwatch/cli.py
-+++ b/feedwatch/cli.py
-@@ -4,6 +4,7 @@ import argparse
- import sys
- 
- from feedwatch import fetch, notify, store
-+from feedwatch.fetch import FetchError
- from feedwatch.store.schema import database_path
- 
- 
-@@ -15,15 +16,30 @@ def main(argv: list[str] | None = None) -> int:
-     poll.add_argument("--channel", choices=sorted(notify.CHANNELS), default="desktop")
-     poll.add_argument("--format", choices=sorted(notify.FORMATS), default="one-line")
-     commands.add_parser("where", help="print where the database is")
-+    check = commands.add_parser("check", help="fetch one feed once, without saving it")
-+    check.add_argument("url")
-+    commands.add_parser("failing", help="list the feeds whose last poll failed, and why")
-     args = parser.parse_args(argv)
- 
-     if args.command == "where":
-         print(database_path())
-         return 0
-+    if args.command == "check":
-+        try:
-+            print(f"{len(fetch.fetch_entries(args.url, 0))} entries")
-+        except FetchError as exc:
-+            print(exc, file=sys.stderr)
-+            return 1
-+        return 0
-     conn = store.connect()
-     if args.command == "add":
-         store.add_feed(conn, args.url, args.url)
-         return 0
-+    if args.command == "failing":
-+        titles = {feed.id: feed.title for feed in store.feeds(conn)}
-+        for feed_id, message in store.latest_failures(conn).items():
-+            print(f"{titles[feed_id]}: {message}")
-+        return 0
-     for feed in store.feeds(conn):
-         try:
-             entries = fetch.fetch_entries(feed.url, feed.id)
-````
-
-#### feedwatch/store/__init__.py (changed)
-
-````diff
-diff --git a/feedwatch/store/__init__.py b/feedwatch/store/__init__.py
-index 3d166ed..0f5076d 100644
---- a/feedwatch/store/__init__.py
-+++ b/feedwatch/store/__init__.py
-@@ -3,10 +3,11 @@
- import sqlite3
- 
- from feedwatch.store import queries
--from feedwatch.store.queries import add_feed, feeds, mark_read, record_poll, save_entries, unread
-+from feedwatch.store.queries import (add_feed, feeds, latest_failures, mark_read, record_poll,
-+                                     save_entries, unread)
- from feedwatch.store.schema import connect
- 
--__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "mark_read",
-+__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "latest_failures", "mark_read",
-            "record_poll", "save_entries", "unread"]
-````
-
-
-## p005
+## p006
 
 #### Final message
 
@@ -565,100 +659,6 @@ index 3d166ed..0f5076d 100644
 -__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "mark_read",
 +__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "latest_failures", "mark_read",
             "record_poll", "save_entries", "unread"]
-````
-
-
-## p006
-
-#### Final message
-
-I ran the exit gate of dopamine:finishing-work over `git diff baseline-base...HEAD` in /home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/gate/runs/<run>. The diff was 21 added lines, all in `feedwatch/cli.py`: the new `check` and `failing` commands. Checks 1–6 found nothing. Check 7 found three violations of the Modules rule, which I fixed inline and committed as d6ce633. The 3 unit tests pass after the fix.
-
-**Checks 1–5 (living documents and records):** pass, because the diff touches no document. Nothing in `docs/` changed, so:
-1. **Right tier:** nothing was routed to a tier.
-2. **Changed what changed:** no document text was appended or replaced.
-3. **No run numbers in a living document:** none entered one.
-4. **Admission verdicts:** nothing was promoted to the instructions tier.
-5. **Historical records:** specs, plans and ledgers are untouched.
-
-**Check 6 (comments):** pass. The diff adds no comments or docstrings.
-
-**Check 7 (`docs/PROGRAM-DESIGN.md`):**
-- **Types:** pass. No domain type was added.
-- **Errors:** pass. No added function signals failure with `None` or a flag, and the one added `except fetch.FetchError` is in `cli.py`.
-- **Effects:** pass. No test-only code is in production modules.
-- **Modules** ("units with one clear purpose that communicate through well-defined interfaces"): failed on three points, all fixed:
-  - **Pass-through wrapper:** `def _feeds(conn): return store.feeds(conn)` added nothing, and the poll loop already called `store.feeds` directly. I removed it.
-  - **Bypassed interface:** `from feedwatch.store.queries import latest_failures` reached past the store's public interface; `store/__init__.py` says queries sit "behind the store's public functions", and `__all__` didn't include it. I re-exported `latest_failures` from `feedwatch/store/__init__.py`, added it to `__all__`, and `cli` now calls `store.latest_failures`.
-  - **Duplicate import:** `from feedwatch.fetch import FetchError` was redundant, since the existing code already uses `fetch.FetchError`. I removed it and made the `check` command use `fetch.FetchError`.
-
-**One observation, not fixed:** `check` calls `fetch.fetch_entries(args.url, 0)`. The 0 is a made-up feed id, because `fetch_entries` requires an id even when nothing will be saved. That points to a gap in fetch's interface. Fixing it would change fetch's signature, which is a design call outside this gate, so I'm leaving it for a decision. Separately, the existing `store.failing_feed_ids` is also a thin wrapper, but it was already there before this diff.
-
-Files changed: `feedwatch/cli.py` and `feedwatch/store/__init__.py`. I wrote no scratch files.
-
-#### feedwatch/cli.py (changed)
-
-````diff
-diff --git a/feedwatch/cli.py b/feedwatch/cli.py
-index edb642e..5588ffa 100644
---- a/feedwatch/cli.py
-+++ b/feedwatch/cli.py
-@@ -15,15 +15,30 @@ def main(argv: list[str] | None = None) -> int:
-     poll.add_argument("--channel", choices=sorted(notify.CHANNELS), default="desktop")
-     poll.add_argument("--format", choices=sorted(notify.FORMATS), default="one-line")
-     commands.add_parser("where", help="print where the database is")
-+    check = commands.add_parser("check", help="fetch one feed once, without saving it")
-+    check.add_argument("url")
-+    commands.add_parser("failing", help="list the feeds whose last poll failed, and why")
-     args = parser.parse_args(argv)
- 
-     if args.command == "where":
-         print(database_path())
-         return 0
-+    if args.command == "check":
-+        try:
-+            print(f"{len(fetch.fetch_entries(args.url, 0))} entries")
-+        except fetch.FetchError as exc:
-+            print(exc, file=sys.stderr)
-+            return 1
-+        return 0
-     conn = store.connect()
-     if args.command == "add":
-         store.add_feed(conn, args.url, args.url)
-         return 0
-+    if args.command == "failing":
-+        titles = {feed.id: feed.title for feed in store.feeds(conn)}
-+        for feed_id, message in store.latest_failures(conn).items():
-+            print(f"{titles[feed_id]}: {message}")
-+        return 0
-     for feed in store.feeds(conn):
-         try:
-             entries = fetch.fetch_entries(feed.url, feed.id)
-````
-
-#### feedwatch/store/__init__.py (changed)
-
-````diff
-diff --git a/feedwatch/store/__init__.py b/feedwatch/store/__init__.py
-index 3d166ed..2a34a49 100644
---- a/feedwatch/store/__init__.py
-+++ b/feedwatch/store/__init__.py
-@@ -3,11 +3,12 @@
- import sqlite3
- 
- from feedwatch.store import queries
--from feedwatch.store.queries import add_feed, feeds, mark_read, record_poll, save_entries, unread
-+from feedwatch.store.queries import (add_feed, feeds, latest_failures, mark_read, record_poll,
-+                                    save_entries, unread)
- from feedwatch.store.schema import connect
- 
--__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "mark_read",
--           "record_poll", "save_entries", "unread"]
-+__all__ = ["add_feed", "connect", "failing_feed_ids", "feeds", "latest_failures",
-+           "mark_read", "record_poll", "save_entries", "unread"]
- 
- 
- def failing_feed_ids(conn: sqlite3.Connection) -> set[int]:
 ````
 
 

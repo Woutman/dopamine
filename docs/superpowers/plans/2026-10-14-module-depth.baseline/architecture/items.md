@@ -2,88 +2,9 @@
 
 #### Final message
 
-I wrote `docs/ARCHITECTURE.md` from your answers and committed it (b9910f6). Several things it needs aren't covered by your answers, so I left those parts unwritten rather than guess. Your questions are at the end.
-
-**What's in the document:** the five pieces, with what each owns and must never own. The depth rule is that every component is deep, and the one exception is `types.py`, which everything imports by design. There's a table of what each component offers its callers and what must hold at its boundary. Then the seams (`cli` calls the other three, they don't call each other), where state lives, the two failure cases, and one process per command run from cron. Two "must hold" lines come straight from `DESIGN.md`, not from your answers:
-- **`notify`:** a caller names only the channel, never the format, because the design says a channel decides its message format.
-- **`fetch`:** if a feed's content can't be read as a feed, that counts as a failed fetch, because the design says the other feeds keep being polled when one fails.
-
-"Not this" says "None recorded." The code wasn't changed.
-
-**Where the code doesn't match the document yet.** I left these out of the document; they're for you to decide when to fix:
-1. `notify/formats.py` imports `clean_title` from `fetch.parsing`, so `notify` calls into `fetch`.
-2. `cli` imports `store.schema.database_path` directly instead of asking `store` where the database is.
-3. `cli` has a `--format` option separate from `--channel`, so a user can pick the other channel's format, which the design calls a bug.
-4. `fetch` only catches network errors. Malformed XML raises an uncaught error and stops the whole poll.
-5. `store.failing_feed_ids` throws away the failure reason the design says is remembered.
-6. `store` callers pass around a raw `sqlite3.Connection`.
-
-**Next steps:** `docs/PROGRAM-DESIGN.md` is the next missing document (dopamine:brainstorm-program-design), then `docs/ROADMAP.md` (dopamine:writing-roadmaps), which waits for PROGRAM-DESIGN.md's Modules section. I'll run dopamine:finishing-work once these questions are settled, since the work isn't finished until then.
-
-**Questions:**
-1. **Daily digest.** `docs/superpowers/specs/2026-04-06-daily-digest-design.md` is an approved spec, but neither `DESIGN.md` nor the code has a digest. Is it part of the system? If yes, it goes into `DESIGN.md` first. It would add to what `store` offers (unread counts per feed, plus failures with their reasons) and what `notify` offers (sending a digest on a channel).
-2. **Marking entries read.** Nothing calls `mark_read`, so every poll tells the user about the same unread entries again. When does an entry become read, and who does it: `cli` after a successful send, or something else? If a send fails, do those entries stay unread so the next poll re-sends them?
-3. **"Surfaces to the user."** For a command run by cron, what does that look like: a non-zero exit with the error on stderr, something written to the outbox, or something else?
-4. **`$FEEDWATCH_HOME` unset.** The code falls back to `./.feedwatch`, relative to whatever directory the command runs in (cron's is usually home). Is that the intended default? Should `store` and `notify` each read the variable, as they do now, or should one place resolve it and pass it down?
-5. **Overlapping runs.** If one cron `poll` is still running when the next starts, or the user runs `add` during a poll, is anything required (a lock, skipping the run, or just accepting duplicate notifications)?
-6. **Rejected alternatives.** Did you consider and reject any other way of building it, such as a long-running daemon or `notify` reading the database itself? If so, "Not this" should record it with the reason.
-
-#### docs/ARCHITECTURE.md (added)
-
-````
-# Feedwatch — architecture
-
-The assembly that realises [DESIGN.md](DESIGN.md).
-
-## The assembly
-
-- **`fetch`** owns HTTP and the feed format: it downloads a feed and turns its XML into entries. It never owns storage, or how anything reads to the user.
-- **`store`** owns the SQLite database and its schema, including each feed's last failed poll. It never owns HTTP, the feed format, or presentation.
-- **`notify`** owns the channels, desktop and email, and how a message reads on each. It never owns storage, or which entries are worth telling.
-- **`cli`** owns the user's commands and their presentation, and is the one component that calls the others. It never owns SQL, HTTP, the feed format, or a channel's message format.
-- **`types.py`** holds the domain values: a feed, and an entry. It never owns behaviour that needs I/O or another component.
-
-## How they talk
-
-**Depth.** Every component is deep: callers use what it offers, never how it does its work. The one named exception is `types.py`, which every component imports by design, because a feed and an entry are the words the components' offers are stated in.
-
-| Component | Offers its callers | Must hold |
-|---|---|---|
-| fetch | fetch a feed: its address → the entries it holds now, or a failure that says why | every way one feed can fail reaches the caller as that one failure, so a caller can record it and carry on |
-| store | subscribe to a feed; the subscribed feeds; save entries → how many were new; record a poll's outcome for a feed; the feeds whose last poll failed, each with why; the unread entries; mark entries read; where the database is | an entry is stored once however often it is saved; a feed's failure is kept, with its reason, until a poll of that feed succeeds; callers never see tables or SQL |
-| notify | send entries to the user on a channel | the channel decides the message format: callers name the channel only, so a message in the other channel's format cannot be asked for |
-| cli | the commands `add`, `poll` and `where` | — |
-| types.py | the domain values: a feed, an entry | — |
-
-**The seams.** `cli` depends on `fetch`, `store` and `notify`; none of those three depends on another, and nothing depends on `cli`. Every component depends on `types.py`, and `types.py` depends on nothing. An entry crosses from `fetch` to `store`, and from `store` to `notify`, only by way of `cli`.
-
-## Where state lives
-
-- **`$FEEDWATCH_HOME/feeds.db`** — the one SQLite file: the subscribed feeds, every entry seen and whether it is read, and each feed's last failed poll. `store` is authoritative for all of it.
-- **`$FEEDWATCH_HOME/outbox/`** — email notifications, one file per message, written by `notify` and sent by the user's mail setup. Once written, a file belongs to the mail setup.
-
-## When it fails
-
-- **A feed cannot be fetched** — the download fails or its content cannot be read as a feed. `store` records the failure with its reason, the feed is skipped, and the other feeds are polled as usual. Nothing is retried within a poll; the next poll fetches that feed again, and a success clears the record.
-- **A notification cannot be sent.** The failure surfaces to the user.
-
-## What runs where
-
-One process per command, on the user's machine. The user's cron runs `feedwatch poll`; feedwatch schedules nothing itself. Every process shares the one database and outbox under `$FEEDWATCH_HOME`.
-
-## Not this
-
-None recorded.
-````
-
-
-## p002
-
-#### Final message
-
 I wrote `docs/ARCHITECTURE.md` and committed it as `6b870e4` ("docs: architecture"). It fills every slot in the schema from your answers. I added only two facts that I read from the code: the 10 s fetch timeout, and that entries saved earlier in a poll stay saved if sending fails. I left out anything that needed a decision and listed those below. I didn't change any code and didn't edit DESIGN.md or the spec.
 
-File: `/home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/architecture/runs/<run>/docs/ARCHITECTURE.md`
+File: `<repo>/docs/ARCHITECTURE.md`
 
 Still pending:
 - `docs/PROGRAM-DESIGN.md` is declared but doesn't exist yet. It comes from `dopamine:brainstorm-program-design` and covers how code inside each piece is shaped.
@@ -142,6 +63,92 @@ Two smaller things I didn't put in the document, since they aren't about how the
 ## Not this
 
 No rejected assembly is recorded.
+````
+
+
+## p002
+
+#### Final message
+
+I wrote `docs/ARCHITECTURE.md` from your answers and committed it as `625e90c docs: architecture`. Four things are still open, and they're at the end of this message. The questions they raise aren't answered in the document. I haven't run the `finishing-work` sweep, because the work isn't finished until you've answered them.
+
+The file is `<repo>/docs/ARCHITECTURE.md`. It has the six standard sections:
+- **Components:** each one in a line, with what it owns and what it must never own.
+- **How they talk:** each connection, with `cli` as the only caller. `fetch`, `store` and `notify` never call or import one another.
+- **Where state lives:** `$FEEDWATCH_HOME/feeds.db` belongs to `store`. `notify` writes `$FEEDWATCH_HOME/outbox/` and your mail setup sends what's in it.
+- **When it fails:** a feed that can't be fetched is recorded and skipped, and the next poll tries it again. A failed notification is surfaced. The one number in the document is the 10-second download timeout, which is how the code behaves now.
+- **What runs where:** one process per command, no daemon, and cron runs `feedwatch poll`.
+- **Not this:** "None recorded." No rejected designs came up in your answers.
+
+**`PROGRAM-DESIGN.md` and `ROADMAP.md` don't exist yet.** The first comes from `dopamine:brainstorm-program-design`. The second comes from `dopamine:writing-roadmaps`, which can run now that this document exists.
+
+**The code breaks the architecture in four places.** I left the code alone and wrote the document to your answers:
+1. `feedwatch/notify/formats.py` imports `clean_title` from `feedwatch.fetch.parsing`, so `notify` depends on `fetch`, which your answers rule out.
+2. `cli` has a `--format` option that's separate from `--channel`. That means a desktop message can go out in the email format, which breaks the `DESIGN.md` principle that "a channel decides its message format" and your answer that `notify` owns how a message reads on each channel.
+3. `fetch` doesn't catch a parse error from malformed XML (`ET.ParseError` isn't a `FetchError`). One bad feed crashes the whole poll instead of being recorded and skipped.
+4. `cli` imports `database_path` from inside `store` (`feedwatch.store.schema`) rather than from `store` itself. That's a question for `PROGRAM-DESIGN.md`, not this document.
+
+**Two findings belong in `DESIGN.md`, not here:**
+- Nothing ever calls `mark_read`, so every poll sends the same unread entries again.
+- The approved daily-digest spec (`docs/superpowers/specs/2026-04-06-daily-digest-design.md`) isn't built and isn't mentioned in `DESIGN.md`. It would fit this architecture: `cli` would pass the failures from `store` to `notify`.
+
+**Questions for you:**
+1. **How does a failed notification reach the user?** For example, a message on stderr and a non-zero exit code, which cron would mail to you. And should the entries that failed to send go out again on the next poll?
+2. **Where is `$FEEDWATCH_HOME` when it isn't set?** Today it falls back to `.feedwatch` in the current directory, so cron and an interactive shell can end up using different databases. Is that intended? And which component should work out the path? Right now `store` and `notify` each read the variable themselves.
+3. **What happens when the database itself fails?** For example, a cron poll overlapping a command you run by hand, so the database is locked, or the file can't be written. Should that be retried, or should the command fail and say so?
+4. **Did you consider and reject any other designs?** If so, tell me what they were and why, and they'll go under "Not this".
+
+#### docs/ARCHITECTURE.md (added)
+
+````
+# Feedwatch — architecture
+
+## The assembly
+
+- **`fetch`** owns HTTP and the feed format: it downloads a feed and turns its XML into entries. It never owns storage, notification or how anything reads to the user.
+- **`store`** owns the SQLite database and its schema: the feeds, each entry stored once, and each feed's last failed poll. It never owns HTTP, the feed format or presentation.
+- **`notify`** owns the channels, desktop and email, and how a message reads on each. It never owns fetching or storage, and never lets a message go out in the other channel's format.
+- **`cli`** owns the user's commands and their presentation, and is the only component that calls the others. It never owns SQL, the feed format or how a notification reads.
+- **`types.py`** holds the domain values, a feed and an entry. It imports none of the components.
+
+## How they talk
+
+| From | To | What crosses |
+|---|---|---|
+| `cli` | `fetch` | A feed in; its entries out, or a fetch failure carrying the reason |
+| `cli` | `store` | Feeds, entries and the outcome of each feed's poll, as `types.py` values |
+| `cli` | `notify` | Entries and the channel to send them on; `notify` decides the format from the channel |
+| every component | `types.py` | The domain values |
+
+`fetch`, `store` and `notify` never call or import one another. Anything one of them needs from another passes through `cli`.
+
+## Where state lives
+
+| Store | Authoritative | Holds |
+|---|---|---|
+| `$FEEDWATCH_HOME/feeds.db`, one SQLite file | `store` | Feeds, entries, and each feed's last failed poll with its error |
+| `$FEEDWATCH_HOME/outbox/` | `notify` writes it | One file per email message, for the user's mail setup to send |
+
+No component holds state between commands.
+
+## When it fails
+
+| Failure | Seen from outside | Handling |
+|---|---|---|
+| A feed cannot be fetched | The feed is recorded as failing, with its error, until a poll of it succeeds | `store` records it, the poll skips the feed and the other feeds carry on; the next poll tries it again |
+| A notification cannot be sent | The user is told | Surfaced |
+
+A feed's download times out after 10 seconds.
+
+## What runs where
+
+- One process per command, on the user's machine; there is no daemon.
+- The user's cron runs `feedwatch poll`.
+- Every process works on the same database file and outbox.
+
+## Not this
+
+None recorded.
 ````
 
 
@@ -258,7 +265,7 @@ I wrote `docs/ARCHITECTURE.md` from your answers and committed it in the <run> r
 
 7. **Were any designs rejected?** For example, a long-running background process instead of cron, or `notify` reading from `store` itself. The "Not this" section currently says only "No rejected assembly is recorded."
 
-The new file is `/home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/architecture/runs/<run>/docs/ARCHITECTURE.md`.
+The new file is `<repo>/docs/ARCHITECTURE.md`.
 
 #### docs/ARCHITECTURE.md (added)
 
@@ -309,81 +316,74 @@ No rejected assembly is recorded.
 
 #### Final message
 
-I wrote `docs/ARCHITECTURE.md` from your answers and committed it as `625e90c docs: architecture`. Four things are still open, and they're at the end of this message. The questions they raise aren't answered in the document. I haven't run the `finishing-work` sweep, because the work isn't finished until you've answered them.
+I wrote `docs/ARCHITECTURE.md` from your answers and committed it (b9910f6). Several things it needs aren't covered by your answers, so I left those parts unwritten rather than guess. Your questions are at the end.
 
-The file is `/home/wogi/projects/dopamine/.claude/worktrees/living-projects-backlog/.dopamine/run/module-depth/<stage>/architecture/runs/<run>/docs/ARCHITECTURE.md`. It has the six standard sections:
-- **Components:** each one in a line, with what it owns and what it must never own.
-- **How they talk:** each connection, with `cli` as the only caller. `fetch`, `store` and `notify` never call or import one another.
-- **Where state lives:** `$FEEDWATCH_HOME/feeds.db` belongs to `store`. `notify` writes `$FEEDWATCH_HOME/outbox/` and your mail setup sends what's in it.
-- **When it fails:** a feed that can't be fetched is recorded and skipped, and the next poll tries it again. A failed notification is surfaced. The one number in the document is the 10-second download timeout, which is how the code behaves now.
-- **What runs where:** one process per command, no daemon, and cron runs `feedwatch poll`.
-- **Not this:** "None recorded." No rejected designs came up in your answers.
+**What's in the document:** the five pieces, with what each owns and must never own. The depth rule is that every component is deep, and the one exception is `types.py`, which everything imports by design. There's a table of what each component offers its callers and what must hold at its boundary. Then the seams (`cli` calls the other three, they don't call each other), where state lives, the two failure cases, and one process per command run from cron. Two "must hold" lines come straight from `DESIGN.md`, not from your answers:
+- **`notify`:** a caller names only the channel, never the format, because the design says a channel decides its message format.
+- **`fetch`:** if a feed's content can't be read as a feed, that counts as a failed fetch, because the design says the other feeds keep being polled when one fails.
 
-**`PROGRAM-DESIGN.md` and `ROADMAP.md` don't exist yet.** The first comes from `dopamine:brainstorm-program-design`. The second comes from `dopamine:writing-roadmaps`, which can run now that this document exists.
+"Not this" says "None recorded." The code wasn't changed.
 
-**The code breaks the architecture in four places.** I left the code alone and wrote the document to your answers:
-1. `feedwatch/notify/formats.py` imports `clean_title` from `feedwatch.fetch.parsing`, so `notify` depends on `fetch`, which your answers rule out.
-2. `cli` has a `--format` option that's separate from `--channel`. That means a desktop message can go out in the email format, which breaks the `DESIGN.md` principle that "a channel decides its message format" and your answer that `notify` owns how a message reads on each channel.
-3. `fetch` doesn't catch a parse error from malformed XML (`ET.ParseError` isn't a `FetchError`). One bad feed crashes the whole poll instead of being recorded and skipped.
-4. `cli` imports `database_path` from inside `store` (`feedwatch.store.schema`) rather than from `store` itself. That's a question for `PROGRAM-DESIGN.md`, not this document.
+**Where the code doesn't match the document yet.** I left these out of the document; they're for you to decide when to fix:
+1. `notify/formats.py` imports `clean_title` from `fetch.parsing`, so `notify` calls into `fetch`.
+2. `cli` imports `store.schema.database_path` directly instead of asking `store` where the database is.
+3. `cli` has a `--format` option separate from `--channel`, so a user can pick the other channel's format, which the design calls a bug.
+4. `fetch` only catches network errors. Malformed XML raises an uncaught error and stops the whole poll.
+5. `store.failing_feed_ids` throws away the failure reason the design says is remembered.
+6. `store` callers pass around a raw `sqlite3.Connection`.
 
-**Two findings belong in `DESIGN.md`, not here:**
-- Nothing ever calls `mark_read`, so every poll sends the same unread entries again.
-- The approved daily-digest spec (`docs/superpowers/specs/2026-04-06-daily-digest-design.md`) isn't built and isn't mentioned in `DESIGN.md`. It would fit this architecture: `cli` would pass the failures from `store` to `notify`.
+**Next steps:** `docs/PROGRAM-DESIGN.md` is the next missing document (dopamine:brainstorm-program-design), then `docs/ROADMAP.md` (dopamine:writing-roadmaps), which waits for PROGRAM-DESIGN.md's Modules section. I'll run dopamine:finishing-work once these questions are settled, since the work isn't finished until then.
 
-**Questions for you:**
-1. **How does a failed notification reach the user?** For example, a message on stderr and a non-zero exit code, which cron would mail to you. And should the entries that failed to send go out again on the next poll?
-2. **Where is `$FEEDWATCH_HOME` when it isn't set?** Today it falls back to `.feedwatch` in the current directory, so cron and an interactive shell can end up using different databases. Is that intended? And which component should work out the path? Right now `store` and `notify` each read the variable themselves.
-3. **What happens when the database itself fails?** For example, a cron poll overlapping a command you run by hand, so the database is locked, or the file can't be written. Should that be retried, or should the command fail and say so?
-4. **Did you consider and reject any other designs?** If so, tell me what they were and why, and they'll go under "Not this".
+**Questions:**
+1. **Daily digest.** `docs/superpowers/specs/2026-04-06-daily-digest-design.md` is an approved spec, but neither `DESIGN.md` nor the code has a digest. Is it part of the system? If yes, it goes into `DESIGN.md` first. It would add to what `store` offers (unread counts per feed, plus failures with their reasons) and what `notify` offers (sending a digest on a channel).
+2. **Marking entries read.** Nothing calls `mark_read`, so every poll tells the user about the same unread entries again. When does an entry become read, and who does it: `cli` after a successful send, or something else? If a send fails, do those entries stay unread so the next poll re-sends them?
+3. **"Surfaces to the user."** For a command run by cron, what does that look like: a non-zero exit with the error on stderr, something written to the outbox, or something else?
+4. **`$FEEDWATCH_HOME` unset.** The code falls back to `./.feedwatch`, relative to whatever directory the command runs in (cron's is usually home). Is that the intended default? Should `store` and `notify` each read the variable, as they do now, or should one place resolve it and pass it down?
+5. **Overlapping runs.** If one cron `poll` is still running when the next starts, or the user runs `add` during a poll, is anything required (a lock, skipping the run, or just accepting duplicate notifications)?
+6. **Rejected alternatives.** Did you consider and reject any other way of building it, such as a long-running daemon or `notify` reading the database itself? If so, "Not this" should record it with the reason.
 
 #### docs/ARCHITECTURE.md (added)
 
 ````
 # Feedwatch — architecture
 
+The assembly that realises [DESIGN.md](DESIGN.md).
+
 ## The assembly
 
-- **`fetch`** owns HTTP and the feed format: it downloads a feed and turns its XML into entries. It never owns storage, notification or how anything reads to the user.
-- **`store`** owns the SQLite database and its schema: the feeds, each entry stored once, and each feed's last failed poll. It never owns HTTP, the feed format or presentation.
-- **`notify`** owns the channels, desktop and email, and how a message reads on each. It never owns fetching or storage, and never lets a message go out in the other channel's format.
-- **`cli`** owns the user's commands and their presentation, and is the only component that calls the others. It never owns SQL, the feed format or how a notification reads.
-- **`types.py`** holds the domain values, a feed and an entry. It imports none of the components.
+- **`fetch`** owns HTTP and the feed format: it downloads a feed and turns its XML into entries. It never owns storage, or how anything reads to the user.
+- **`store`** owns the SQLite database and its schema, including each feed's last failed poll. It never owns HTTP, the feed format, or presentation.
+- **`notify`** owns the channels, desktop and email, and how a message reads on each. It never owns storage, or which entries are worth telling.
+- **`cli`** owns the user's commands and their presentation, and is the one component that calls the others. It never owns SQL, HTTP, the feed format, or a channel's message format.
+- **`types.py`** holds the domain values: a feed, and an entry. It never owns behaviour that needs I/O or another component.
 
 ## How they talk
 
-| From | To | What crosses |
-|---|---|---|
-| `cli` | `fetch` | A feed in; its entries out, or a fetch failure carrying the reason |
-| `cli` | `store` | Feeds, entries and the outcome of each feed's poll, as `types.py` values |
-| `cli` | `notify` | Entries and the channel to send them on; `notify` decides the format from the channel |
-| every component | `types.py` | The domain values |
+**Depth.** Every component is deep: callers use what it offers, never how it does its work. The one named exception is `types.py`, which every component imports by design, because a feed and an entry are the words the components' offers are stated in.
 
-`fetch`, `store` and `notify` never call or import one another. Anything one of them needs from another passes through `cli`.
+| Component | Offers its callers | Must hold |
+|---|---|---|
+| fetch | fetch a feed: its address → the entries it holds now, or a failure that says why | every way one feed can fail reaches the caller as that one failure, so a caller can record it and carry on |
+| store | subscribe to a feed; the subscribed feeds; save entries → how many were new; record a poll's outcome for a feed; the feeds whose last poll failed, each with why; the unread entries; mark entries read; where the database is | an entry is stored once however often it is saved; a feed's failure is kept, with its reason, until a poll of that feed succeeds; callers never see tables or SQL |
+| notify | send entries to the user on a channel | the channel decides the message format: callers name the channel only, so a message in the other channel's format cannot be asked for |
+| cli | the commands `add`, `poll` and `where` | — |
+| types.py | the domain values: a feed, an entry | — |
+
+**The seams.** `cli` depends on `fetch`, `store` and `notify`; none of those three depends on another, and nothing depends on `cli`. Every component depends on `types.py`, and `types.py` depends on nothing. An entry crosses from `fetch` to `store`, and from `store` to `notify`, only by way of `cli`.
 
 ## Where state lives
 
-| Store | Authoritative | Holds |
-|---|---|---|
-| `$FEEDWATCH_HOME/feeds.db`, one SQLite file | `store` | Feeds, entries, and each feed's last failed poll with its error |
-| `$FEEDWATCH_HOME/outbox/` | `notify` writes it | One file per email message, for the user's mail setup to send |
-
-No component holds state between commands.
+- **`$FEEDWATCH_HOME/feeds.db`** — the one SQLite file: the subscribed feeds, every entry seen and whether it is read, and each feed's last failed poll. `store` is authoritative for all of it.
+- **`$FEEDWATCH_HOME/outbox/`** — email notifications, one file per message, written by `notify` and sent by the user's mail setup. Once written, a file belongs to the mail setup.
 
 ## When it fails
 
-| Failure | Seen from outside | Handling |
-|---|---|---|
-| A feed cannot be fetched | The feed is recorded as failing, with its error, until a poll of it succeeds | `store` records it, the poll skips the feed and the other feeds carry on; the next poll tries it again |
-| A notification cannot be sent | The user is told | Surfaced |
-
-A feed's download times out after 10 seconds.
+- **A feed cannot be fetched** — the download fails or its content cannot be read as a feed. `store` records the failure with its reason, the feed is skipped, and the other feeds are polled as usual. Nothing is retried within a poll; the next poll fetches that feed again, and a success clears the record.
+- **A notification cannot be sent.** The failure surfaces to the user.
 
 ## What runs where
 
-- One process per command, on the user's machine; there is no daemon.
-- The user's cron runs `feedwatch poll`.
-- Every process works on the same database file and outbox.
+One process per command, on the user's machine. The user's cron runs `feedwatch poll`; feedwatch schedules nothing itself. Every process shares the one database and outbox under `$FEEDWATCH_HOME`.
 
 ## Not this
 
