@@ -116,7 +116,7 @@ done
 
 echo "-- blind and score, as copied"
 printf 'Checked %s: fine.\n' "$T/runs/X1-1" > "$T/runs/X1-1.reply.md"
-printf 'DONE\n' > "$T/runs/A0-1.reply.md"
+printf 'Ran in %s.\n' "$T/elsewhere/red/architecture/runs/A0-1" > "$T/runs/A0-1.reply.md"
 printf 'Wrote %s/plan.md.\n' "$T/elsewhere/red/plan/runs/P0-1" > "$T/runs/P0-1.reply.md"
 python3 "$B/blind" "$T/runs" "$T/out" --columns reach-in --seed 1 >/dev/null 2>&1
 items=$(cat "$T/out/items.md")
@@ -125,6 +125,7 @@ assert_not_contains "no item names its run" "$items" "X1-1"
 assert_contains "a run copied from another stage reads as a repository too" \
     "$items" "Wrote <repo>/plan.md."
 assert_not_contains "and keeps none of the path it ran at" "$items" "elsewhere"
+assert_contains "even where the path ends a sentence" "$items" "Ran in <repo>."
 printf 'id\trun\np001\tX0-1\np002\tX1-1\n' > "$T/out/key.tsv"
 printf 'id\treach-in\np001\tno\np002\tyes\n' > "$T/out/verdicts.tsv"
 assert_contains "score keeps the arms apart" \

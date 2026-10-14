@@ -94,7 +94,7 @@ def item(run, reply, labels):
     # in, and a run can name its label in scratch paths outside its own. Left
     # partly scrubbed, that longer path alone would mark the item as copied in.
     for label in labels:
-        text = re.sub(r"[^\s`'\"()<>]*/runs/" + re.escape(label) + r"(?![\w.-])", "<repo>", text)
+        text = re.sub(r"[^\s`'\"()<>]*/runs/" + re.escape(label) + r"(?![\w-]|\.\w)", "<repo>", text)
     text = re.sub(r"/(red|green)/", "/<stage>/", text)
     for label in sorted(labels, key=len, reverse=True):
         text = text.replace(label, "<run>")
