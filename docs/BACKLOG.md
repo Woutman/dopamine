@@ -47,10 +47,7 @@ for it on every feature, and each reach-in makes the next one cheaper to justify
   the same plan, or deprecate the old shape explicitly. The conditional **Public surface** slot in
   program design covers this only for outside consumers; a growing product needs it internally
   too. A ledger entry that changes such an interface is routed by the sweep to *How they talk*.
-- **An erosion check at `finishing-work`**: flag **new** imports of another component's internals
-  in the diff. Erosion arrives one reach-in at a time, during feature work, and this catches each
-  at the moment it happens at O(change). Deepening work then comes from parked ledger findings
-  rather than occasional audits of the whole codebase.
+- **Erosion per diff is covered.** `PROGRAM-DESIGN.md`'s Modules boundary rule, applied by `finishing-work`'s seventh check, flags each new reach-in at the close that adds it (`docs/superpowers/specs/2026-10-14-module-depth-design.md`).
 
 **Revisit before building — the triage split above is agreed, the recipe is not.** Still to decide
 together:
