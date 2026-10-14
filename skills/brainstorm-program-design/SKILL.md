@@ -44,7 +44,7 @@ Invoke `superpowers:brainstorming`, classification **architectural**, scoped to 
 - **Your recommendation**, with a short Python example.
 - **One or two alternatives**, each with its trade-off.
 
-Then wait. **Write nothing** into the document until every slot is answered. "Take your recommendations for the rest" is an answer for every slot but Modules. **Modules is always asked**: left unasked, superpowers' pull toward smaller units decides it.
+Then wait. **Write nothing** into the document until every slot is answered. "Take your recommendations for the rest" is an answer for every slot but Modules. **Modules is always asked**: left unasked, superpowers' pull toward smaller units decides it. Before asking it, read `ARCHITECTURE.md`'s *How they talk*: the rule enforces the boundaries and exceptions drawn there rather than re-deciding them.
 
 Each rule needs a check a reviewer can apply to a diff; a rule with none goes back to the human to sharpen.
 

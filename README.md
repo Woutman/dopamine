@@ -24,9 +24,9 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | `SessionStart` hook | ~230 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules. Silent in a repo with no config |
 | `dopamine:adopting-a-repo` | Writes the config, surveys existing code, and reconstructs the living documents — marking what was inferred |
 | `dopamine:brainstorm-design` | Wraps superpowers' brainstorming at system scope and derives `DESIGN.md` |
-| `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` |
-| `dopamine:brainstorm-program-design` | One level down again: the human picks the rules for types, errors, effects, signatures, layout and module depth, deriving `PROGRAM-DESIGN.md` |
-| `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` |
+| `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` — including what each component offers its callers, what must hold at each interface, and how deep its boundaries are |
+| `dopamine:brainstorm-program-design` | One level down again: the human picks the rules for types, errors, effects, signatures, layout, and how component boundaries are enforced and abstractions admitted, deriving `PROGRAM-DESIGN.md` |
+| `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` once program design's Modules slot is answered |
 | `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
 | `dopamine:writing-living-documents` | The slots each living document has, one schema file per document, and the rules for writing into them |
 | `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |

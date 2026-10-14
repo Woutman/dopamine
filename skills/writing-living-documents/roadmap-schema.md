@@ -12,7 +12,7 @@ Each phase, in this order:
 
 | Slot | Holds |
 |---|---|
-| **Lands** | What exists at the end that did not exist at the start |
+| **Lands** | What exists at the end that did not exist at the start — and, where the phase builds or widens a component, one line naming the interface it publishes, pointing to `ARCHITECTURE.md`'s *How they talk* rather than restating its operations |
 | **Why here** | The dependency it satisfies, or the risk it retires |
 | **Exit** | Observations, not assertions — what someone runs, and what they then see |
 

@@ -59,6 +59,8 @@ Where a document needs more than filling in — an order that has to be argued, 
 
 That section is the handoff. Walk it with the human, move what they confirm into the body, and delete the section when it empties. A reconstruction that does not separate the two is a document nobody can trust and everybody re-derives.
 
+`ARCHITECTURE.md`'s *How they talk* is filled the same way. *Offers its callers* comes from what callers actually use. *Must hold* is rarely readable from code, so it goes to *Reconstructed, unconfirmed*. **The depth principle is never written here**: it is a choice, as a program-design rule is. Each import that reaches past a component's surface goes there too, as a question: *widen that component's interface, or move this caller onto what it already offers?*
+
 **`PROGRAM-DESIGN.md` is never written here.** Even a convention the code follows everywhere is only a candidate: the code shows what was done, not what was chosen. Hand its findings file to dopamine:brainstorm-program-design as observed practice; the human picks each rule there.
 
 ### 5. Place what is not a living document

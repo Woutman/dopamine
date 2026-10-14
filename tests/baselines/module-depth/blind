@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""Pool the baseline runs' outputs into one blinded list for the judge.
+
+Usage: blind RUNS_DIR OUT_DIR --columns NAME[,NAME...] [--seed N]
+
+Each subdirectory of RUNS_DIR holding a .git is one run, set up by setup-run.
+RUNS_DIR/<label>.reply.md is that run's final message, saved by the main
+session. An item is the final message, then every file the run added or
+changed since the tag baseline-base, committed or not, in its checkout, in
+any nested worktree, and on any branch no checkout has out.
+
+Writes to OUT_DIR:
+  items.md      every item, shuffled, with the run's directory replaced by <repo>
+  key.tsv       id, run
+  verdicts.tsv  one row per id with an empty cell per column, for the judge
+
+Exits 2 when a run has no saved reply: judged without it, a run that only
+asked a question would read as one that did nothing.
+"""
+import os
+import random
+import re
+import subprocess
+import sys
+
+USAGE = "usage: blind RUNS_DIR OUT_DIR --columns NAME[,NAME...] [--seed N]"
+
+
+def git(where, *args):
+    return subprocess.run(["git", "-C", where, *args], check=True, capture_output=True,
+                          text=True, errors="replace").stdout
+
+
+def changes(where, tips, ref):
+    """Sections for what a checkout's index or a branch holds beyond baseline-base.
+    `tips` are the diff arguments after baseline-base's position, `ref` prefixes
+    a path to read it from the same place (":" for the index, "branch:")."""
+    parts = []
+    for line in git(where, "diff", "--raw", "--no-renames", *tips, "--").splitlines():
+        meta, name = line.split("\t", 1)
+        modes, status = meta.split()[:2], meta.split()[4]
+        # A nested worktree or repository shows up as a gitlink; its own
+        # changes are collected from the worktree, not from the pointer.
+        if "160000" in modes:
+            continue
+        if status == "D":
+            parts += [f"#### {name} (deleted)", ""]
+        elif status == "A":
+            body = git(where, "show", ref + name).rstrip()
+            parts += [f"#### {name} (added)", "", "````", body, "````", ""]
+        else:
+            diff = git(where, "diff", "--no-color", *tips, "--", name)
+            parts += [f"#### {name} (changed)", "", "````diff", diff.rstrip(), "````", ""]
+    return parts
+
+
+def worktrees(run):
+    """(path, branch or None) for every checkout of the run, the run itself first."""
+    found, current = [], None
+    for line in git(run, "worktree", "list", "--porcelain").splitlines() + [""]:
+        if line.startswith("worktree "):
+            current = [line[9:], None]
+        elif line.startswith("branch refs/heads/") and current:
+            current[1] = line[18:]
+        elif not line and current:
+            found.append(tuple(current))
+            current = None
+    return found
+
+
+def item(run, reply, labels):
+    parts = ["#### Final message", "", reply.strip(), ""]
+    # A worktree deleted without `git worktree remove` is still listed. Its
+    # branch then counts as checked out nowhere, so its commits are still read.
+    checkouts = [(path, branch) for path, branch in worktrees(run) if os.path.isdir(path)]
+    # Work on any checkout counts, committed or not: agents following
+    # using-git-worktrees do it in a nested worktree on its own branch.
+    for path, _ in checkouts:
+        git(path, "add", "-A")
+        parts += changes(path, ["--cached", "baseline-base"], ":")
+    checked_out = {branch for _, branch in checkouts}
+    for branch in git(run, "for-each-ref", "--format=%(refname:short)", "refs/heads").split():
+        if branch not in checked_out:
+            parts += changes(run, ["baseline-base", branch], branch + ":")
+    text = "\n".join(parts)
+    # The run's directory contains its label and its stage, either of which
+    # would tell the judge which arm wrote this.
+    # Longest first, so a nested worktree's path is not half-replaced by its parent's.
+    paths = {os.path.realpath(run), os.path.abspath(run),
+             *(os.path.realpath(p) for p, _ in checkouts)}
+    for path in sorted(paths, key=len, reverse=True):
+        text = text.replace(path, "<repo>")
+    # A control copied in from another stage still names the directory it ran
+    # in, and a run can name its label in scratch paths outside its own. Left
+    # partly scrubbed, that longer path alone would mark the item as copied in.
+    for label in labels:
+        text = re.sub(r"[^\s`'\"()<>]*/runs/" + re.escape(label) + r"(?![\w-]|\.\w)", "<repo>", text)
+    text = re.sub(r"/(red|green)/", "/<stage>/", text)
+    for label in sorted(labels, key=len, reverse=True):
+        text = text.replace(label, "<run>")
+    return text
+
+
+def main():
+    args = sys.argv[1:]
+    options = {}
+    for flag in ("--columns", "--seed"):
+        if flag in args:
+            at = args.index(flag)
+            if at + 1 >= len(args):
+                print(USAGE, file=sys.stderr)
+                return 2
+            options[flag] = args[at + 1]
+            del args[at:at + 2]
+    if len(args) != 2 or "--columns" not in options:
+        print(USAGE, file=sys.stderr)
+        return 2
+    runs_dir, out = args
+    columns = options["--columns"].split(",")
+    seed = int(options["--seed"]) if "--seed" in options else None
+
+    labels = sorted(label for label in os.listdir(runs_dir)
+                    if os.path.isdir(os.path.join(runs_dir, label, ".git")))
+    missing = [label for label in labels
+               if not os.path.isfile(os.path.join(runs_dir, label + ".reply.md"))]
+    if missing:
+        print("no saved reply: " + ", ".join(missing), file=sys.stderr)
+        return 2
+
+    entries = []
+    for label in labels:
+        with open(os.path.join(runs_dir, label + ".reply.md"), encoding="utf-8") as f:
+            entries.append((label, item(os.path.join(runs_dir, label), f.read(), labels)))
+    random.Random(seed).shuffle(entries)
+
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "items.md"), "w", encoding="utf-8") as md, \
+            open(os.path.join(out, "key.tsv"), "w", encoding="utf-8") as key, \
+            open(os.path.join(out, "verdicts.tsv"), "w", encoding="utf-8") as verdicts:
+        key.write("id\trun\n")
+        verdicts.write("\t".join(["id", *columns]) + "\n")
+        for n, (label, text) in enumerate(entries, 1):
+            pid = f"p{n:03d}"
+            md.write(f"## {pid}\n\n{text}\n\n")
+            key.write(f"{pid}\t{label}\n")
+            verdicts.write(pid + "\t" * len(columns) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

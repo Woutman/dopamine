@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Set up one baseline run: a fresh repository holding the fixture, with an
+# optional overlay committed on top. The starting point is tagged baseline-base
+# so blind finds what the run changed even after the run commits its own work.
+# A work overlay is committed after the tag: it is the unit of work a gate run
+# checks with git diff baseline-base...HEAD.
+#
+# Usage: setup-run RUNS_DIR LABEL [OVERLAY_DIR [WORK_DIR]]   (prints the run's directory)
+set -euo pipefail
+
+USAGE="usage: setup-run RUNS_DIR LABEL [OVERLAY_DIR [WORK_DIR]]"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+{ [ $# -ge 2 ] && [ $# -le 4 ]; } || { echo "$USAGE" >&2; exit 2; }
+run="$1/$2"
+[ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
+
+commit() {
+    git -C "$run" add -A
+    git -C "$run" -c user.name=baseline -c user.email=baseline@localhost commit -qm "$1"
+}
+
+mkdir -p "$run"
+cp -R "$HERE/fixture/." "$run/"
+find "$run" -name __pycache__ -prune -exec rm -rf {} +
+git -C "$run" init -q
+commit fixture
+if [ $# -ge 3 ]; then
+    cp -R "$3/." "$run/"
+    commit "docs: architecture and program design"
+fi
+git -C "$run" tag baseline-base
+if [ $# -eq 4 ]; then
+    cp -R "$4/." "$run/"
+    commit "feat: check a feed once, and list the failing ones"
+fi
+cd "$run" && pwd

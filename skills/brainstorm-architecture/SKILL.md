@@ -25,7 +25,7 @@ An absent `DESIGN.md` stops this recipe: run dopamine:brainstorm-design and come
 
 ### 2. Brainstorm at assembly scope
 
-Invoke `superpowers:brainstorming`, classification **architectural**, and supply the scope: **what the pieces are, what each one owns, how they talk to each other, where state lives, what happens when one of them fails, and what runs where.**
+Invoke `superpowers:brainstorming`, classification **architectural**, and supply the scope: **what the pieces are, what each one owns, how they talk to each other, where state lives, what happens when one of them fails, and what runs where — and what each component offers its callers, what must hold at each interface, and how deep the boundaries are, recommending deep with any exceptions named.**
 
 The design's requirements are the givens. A requirement that turns out to be wrong is a finding for `DESIGN.md` — take it back there and settle it, which is not something this brainstorm quietly redecides on its way past.
 
@@ -37,7 +37,7 @@ Use dopamine:writing-living-documents. It holds that schema and the rules for wr
 
 ### 4. Name what is now pending
 
-`PROGRAM-DESIGN.md` and `ROADMAP.md`, where they are declared and absent. Say so in one line each. The first is dopamine:brainstorm-program-design's output: how code inside these components is shaped. The second is dopamine:writing-roadmaps' output, and phase order is a question about technical dependency that only this document makes answerable.
+`PROGRAM-DESIGN.md`, then `ROADMAP.md`, where they are declared and absent — in that order, one line each. The first is dopamine:brainstorm-program-design's output: how code inside these components is shaped, and how the boundaries drawn here are enforced. The second is dopamine:writing-roadmaps' output: phase order is a question about technical dependency that only this document makes answerable, and the roadmap waits for program design's **Modules** slot.
 
 ## Outcomes
 

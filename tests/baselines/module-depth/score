@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""Tally the judge's verdicts per arm.
+
+Usage: score OUT_DIR VOCAB
+
+Reads key.tsv and verdicts.tsv from OUT_DIR, and each column's allowed values
+from VOCAB. A run's arm is its label up to the first '-', so P0-3 belongs to
+arm P0. A column whose values are only yes, no and na is shown as yes-runs out
+of runs. Any other column lists each run's value, and an arm's spread is how
+many such columns its runs disagree on.
+
+Exits 2 when a cell is empty, holds a value outside its column's vocabulary,
+or sits in a column VOCAB does not declare: each would otherwise score silently.
+"""
+import os
+import sys
+
+BINARY = {"yes", "no", "na"}
+
+
+def table(path):
+    with open(path, encoding="utf-8") as f:
+        rows = [line.rstrip("\n").split("\t") for line in f if line.strip()]
+    return rows[0], rows[1:]
+
+
+def main():
+    if len(sys.argv) != 3:
+        print("usage: score OUT_DIR VOCAB", file=sys.stderr)
+        return 2
+    out, vocab_path = sys.argv[1:]
+    vocab = {row[0]: set(row[1].split("|")) for row in table(vocab_path)[1]}
+    owner = {row[0]: row[1] for row in table(os.path.join(out, "key.tsv"))[1]}
+    header, rows = table(os.path.join(out, "verdicts.tsv"))
+    columns = header[1:]
+    verdicts = {row[0]: dict(zip(columns, (cell.strip() for cell in row[1:])))
+                for row in rows}
+
+    problems = [f"column {c!r} is not in {vocab_path}" for c in columns if c not in vocab]
+    for pid in owner:
+        for c in columns:
+            value = verdicts.get(pid, {}).get(c, "")
+            if not value:
+                problems.append(f"unjudged: {pid} {c}")
+            elif c in vocab and value not in vocab[c]:
+                problems.append(f"unknown value {value!r}: {pid} {c}")
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
+
+    arms = {}
+    for pid, label in sorted(owner.items(), key=lambda pair: pair[1]):
+        arms.setdefault(label.split("-", 1)[0], []).append(verdicts[pid])
+
+    print("| arm | runs | " + " | ".join(columns) + " | spread |")
+    print("|---" * (len(columns) + 3) + "|")
+    for arm, runs in arms.items():
+        cells, spread = [], 0
+        for c in columns:
+            values = [run[c] for run in runs]
+            if vocab[c] <= BINARY:
+                cells.append(f"{values.count('yes')}/{len(values)}")
+            else:
+                cells.append(", ".join(values))
+                spread += len(set(values)) > 1
+        print(f"| {arm} | {len(runs)} | " + " | ".join(cells) + f" | {spread} |")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

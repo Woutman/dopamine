@@ -79,6 +79,12 @@ assert_contains "it hands the document's shape to the schema skill" \
     "$body" "architecture-schema.md"
 assert_contains "it names the program-design recipe as what comes next" \
     "$body" "dopamine:brainstorm-program-design"
+assert_contains "the brainstorm asks what each component offers" \
+    "$body" "what each component offers its callers"
+assert_contains "and what must hold at each interface" "$body" "what must hold at each interface"
+assert_contains "it recommends deep boundaries, exceptions named" "$body" "recommending deep"
+assert_contains "program design is named before the roadmap" \
+    "$body" "\`PROGRAM-DESIGN.md\`, then \`ROADMAP.md\`"
 
 echo "-- writing-roadmaps"
 assert_skill_exists writing-roadmaps
@@ -108,8 +114,14 @@ assert_contains "it describes the config format rather than naming a parser" \
 assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
 assert_contains "it hands the phase shape to the schema skill" \
     "$body" "roadmap-schema.md"
-assert_contains "program design is read for risk, never required" \
-    "$body" "read for risk only"
+assert_contains "program design is still read for risk" "$body" "also read for risk"
+assert_not_contains "its absence no longer blocks nothing" "$body" "blocks nothing"
+assert_contains "a new roadmap or new phases wait for Modules" \
+    "$body" "Writing a roadmap, or adding phases"
+assert_contains "it hands off to the program-design recipe" "$body" "dopamine:brainstorm-program-design"
+assert_contains "a close still proceeds, with Modules named pending" \
+    "$body" "Striking a closed phase, or re-ordering what remains** — proceed"
+assert_contains "and the pending line is said" "$body" "name Modules as pending"
 
 echo "-- adopting-a-repo"
 assert_skill_exists adopting-a-repo
@@ -139,6 +151,10 @@ assert_contains "observed practice is a candidate, never a rule" \
     "$body" "never written here"
 assert_contains "it hands the survey to the recipe" \
     "$body" "dopamine:brainstorm-program-design"
+assert_contains "offers are read from what callers use" "$body" "what callers actually use"
+assert_contains "must-hold is inferred, not read" "$body" "*Must hold* is rarely readable from code"
+assert_contains "adoption never writes the depth principle" "$body" "The depth principle is never written here"
+assert_contains "a reach-in becomes a question for the human" "$body" "widen that component's interface"
 
 echo "-- adopting-a-repo survey prompt"
 survey="$REPO_ROOT/skills/adopting-a-repo/survey-prompt.md"
@@ -156,6 +172,8 @@ if [ -f "$survey" ]; then
         "$sbody" "{FINDINGS_PATH}"
     assert_contains "the survey knows what to read for program design" \
         "$sbody" "A program-design document"
+    assert_contains "the architecture survey reads what callers import" "$sbody" "actually import from it"
+    assert_contains "and every reach-in" "$sbody" "reaches past a component's public surface"
 else
     fail "skills/adopting-a-repo/survey-prompt.md exists" "not found"
 fi
@@ -178,6 +196,8 @@ for element in "Superpowers' default" "Observed practice" "recommendation" "alte
 done
 assert_contains "module depth is never inherited silently" "$body" "Modules is always asked"
 assert_contains "taking the recommendations still leaves Modules asked" "$body" "every slot but Modules"
+assert_contains "Modules reads the boundaries architecture drew" "$body" "*How they talk*"
+assert_contains "and enforces them rather than re-deciding them" "$body" "rather than re-deciding them"
 assert_contains "every rule carries a check" "$body" "check"
 assert_contains "Python's idiom takes precedence" "$body" "Python"
 assert_contains "a gap raised by a plan revises one slot in place" "$body" "in place"
