@@ -79,6 +79,12 @@ assert_contains "it hands the document's shape to the schema skill" \
     "$body" "architecture-schema.md"
 assert_contains "it names the program-design recipe as what comes next" \
     "$body" "dopamine:brainstorm-program-design"
+assert_contains "the brainstorm asks what each component offers" \
+    "$body" "what each component offers its callers"
+assert_contains "and what must hold at each interface" "$body" "what must hold at each interface"
+assert_contains "it recommends deep boundaries, exceptions named" "$body" "recommending deep"
+assert_contains "program design is named before the roadmap" \
+    "$body" "\`PROGRAM-DESIGN.md\`, then \`ROADMAP.md\`"
 
 echo "-- writing-roadmaps"
 assert_skill_exists writing-roadmaps

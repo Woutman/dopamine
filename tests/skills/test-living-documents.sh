@@ -66,6 +66,17 @@ check_schema program-design-schema.md \
     "Inherited default" "how to check a diff against it" "Python"
 assert_contains "the architecture defers how code inside a component is shaped" \
     "$(cat "$DIR/architecture-schema.md")" "PROGRAM-DESIGN.md"
+arch=$(cat "$DIR/architecture-schema.md")
+assert_contains "How they talk opens with the depth principle" "$arch" "The depth principle"
+assert_contains "an exception to it is named with its reason" "$arch" "named exception"
+assert_contains "each component's row says what it offers" "$arch" "Offers its callers"
+assert_contains "and what must hold at its interface" "$arch" "Must hold"
+assert_contains "offers are operations and data, never types" "$arch" "never types or signatures"
+assert_contains "depth at the boundary is decided here" "$arch" "Depth **at** a component's boundary"
+assert_contains "enforcement and admission are the Modules slot" \
+    "$arch" "is \`PROGRAM-DESIGN.md\`'s **Modules** slot"
+assert_contains "arrangement inside a component is the Layout slot" "$arch" "its **Layout** slot"
+assert_not_contains "depth is no longer deferred wholesale" "$arch" "the depth of its interfaces included"
 assert_contains "the schema skill's trigger names the new document" \
     "$(cat "$DIR/SKILL.md")" "PROGRAM-DESIGN.md"
 
