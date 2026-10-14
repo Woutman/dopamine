@@ -77,6 +77,18 @@ assert_contains "enforcement and admission are the Modules slot" \
     "$arch" "is \`PROGRAM-DESIGN.md\`'s **Modules** slot"
 assert_contains "arrangement inside a component is the Layout slot" "$arch" "its **Layout** slot"
 assert_not_contains "depth is no longer deferred wholesale" "$arch" "the depth of its interfaces included"
+pd=$(cat "$DIR/program-design-schema.md")
+assert_contains "Modules asks where the public surface lives" \
+    "$pd" "Where does each component's public surface live"
+assert_contains "and when an abstraction is admitted" "$pd" "when is a new module, layer or abstraction admitted"
+assert_contains "the default names superpowers' pull" "$pd" "pulls towards smaller units"
+assert_not_contains "Modules no longer only pulls both ways" "$pd" "pulls both ways"
+assert_contains "the worked example carries the boundary rule" "$pd" "**Rule (boundary):**"
+assert_contains "its check catches a reach-in" "$pd" "reaches past its \`__init__.py\`"
+assert_contains "and a widened surface is named in the plan" "$pd" "named in the plan"
+assert_contains "the worked example carries the admission rule" "$pd" "**Rule (admission):**"
+assert_contains "a test fake counts as a second implementation" "$pd" "a test fake counts as a second one"
+assert_contains "the surface's location is the variable part" "$pd" "\`api.py\`"
 assert_contains "the schema skill's trigger names the new document" \
     "$(cat "$DIR/SKILL.md")" "PROGRAM-DESIGN.md"
 

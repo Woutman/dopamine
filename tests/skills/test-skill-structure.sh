@@ -44,11 +44,14 @@ source "$REPO_ROOT/tests/helpers.sh"
 # where the document exists. Not licence to pad.
 # brainstorm-program-design is 650: brainstorm-architecture's recipe plus the
 # contract for each slot question and the one-slot revision a plan's gap runs.
+# brainstorm-program-design is raised from 650 to 680: Modules now reads the
+# boundaries ARCHITECTURE.md draws, and the recipe has to say so before the
+# question is asked. Not licence to pad.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:790
          writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
-         brainstorm-program-design:650
+         brainstorm-program-design:680
          writing-roadmaps:850 adopting-a-repo:830"
 
 budget_for() {

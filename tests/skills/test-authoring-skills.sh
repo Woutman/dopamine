@@ -184,6 +184,8 @@ for element in "Superpowers' default" "Observed practice" "recommendation" "alte
 done
 assert_contains "module depth is never inherited silently" "$body" "Modules is always asked"
 assert_contains "taking the recommendations still leaves Modules asked" "$body" "every slot but Modules"
+assert_contains "Modules reads the boundaries architecture drew" "$body" "*How they talk*"
+assert_contains "and enforces them rather than re-deciding them" "$body" "rather than re-deciding them"
 assert_contains "every rule carries a check" "$body" "check"
 assert_contains "Python's idiom takes precedence" "$body" "Python"
 assert_contains "a gap raised by a plan revises one slot in place" "$body" "in place"
