@@ -50,12 +50,15 @@ source "$REPO_ROOT/tests/helpers.sh"
 # writing-roadmaps is raised from 850: stage 1 now stops a new roadmap until
 # program design's Modules slot is answered, and has to say why a close still
 # proceeds. Not licence to pad.
+# adopting-a-repo is raised from 830 to 870: the architecture it reconstructs
+# now has an interface table, and adoption has to say which half is read, which
+# is inferred, and that the depth principle is never written. Not licence to pad.
 BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:790
          writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          brainstorm-program-design:680
-         writing-roadmaps:880 adopting-a-repo:830"
+         writing-roadmaps:880 adopting-a-repo:870"
 
 budget_for() {
     local name="$1" entry
