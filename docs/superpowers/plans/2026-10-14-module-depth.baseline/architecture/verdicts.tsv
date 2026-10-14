@@ -1,0 +1,7 @@
+id	table	exception	invariant
+p001	yes	yes	yes
+p002	yes	no	yes
+p003	yes	yes	yes
+p004	yes	no	yes
+p005	yes	no	yes
+p006	yes	yes	yes
