@@ -2,9 +2,10 @@
 # Run one task under one arm in a fresh repository, headless, and keep Claude
 # Code's JSON result beside the run as RUNS_DIR/LABEL.json for score.
 #
-# Hooks are switched off in every arm: an installed plugin's SessionStart
-# injection would add the same noise to each arm and cost money per run. With
-# ANTHROPIC_API_KEY set, --bare also drops user CLAUDE.md and auto-memory.
+# Every run gets an empty Claude config directory holding only the login, so
+# user CLAUDE.md, auto-memory and installed plugins stay out: they would add
+# the same cost to each arm and shrink the margin between them. --bare would
+# do the same but accepts only ANTHROPIC_API_KEY, not a subscription login.
 #
 # Usage: run-task RUNS_DIR ARM TASK REP   (model from BASELINE_MODEL, default sonnet)
 set -euo pipefail
@@ -15,6 +16,13 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 runs="$1" arm="$2" task="$3" rep="$4"
 kind=$(awk -F'\t' -v t="$task" '$1 == t { print $2 }' "$HERE/tasks/kinds.tsv")
 [ -n "$kind" ] || { echo "unknown task: $task" >&2; exit 2; }
+
+config="$runs/.claude-config"
+if [ ! -e "$config" ]; then
+    mkdir -p "$config"
+    login="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
+    [ ! -e "$login" ] || ln -s "$login" "$config/.credentials.json"
+fi
 
 label="$arm-$task-$rep"
 run=$(bash "$HERE/setup-run" "$runs" "$label" "$arm")
@@ -33,8 +41,7 @@ args=(-p "$(cat "$HERE/tasks/$task.md")"
       --settings '{"disableAllHooks": true}'
       --permission-mode acceptEdits
       --allowedTools Read Grep Glob Edit Write "Bash(grep:*)" "Bash(python3:*)")
-[ -z "${ANTHROPIC_API_KEY:-}" ] || args+=(--bare)
 [ -z "$context" ] || args+=(--append-system-prompt "$context")
 
-(cd "$run" && claude "${args[@]}") > "$runs/$label.json"
+(cd "$run" && CLAUDE_CONFIG_DIR="$config" claude "${args[@]}") > "$runs/$label.json"
 echo "$runs/$label.json"

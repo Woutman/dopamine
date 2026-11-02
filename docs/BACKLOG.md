@@ -119,7 +119,7 @@ definition. Control tasks that need no term measure what C and D cost when the g
 weight. Correctness is graded beside cost, because a cheaper wrong answer is no saving. Cost, not
 raw tokens, is the headline: injected text is read back from the prompt cache at a tenth of the
 price, while a lookup's reads are cache writes. The fixture is small (about a dozen files), so
-savings are a lower bound, and about 30k tokens of fixed system prompt per run mean the arms
+savings are a lower bound, and a fixed system prompt of several thousand tokens per run means the arms
 differ by a small margin that needs several runs per cell to see.
 
 **Still open:**
