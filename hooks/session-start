@@ -10,16 +10,28 @@
 # field is emitted per platform.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Bash builtins only — no dirname or git, and cat only where present — because
+# Claude Code can spawn a SessionStart hook with a broken or empty PATH
+# (anthropics/claude-code#43127).
+# $0 is split on its last / or \ since run-hook.cmd's cmd half passes a Windows path.
+case "$0" in
+  */*|*\\*) SCRIPT_DIR="$(cd "${0%[/\\]*}" && pwd)" ;;
+  *) SCRIPT_DIR="$(pwd)" ;;
+esac
 PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-root=$(git rev-parse --show-toplevel 2>/dev/null || true)
-[ -n "$root" ] || exit 0
+# The repository root is the nearest directory holding a .git, which is a
+# directory in a clone and a file in a worktree or submodule.
+root=$PWD
+until [ -e "$root/.git" ]; do
+    [ -n "$root" ] && [ "$root" != "/" ] || exit 0
+    root=${root%/*}
+done
 [ -f "$root/.dopamine/config" ] || exit 0
 
 context_file="${PLUGIN_ROOT}/hooks/session-start-context.md"
 [ -f "$context_file" ] || exit 0
-content=$(cat "$context_file")
+content=$(<"$context_file")
 
 # Escape for JSON embedding using bash parameter substitution — each ${s//old/new}
 # is a single C-level pass.
@@ -36,12 +48,24 @@ escape_for_json() {
 escaped=$(escape_for_json "$content")
 
 # printf rather than a heredoc: bash 5.3+ hangs on heredocs in this position.
+# Piped through cat where there is one: on Windows the harness can close stdout
+# early, and cat absorbs the EPIPE that Git Bash's printf would report as an
+# error. Without cat on PATH, printf alone still delivers the context.
+emit_json() {
+    # shellcheck disable=SC2059 # every caller passes a literal format string
+    if command -v cat >/dev/null 2>&1; then
+        printf "$@" | cat
+    else
+        printf "$@"
+    fi
+}
+
 if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
-    printf '{\n  "additional_context": "%s"\n}\n' "$escaped" | cat
+    emit_json '{\n  "additional_context": "%s"\n}\n' "$escaped"
 elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
-    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$escaped" | cat
+    emit_json '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$escaped"
 else
-    printf '{\n  "additionalContext": "%s"\n}\n' "$escaped" | cat
+    emit_json '{\n  "additionalContext": "%s"\n}\n' "$escaped"
 fi
 
 exit 0
