@@ -53,15 +53,20 @@ source "$REPO_ROOT/tests/helpers.sh"
 # adopting-a-repo is raised from 830 to 870: the architecture it reconstructs
 # now has an interface table, and adoption has to say which half is read, which
 # is inferred, and that the depth principle is never written. Not licence to pad.
+# finishing-work is raised from 790 to 870: the drain has to say how a term the
+# ledger changes reaches the glossary, that a second name is judged only along
+# the ledger's terms, and which script checks the pointers. Not licence to pad.
+# adopting-a-repo is raised from 870 to 930: the glossary gets a map line, its
+# own survey and its own unconfirmed section. Not licence to pad.
 # routing-documentation-updates is raised from 600 to 640: the glossary is a
 # tier of its own, with a row for what a term means and a pointer to where its
 # entry format lives. Not licence to pad.
-BUDGETS="routing-documentation-updates:640 writing-claude-md:550 finishing-work:790
+BUDGETS="routing-documentation-updates:640 writing-claude-md:550 finishing-work:870
          writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
          brainstorm-program-design:680
-         writing-roadmaps:880 adopting-a-repo:870"
+         writing-roadmaps:880 adopting-a-repo:930"
 
 budget_for() {
     local name="$1" entry
@@ -223,6 +228,24 @@ if [ -f "$fw" ]; then
         "$body" "dopamine:writing-living-documents"
     assert_contains "an instructions-tier candidate goes through the admission test" \
         "$body" "dopamine:writing-claude-md"
+
+    echo "-- finishing-work keeps the glossary"
+    assert_contains "the drain reaches the declared glossary" "$body" "glossary:"
+    assert_contains "a term the ledger changes is drained" "$body" "introduces, renames or retires"
+    assert_contains "a second name for a listed concept is judged" "$body" "a second way"
+    assert_contains "only along the ledger's terms" "$body" "along terms the ledger names"
+    assert_contains "the pointer check is the shipped script" "$body" "scripts/check-glossary-pointers"
+    assert_contains "the entry format lives in the schema" "$body" "glossary-schema.md"
+    assert_contains "the glossary is counted with the documents" "$body" 'the `glossary:` file'
+
+    echo "-- this repository declares its glossary"
+    if grep -qx 'glossary: docs/GLOSSARY.md' "$REPO_ROOT/.dopamine/config"; then
+        pass "the config declares docs/GLOSSARY.md"
+    else
+        fail "the config declares docs/GLOSSARY.md" "no exact line in .dopamine/config"
+    fi
+    assert_not_contains "the shipped idea leaves the backlog" \
+        "$(cat "$REPO_ROOT/docs/BACKLOG.md")" "## Give each project a glossary"
 
     echo "-- finishing-work's exit gate"
     gate=$(awk '/^## Exit gate$/{flag=1; next} /^## /{flag=0} flag' "$fw")

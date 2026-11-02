@@ -29,6 +29,8 @@ Read the sealed ledger in full. Derive grep terms from it — the names, paths, 
 
 Use dopamine:writing-living-documents for each edit to a living document, and dopamine:writing-claude-md for anything proposed for the instructions tier.
 
+**The glossary**, where `glossary:` is declared and present, is drained along the same terms, in the shape `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/glossary-schema.md` holds. A ledger entry that introduces, renames or retires a project term changes its line, under that schema's admission test. Whether the diff names a listed concept a second way is a judgement, made only along terms the ledger names: a new spelling cannot be found by grepping for the old ones. Then run `${CLAUDE_PLUGIN_ROOT}/skills/finishing-work/scripts/check-glossary-pointers <glossary> .` and fix every dead pointer in this sweep: re-point a symbol that moved, otherwise re-judge the entry.
+
 ### 3. Commit
 
 `sweep: <slug> — 3 edits`, or `sweep: <slug> — nothing to drain`.
@@ -37,7 +39,7 @@ The `sweep:` prefix is a commit convention, not a skill name. `git log --grep='^
 
 ### 4. Report the line counts
 
-In the same commit message, `wc -l` for each `living:` document and for the `instructions:` file. Growth in those numbers without matching growth in the system is the signal that routing is not being applied — and it is the number that was legible the whole time in the project this plugin was built from, while nobody looked.
+In the same commit message, `wc -l` for each `living:` document, the `instructions:` file and the `glossary:` file. Growth in those numbers without matching growth in the system is the signal that routing is not being applied — and it is the number that was legible the whole time in the project this plugin was built from, while nobody looked.
 
 ## Exit gate
 

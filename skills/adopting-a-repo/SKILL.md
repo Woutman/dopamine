@@ -24,6 +24,7 @@ living: docs/DESIGN.md
 living: docs/ARCHITECTURE.md
 living: docs/PROGRAM-DESIGN.md
 living: docs/ROADMAP.md
+glossary: docs/GLOSSARY.md
 instructions: CLAUDE.md
 lessons: docs/LESSONS.md
 plans: docs/superpowers/plans
@@ -42,13 +43,13 @@ The source tree answers it.
 
 ### 3. Survey — one subagent per document, dispatched in parallel
 
-For each `living:` document that is absent — and, when the human confirms a present one has drifted from the code, for that one too, since re-surveying a document already written is a second O(project) read and is theirs to authorise, dispatch one subagent with `survey-prompt.md`, naming which document it is surveying for. They read disjoint parts of the repository — entry points and history for the design, module boundaries and data flow for the architecture, a sample per slot of how code is written for the program design, unfinished work for the roadmap — so there is no shared expensive read that one pass would save.
+For each `living:` document that is absent — and, when the human confirms a present one has drifted from the code, for that one too, since re-surveying a document already written is a second O(project) read and is theirs to authorise, dispatch one subagent with `survey-prompt.md`, naming which document it is surveying for. They read disjoint parts of the repository — entry points and history for the design, module boundaries and data flow for the architecture, a sample per slot of how code is written for the program design, unfinished work for the roadmap — so there is no shared expensive read that one pass would save. When the glossary is declared and absent, dispatch one more with `survey-prompt.md` for the glossary: UI strings, enums and rule-hiding names are a part none of the others read.
 
 Fill `{FINDINGS_PATH}` with `<plans>/adoption-<document-basename>.survey.md`, taking `<plans>` from the `plans:` tier. Each returns that findings file, which stage 4 consumes when it fills the document's slots, and which is deleted once it has. The repository's contents never enter this session.
 
 ### 4. Write, and mark what was inferred
 
-Fill each document's slots from its findings file. The slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/` — `design-schema.md`, `architecture-schema.md`, `roadmap-schema.md` — and dopamine:writing-living-documents holds the rules for writing into them. The schema is the shape; the findings file is the content.
+Fill each document's slots from its findings file. The slots are declared in `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/` — `design-schema.md`, `architecture-schema.md`, `roadmap-schema.md` — and dopamine:writing-living-documents holds the rules for writing into them. The schema is the shape; the findings file is the content. The glossary is written to `glossary-schema.md` there: entries that pass its admission test, and each meaning the survey inferred under its own `Reconstructed, unconfirmed`.
 
 Where a document needs more than filling in — an order that has to be argued, an assembly that has to be decided — that is dopamine:brainstorm-design, dopamine:brainstorm-architecture or dopamine:writing-roadmaps, and adoption hands off to it rather than guessing.
 
@@ -71,6 +72,6 @@ A survey turns up gotchas, dated observations and always-loaded rules. Route the
 
 | The repository holds | Adoption produces |
 |---|---|
-| Code and no living documents | The config, the documents except `PROGRAM-DESIGN.md`, one `Reconstructed, unconfirmed` section per document, and the program-design findings handed to dopamine:brainstorm-program-design |
-| Code and documents that have drifted | The config, and each document's slots checked against the survey rather than rewritten from it |
+| Code and no living documents | The config, the documents except `PROGRAM-DESIGN.md`, the glossary, one `Reconstructed, unconfirmed` section per document, and the program-design findings handed to dopamine:brainstorm-program-design |
+| Code and documents that have drifted | The config, and each document's slots and the glossary's entries checked against the survey rather than rewritten from it |
 | No code yet | The config alone, and the handoff to dopamine:brainstorm-design |

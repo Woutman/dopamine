@@ -155,6 +155,9 @@ assert_contains "offers are read from what callers use" "$body" "what callers ac
 assert_contains "must-hold is inferred, not read" "$body" "*Must hold* is rarely readable from code"
 assert_contains "adoption never writes the depth principle" "$body" "The depth principle is never written here"
 assert_contains "a reach-in becomes a question for the human" "$body" "widen that component's interface"
+assert_contains "the map declares the glossary" "$body" "glossary: docs/GLOSSARY.md"
+assert_contains "the glossary gets its own survey" "$body" "for the glossary"
+assert_contains "and is written to its schema" "$body" "glossary-schema.md"
 
 echo "-- adopting-a-repo survey prompt"
 survey="$REPO_ROOT/skills/adopting-a-repo/survey-prompt.md"
@@ -174,6 +177,10 @@ if [ -f "$survey" ]; then
         "$sbody" "A program-design document"
     assert_contains "the architecture survey reads what callers import" "$sbody" "actually import from it"
     assert_contains "and every reach-in" "$sbody" "reaches past a component's public surface"
+    glrow=$(grep '^| A glossary |' "$survey")
+    assert_contains "the glossary survey reads translation tables" "$glrow" "translation"
+    assert_contains "and enums" "$glrow" "enums"
+    assert_contains "and returns each term's defining symbol" "$glrow" "path:symbol"
 else
     fail "skills/adopting-a-repo/survey-prompt.md exists" "not found"
 fi

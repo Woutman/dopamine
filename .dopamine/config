@@ -1,7 +1,7 @@
 # dopamine's own config: where this repository's living documents live.
 #
-# DESIGN.md, ARCHITECTURE.md, PROGRAM-DESIGN.md and ROADMAP.md are declared and
-# do not exist yet.
+# DESIGN.md, ARCHITECTURE.md, PROGRAM-DESIGN.md, ROADMAP.md and GLOSSARY.md are
+# declared and do not exist yet.
 # Deriving them is `dopamine:brainstorm-design`, `dopamine:brainstorm-architecture`,
 # `dopamine:brainstorm-program-design` and `dopamine:writing-roadmaps`, which need
 # a brainstorm with a human and so have not been run here yet. A declared path
@@ -11,6 +11,7 @@ living: docs/DESIGN.md
 living: docs/ARCHITECTURE.md
 living: docs/PROGRAM-DESIGN.md
 living: docs/ROADMAP.md
+glossary: docs/GLOSSARY.md
 instructions: CLAUDE.md
 lessons: docs/LESSONS.md
 plans: docs/superpowers/plans

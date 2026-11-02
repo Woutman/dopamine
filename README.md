@@ -44,13 +44,14 @@ The repository serves itself: `.claude-plugin/marketplace.json` lists this one p
 
 The marketplace entry deliberately carries no version: `.claude-plugin/plugin.json` holds the only one, so the two cannot drift.
 
-Then run `dopamine:adopting-a-repo` in the project you want it to work on. It writes `.dopamine/config` and, where there is already code, reconstructs the living documents from it. To adopt by hand instead, the config is seven lines:
+Then run `dopamine:adopting-a-repo` in the project you want it to work on. It writes `.dopamine/config` and, where there is already code, reconstructs the living documents from it. To adopt by hand instead, the config is eight lines:
 
 ```
 living: docs/DESIGN.md
 living: docs/ARCHITECTURE.md
 living: docs/PROGRAM-DESIGN.md
 living: docs/ROADMAP.md
+glossary: docs/GLOSSARY.md
 instructions: CLAUDE.md
 lessons: docs/LESSONS.md
 plans: docs/superpowers/plans
