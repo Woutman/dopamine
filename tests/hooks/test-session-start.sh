@@ -131,6 +131,11 @@ assert_contains "trailing space and CR are ignored" "$g" '`docs/GLOSSARY.md`. Wh
 g=$(context_in "$(glossary_repo twice 'glossary: a.md\nglossary: b.md\n' a.md b.md)")
 assert_eq "the first declaration wins, once" 1 "$(grep -o 'Grep tool' <<< "$g" | wc -l | tr -d ' ')"
 assert_contains "and it is the first" "$g" '`a.md`'
+g=$(glossary_repo nopath 'glossary: docs/GLOSSARY.md  \r\n' docs/GLOSSARY.md)
+out=$( (cd "$g" && PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$REPO_ROOT" \
+    "$(command -v bash)" "$UNDER_TEST") 2>/dev/null ) || true
+assert_contains "points at the glossary with PATH unusable" \
+    "$(field "$out" "hookSpecificOutput.additionalContext")" '`docs/GLOSSARY.md`. When'
 
 echo "-- survives a SessionStart spawned with a broken PATH (anthropics/claude-code#43127)"
 WRAPPER="$REPO_ROOT/hooks/run-hook.cmd"
