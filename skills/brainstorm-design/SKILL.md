@@ -25,7 +25,7 @@ No `.dopamine/config` means this repository has not adopted dopamine. Use dopami
 
 ### 2. Brainstorm at system scope
 
-Invoke `superpowers:brainstorming`. Its classification is **architectural**: a new project is never bounded, because bounded measures whether the flow being changed is already in the repository to read.
+Invoke `superpowers:brainstorming`. When it sizes the work, the size is **a project**: a whole system is never a small change, however few its parts. That gets the full written design and its builder check.
 
 Supply the scope so its questions land at the right level — **what the system is for, who it serves, what it must do, what would make it a failure, and what it deliberately will not do.** Components are not this conversation; they are `dopamine:brainstorm-architecture`, and they are unanswerable until this one settles.
 

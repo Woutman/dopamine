@@ -25,7 +25,7 @@ An absent `DESIGN.md` stops this recipe: run dopamine:brainstorm-design and come
 
 ### 2. Brainstorm at assembly scope
 
-Invoke `superpowers:brainstorming`, classification **architectural**, and supply the scope: **what the pieces are, what each one owns, how they talk to each other, where state lives, what happens when one of them fails, and what runs where — and what each component offers its callers, what must hold at each interface, and how deep the boundaries are, recommending deep with any exceptions named.**
+Invoke `superpowers:brainstorming`, sized as **a project**, and supply the scope: **what the pieces are, what each one owns, how they talk to each other, where state lives, what happens when one of them fails, and what runs where — and what each component offers its callers, what must hold at each interface, and how deep the boundaries are, recommending deep with any exceptions named.**
 
 The design's requirements are the givens. A requirement that turns out to be wrong is a finding for `DESIGN.md` — take it back there and settle it, which is not something this brainstorm quietly redecides on its way past.
 

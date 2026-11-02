@@ -96,6 +96,33 @@ else
     fail "the injection is within its 240-word budget" "got: $words words"
 fi
 
+echo "-- survives a SessionStart spawned with a broken PATH (anthropics/claude-code#43127)"
+WRAPPER="$REPO_ROOT/hooks/run-hook.cmd"
+BASH_ABS=$(command -v bash)
+out=$( (cd "$adopted" && PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$REPO_ROOT" \
+    "$BASH_ABS" "$WRAPPER" session-start) 2>/dev/null ) || true
+assert_eq "the wrapper still injects the context with PATH unusable" \
+    "SessionStart" "$(field "$out" "hookSpecificOutput.hookEventName")"
+out=$( (cd "$adopted/.dopamine" && PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$REPO_ROOT" \
+    "$BASH_ABS" "$UNDER_TEST") 2>/dev/null ) || true
+assert_eq "and finds the repository root from a subdirectory without git" \
+    "SessionStart" "$(field "$out" "hookSpecificOutput.hookEventName")"
+out=$( (cd "$plain" && PATH=/nonexistent CLAUDE_PLUGIN_ROOT="$REPO_ROOT" \
+    "$BASH_ABS" "$UNDER_TEST") 2>/dev/null ) || true
+assert_eq "and stays silent in an unadopted repository" "" "$out"
+
+echo "-- the Windows half of the wrapper (superpowers v7 hardening)"
+wrapper=$(cat "$WRAPPER")
+assert_contains "finds a per-user Git for Windows install" "$wrapper" '%LOCALAPPDATA%\Programs\Git\bin\bash.exe'
+assert_contains "searches PATH only, never the current directory" "$wrapper" '$PATH:bash'
+assert_contains "skips the WSL launchers" "$wrapper" '%SystemRoot%\System32\'
+assert_not_contains "no bare where lookup a repository could shadow" "$wrapper" 'where bash'
+# Unindented, so not inside a parenthesised block, where cmd expands
+# %ERRORLEVEL% when it parses the block rather than after bash returns.
+run_then_exit=$(grep -A1 -E '^"%BASH_EXE%" ' "$WRAPPER" | tail -n 1)
+assert_eq "runs bash outside a block so the exit code survives" \
+    "exit /b %ERRORLEVEL%" "$run_then_exit"
+
 echo "-- the injection is a conditional, not a prohibition"
 if grep -qiE '\b(never|do not|don.t)\b' "$CONTEXT_FILE"; then
     fail "avoids prohibition form (spec 9.4: our failure is wrong-shaped output)" \
