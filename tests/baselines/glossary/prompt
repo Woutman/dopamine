@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Print a task's prompt under ARM. Arm A gets the question alone. Arm O also
-# gets the definitions the question needs, so its cost is the floor no glossary
+# Print a task's prompt under ARM. Arms A, C and G get the question alone; C and
+# G differ from A in their repository and hook, not here. Arm O also gets the
+# definitions the question needs, so its cost is the floor no glossary
 # mechanism can beat: no lookup, and nothing injected beyond what is used.
 #
 # Usage: prompt ARM TASK
@@ -13,7 +14,7 @@ needs=$(awk -F'\t' -v t="$2" '$1 == t { print $3 }' "$HERE/tasks/questions.tsv")
 [ -n "$needs" ] || { echo "unknown task: $2" >&2; exit 2; }
 cat "$HERE/tasks/$2.md"
 case "$1" in
-    A) ;;
+    A|C|G) ;;
     O)
         printf '\nDefinitions you may need:\n'
         IFS=, read -ra terms <<< "$needs"

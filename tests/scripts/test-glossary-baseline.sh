@@ -63,19 +63,44 @@ while IFS=$'\t' read -r task answer needs; do
     assert_eq "arm O gets exactly the ${#terms[@]} definition(s) $task needs" \
         "${#terms[@]}" "$(printf '%s\n' "$o" | grep -c '^- \*\*')"
     assert_eq "arm A gets the question alone" "$(cat "$B/tasks/$task.md")" "$(bash "$B/prompt" A "$task")"
+    assert_eq "arm C gets the question alone" "$(cat "$B/tasks/$task.md")" "$(bash "$B/prompt" C "$task")"
+    assert_eq "arm G gets the question alone" "$(cat "$B/tasks/$task.md")" "$(bash "$B/prompt" G "$task")"
 done < <(tail -n +2 "$B/tasks/questions.tsv")
 while IFS= read -r target; do
     file="${target%%:*}" name="${target##*:}"
     assert_contains "$name is defined where the definitions say" "$(cat "$F/$file")" "$name"
 done < <(grep -o '→ `[^`]*`' "$D" | sed 's/→ `\(.*\)`/\1/')
 assert_exit "an unknown arm exits 2" 2 bash "$B/prompt" X q1-koud
+assert_exit "arm C is known" 0 bash "$B/prompt" C q1-koud
+assert_exit "arm G is known" 0 bash "$B/prompt" G q1-koud
 assert_exit "an unknown task exits 2" 2 bash "$B/prompt" A q9-none
+
+echo "-- the GREEN overlay"
+O="$B/green-overlay"
+assert_exit "every overlay pointer resolves in the fixture" 0 \
+    bash "$REPO_ROOT/skills/finishing-work/scripts/check-glossary-pointers" "$O/docs/GLOSSARY.md" "$F"
+while IFS= read -r entry; do
+    assert_eq "the overlay holds ${entry:0:30}... verbatim" yes \
+        "$(grep -Fxq -- "$entry" "$O/docs/GLOSSARY.md" && echo yes || echo no)"
+done < <(grep '^- \*\*' "$D")
+assert_eq "it holds 12 entries" 12 "$(grep -c '^- \*\*' "$O/docs/GLOSSARY.md")"
+RC=0
+sed -n 's/^- \*\*\([^*]*\)\*\*.*/\1/p' "$O/docs/GLOSSARY.md" | LC_ALL=C sort -c || RC=$?
+assert_eq "its entries are alphabetical by headword" 0 "$RC"
+assert_eq "its config is the fixture's plus the glossary line" \
+    "$(cat "$F/.dopamine/config"; echo 'glossary: docs/GLOSSARY.md')" "$(cat "$O/.dopamine/config")"
 
 echo "-- setup-run"
 run=$(bash "$B/setup-run" "$T/runs" A-q1-koud-1)
 assert_eq "prints the run directory" "$T/runs/A-q1-koud-1" "$run"
 assert_eq "the fixture is committed and the tree is clean" "" "$(git -C "$run" status --porcelain)"
 assert_exit "a label already set up is refused" 1 bash "$B/setup-run" "$T/runs" A-q1-koud-1
+g=$(bash "$B/setup-run" "$T/runs" G-q1-koud-1)
+c=$(bash "$B/setup-run" "$T/runs" C-q1-koud-1)
+assert_eq "G's run holds the glossary" yes "$([ -f "$g/docs/GLOSSARY.md" ] && echo yes || echo no)"
+assert_contains "and declares it" "$(cat "$g/.dopamine/config")" "glossary: docs/GLOSSARY.md"
+assert_eq "C's run does not" no "$([ -f "$c/docs/GLOSSARY.md" ] && echo yes || echo no)"
+assert_eq "G's tree is committed clean" "" "$(git -C "$g" status --porcelain)"
 
 echo "-- score"
 R="$T/scored"
@@ -86,7 +111,7 @@ printf '{"structured_output":{"answer":"warm"},"total_cost_usd":0.04,"num_turns"
     > "$R/A-q4-unresolved-1.json"
 out=$(python3 "$B/score" "$R")
 assert_contains "a right answer counts, whatever its case and punctuation" \
-    "$out" "| O | 1 | 1/1 | 0.0200 ± 0.0000 | 100 | 900 | 20 | 1.0 |"
+    "$out" "| O | 1 | 1/1 | 0.0200 ± 0.0000 | 100 | 900 | 20 | 1.0 | 0/1 |"
 assert_contains "a wrong one does not" "$out" "| A | 1 | 0/1 |"
 printf '{"structured_output":{"answer":"No. It is withheld, not excluded."},"total_cost_usd":0.01,"num_turns":1,"usage":{}}' \
     > "$R/A-q5-opted-out-1.json"
@@ -96,5 +121,13 @@ out=$(python3 "$B/score" "$R")
 assert_contains "an answer followed by its reasoning counts, a longer word does not" \
     "$out" "| q5-opted-out A | 2 | 1/2 |"
 assert_contains "tasks are reported per arm" "$out" "| q4-unresolved A | 1 | 0/1 |"
+printf '{"session_id":"s1","structured_output":{"answer":"nurture"},"total_cost_usd":0.01,"num_turns":1,"usage":{}}' \
+    > "$R/G-q1-koud-1.json"
+mkdir -p "$R/.claude-config/projects/p"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep","input":{"pattern":"withheld","path":"docs/GLOSSARY.md"}}]}}' \
+    > "$R/.claude-config/projects/p/s1.jsonl"
+out=$(python3 "$B/score" "$R")
+assert_contains "a run that searched the glossary is counted" "$(grep '^| G |' <<< "$out")" "| 1.0 | 1/1 |"
+assert_contains "a run without a transcript is not" "$(grep '^| O |' <<< "$out")" "| 1.0 | 0/1 |"
 
 finish

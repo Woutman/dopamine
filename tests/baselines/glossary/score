@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Score the runs in RUNS_DIR: correctness beside cost, per arm and per task.
 
+Searched counts the runs whose transcript shows a tool call touching
+GLOSSARY.md, so a glossary arm that misses its cost bar says whether the
+pointer went unused or the lookup did not help.
+
 Cost is the headline, not raw tokens: Claude Code caches nearly everything,
 tool results included, so equal token counts are not equal costs. The token
 columns are kept apart for the same reason.
@@ -27,12 +31,26 @@ def matches(given, expected):
     return given == expected or re.match(re.escape(expected) + r"\b", given) is not None
 
 
+def searched(runs, result):
+    found = list((runs / ".claude-config" / "projects").glob(f"*/{result.get('session_id')}.jsonl"))
+    if not found:
+        return False
+    for line in found[0].read_text().splitlines():
+        entry = json.loads(line)
+        if entry.get("type") != "assistant":
+            continue
+        for block in entry["message"].get("content", []):
+            if block.get("type") == "tool_use" and "GLOSSARY.md" in json.dumps(block["input"]):
+                return True
+    return False
+
+
 def row(name, rs):
     mean = lambda k: statistics.mean(r[k] for r in rs)
     spread = statistics.stdev(r["cost"] for r in rs) if len(rs) > 1 else 0.0
     return (f"| {name} | {len(rs)} | {sum(r['ok'] for r in rs)}/{len(rs)} "
             f"| {mean('cost'):.4f} ± {spread:.4f} | {mean('write'):.0f} | {mean('read'):.0f} "
-            f"| {mean('out'):.0f} | {mean('turns'):.1f} |")
+            f"| {mean('out'):.0f} | {mean('turns'):.1f} | {sum(r['searched'] for r in rs)}/{len(rs)} |")
 
 
 def main():
@@ -54,11 +72,12 @@ def main():
             "read": usage.get("cache_read_input_tokens", 0),
             "out": usage.get("output_tokens", 0),
             "turns": result.get("num_turns", 0),
+            "searched": searched(Path(sys.argv[1]), result),
         }
         by_arm[arm].append(r)
         by_task[task, arm].append(r)
-    header = "| {} | Runs | Correct | Mean $ ± sd | Cache write | Cache read | Out | Turns |"
-    rule = "|---|---|---|---|---|---|---|---|"
+    header = "| {} | Runs | Correct | Mean $ ± sd | Cache write | Cache read | Out | Turns | Searched |"
+    rule = "|---|---|---|---|---|---|---|---|---|"
     print(header.format("Arm"), rule, sep="\n")
     for arm in sorted(by_arm):
         print(row(arm, by_arm[arm]))
