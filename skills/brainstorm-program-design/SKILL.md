@@ -37,7 +37,7 @@ Read two or three files per slot, never the whole repository. Each pattern becom
 
 ### 4. Ask, one slot at a time
 
-Invoke `superpowers:brainstorming`, classification **architectural**, scoped to these slots. Each slot is one question, showing:
+Invoke `superpowers:brainstorming`, sized as **a project**, scoped to these slots. Each slot is one question, showing:
 
 - **Superpowers' default**, from the schema — or that it has none.
 - **Observed practice**, with where it was seen.

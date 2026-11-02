@@ -207,4 +207,14 @@ assert_contains "it points at routing-documentation-updates rather than restatin
 assert_contains "it answers R0's template reason" "$body" "The schema is the template"
 assert_contains "and its imitation reason" "$body" "The code shows what was done"
 
+# Superpowers v7 brainstorming sizes work as a quick task, a small change or a
+# project; the bounded/architectural classification these skills once named is gone.
+echo "-- the wrappers speak superpowers v7's sizing"
+for skill in brainstorm-design brainstorm-architecture brainstorm-program-design; do
+    body=$(read_skill "$skill")
+    assert_contains "$skill sizes its brainstorm as a project" "$body" "a project**"
+    assert_not_contains "$skill names no v6 classification" "$body" "classification"
+    assert_not_contains "$skill names no bounded size" "$body" "bounded"
+done
+
 finish
