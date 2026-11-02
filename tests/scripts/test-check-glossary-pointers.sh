@@ -47,6 +47,19 @@ assert_contains "an entry without a pointer is reported" "$out" "no pointer: bar
 assert_not_contains "a resolving entry is not" "$out" "real:"
 assert_exit "any failure exits 1" 1 bash "$UNDER_TEST" "$BAD" "$ROOT"
 
+echo "-- edge cases a dead pointer could hide behind"
+printf 'def real_v2():\n    pass\n' > "$ROOT/a/v2.py"
+LAST="$ROOT/last.md"
+printf -- '- **last** — x → `a/missing.py:real`' > "$LAST"
+assert_contains "a last entry with no trailing newline is checked" \
+    "$(bash "$UNDER_TEST" "$LAST" "$ROOT")" "dead: last: a/missing.py:real (no file)"
+EDGE="$ROOT/edge.md"
+printf -- '- **renamed** — x → `a/v2.py:real`\n- **empty** — x → `a/b.py:`\n' > "$EDGE"
+out=$(bash "$UNDER_TEST" "$EDGE" "$ROOT")
+assert_contains "a symbol that survives only inside a longer name is dead" \
+    "$out" "dead: renamed: a/v2.py:real (no symbol)"
+assert_contains "an empty symbol is no pointer" "$out" "no pointer: empty"
+
 echo "-- usage"
 assert_exit "no arguments exits 2" 2 bash "$UNDER_TEST"
 assert_exit "a missing glossary exits 2" 2 bash "$UNDER_TEST" "$ROOT/none.md" "$ROOT"
