@@ -234,7 +234,9 @@ if [ -f "$fw" ]; then
     assert_contains "a term the ledger changes is drained" "$body" "introduces, renames or retires"
     assert_contains "a second name for a listed concept is judged" "$body" "a second way"
     assert_contains "only along the ledger's terms" "$body" "along terms the ledger names"
-    assert_contains "the pointer check is the shipped script" "$body" "scripts/check-glossary-pointers"
+    assert_contains "the glossary check is the shipped script, run through bash" \
+        "$body" 'bash ${CLAUDE_PLUGIN_ROOT}/skills/finishing-work/scripts/check-glossary <glossary> .'
+    assert_contains "and the agent fixes what it reports" "$body" "fix every line it prints"
     assert_contains "the entry format lives in the schema" "$body" "glossary-schema.md"
     assert_contains "the glossary is counted with the documents" "$body" 'the `glossary:` file'
 
@@ -260,6 +262,7 @@ if [ -f "$fw" ]; then
     assert_contains "each rule is judged by its own check" "$gate" "its own check"
     assert_contains "the check applies only where the document exists" "$gate" "declared and present"
     assert_contains "the gate counts its own checks correctly" "$gate" "Seven checks"
+    assert_contains "a glossary edit is gated on a clean check" "$gate" "\`check-glossary\` exits 0"
     assert_contains "the gate is a self-review, not a subagent dispatch" \
         "$gate" "fresh eyes"
 

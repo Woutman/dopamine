@@ -8,9 +8,13 @@ The project's own terms, each defined where a grep for it lands. It sits at the 
 
 - **Each entry is one line, with nothing between entries.** A grep for a term returns its whole definition and nothing else.
 - **Other spellings go on the same line, in parentheses** — `(UI: "Neutraal")` for a term spelled differently in the code and the UI — so a grep for any spelling finds the entry. The entry records the drift; fixing it is a code change.
-- **Entries are alphabetical by headword.** A rename replaces the headword or adds the old spelling to the line; a retirement deletes the line.
+- **Entries are alphabetical by headword.**
 - **Each entry ends with `→ \`path:symbol\``**, pointing at the code that defines the term. The pointer is what makes the entry checkable.
-- **A title line and a one-sentence header**, and no other prose.
+- **The file is a title line, a one-sentence header, then the entries.**
+
+## A rename or a retirement
+
+While the old spelling still appears where an agent meets it — code, UI, other documents — it joins the line in parentheses beside the new headword. Once it appears nowhere, the new spelling replaces it. A retired term's line is deleted.
 
 ## Admission
 
@@ -28,4 +32,4 @@ During adoption, a `## Reconstructed, unconfirmed` section may close the file, i
 
 ## After an edit
 
-Run `${CLAUDE_PLUGIN_ROOT}/skills/finishing-work/scripts/check-glossary-pointers <glossary> <repo root>`. It names every entry whose pointer is missing, or whose file or symbol no longer exists; each is fixed or retired before the edit is done.
+Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/finishing-work/scripts/check-glossary <glossary> <repo root>`. It checks this shape and every pointer, and prints one line per failure: the line number, what is wrong, and the fix. The edit is done when it exits 0.

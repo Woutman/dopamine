@@ -111,7 +111,11 @@ if [ -f "$DIR/glossary-schema.md" ]; then
     assert_contains "spelling drift earns an entry on its own" "$gl" "spelling drift"
     assert_contains "adoption may close the file with unconfirmed entries" \
         "$gl" "Reconstructed, unconfirmed"
-    assert_contains "an edit is followed by the pointer check" "$gl" "check-glossary-pointers"
+    assert_contains "an edit is followed by the glossary check, run through bash" \
+        "$gl" 'bash ${CLAUDE_PLUGIN_ROOT}/skills/finishing-work/scripts/check-glossary <glossary> <repo root>'
+    assert_contains "a rename keeps the old spelling while it is still met" \
+        "$gl" "While the old spelling still appears"
+    assert_contains "and replaces the headword once it is not" "$gl" "Once it appears nowhere"
 else
     fail "glossary-schema.md exists" "not found"
 fi

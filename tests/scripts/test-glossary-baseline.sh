@@ -77,8 +77,8 @@ assert_exit "an unknown task exits 2" 2 bash "$B/prompt" A q9-none
 
 echo "-- the GREEN overlay"
 O="$B/green-overlay"
-assert_exit "every overlay pointer resolves in the fixture" 0 \
-    bash "$REPO_ROOT/skills/finishing-work/scripts/check-glossary-pointers" "$O/docs/GLOSSARY.md" "$F"
+assert_exit "the overlay is well-formed and every pointer resolves in the fixture" 0 \
+    bash "$REPO_ROOT/skills/finishing-work/scripts/check-glossary" "$O/docs/GLOSSARY.md" "$F"
 while IFS= read -r entry; do
     assert_eq "the overlay holds ${entry:0:30}... verbatim" yes \
         "$(grep -Fxq -- "$entry" "$O/docs/GLOSSARY.md" && echo yes || echo no)"

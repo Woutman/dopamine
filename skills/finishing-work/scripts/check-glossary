@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Check a glossary against the shape glossary-schema.md gives it, and every
+# entry's pointer against the code. Each failure line says what to change, so
+# the agent running this can fix the file from the output alone.
+#
+# What a script cannot judge stays with the sweep: whether a term passes the
+# admission test, whether its meaning still holds, and whether the diff names a
+# listed concept a second way.
+#
+# Usage: check-glossary GLOSSARY ROOT
+#   GLOSSARY  the glossary file
+#   ROOT      the repository root that pointer paths are relative to
+#
+# Prints one line per failure, <glossary>:<line>: <what is wrong> — <the fix>
+#
+# Exits: 0 the glossary is well-formed and every pointer resolves
+#        1 any failure
+#        2 usage, or a glossary that does not exist
+set -euo pipefail
+
+[ $# -eq 2 ] || { echo "usage: check-glossary GLOSSARY ROOT" >&2; exit 2; }
+glossary="$1" root="$2"
+[ -f "$glossary" ] || { echo "no glossary at $glossary" >&2; exit 2; }
+
+ENTRY='- **headword** (other spellings) — meaning → `path:symbol`'
+failed=0
+fail() { echo "$glossary:$n: $1"; failed=1; }
+
+n=0 seen_entry=0 title=0 header=0 blank_at=0 prev_entry=0
+prev_key="" prev_word="" prev_line=0
+declare -A word_line=()
+
+while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n + 1))
+    line="${line%$'\r'}"
+
+    if [ -z "${line//[[:space:]]/}" ]; then
+        [ "$prev_entry" -eq 1 ] && blank_at=$n
+        continue
+    fi
+
+    case "$line" in
+        "## Reconstructed, unconfirmed")
+            # Alphabetical order restarts in the unconfirmed section.
+            seen_entry=1 prev_entry=0 blank_at=0 prev_key="" ; continue ;;
+        "#"*)
+            if [ "$seen_entry" -eq 0 ] && [ "$title" -eq 0 ] && [ "$header" -eq 0 ] \
+                && [ "${line:0:2}" = "# " ]; then
+                title=1
+            else
+                fail "unknown section \"$line\" — the only section is \"## Reconstructed, unconfirmed\", after every confirmed entry; move these lines into the entry list or delete them"
+            fi
+            prev_entry=0; continue ;;
+        "- **"*) ;;
+        *)
+            if [[ "$line" =~ ^[[:space:]]*[-*+][[:space:]] ]]; then
+                fail "not an entry — an entry starts \"- **\" at the margin: $ENTRY"
+            elif [ "$seen_entry" -eq 0 ] && [ "$header" -eq 0 ]; then
+                header=1
+            elif [ "$seen_entry" -eq 0 ]; then
+                fail "second header line — the header is one sentence; fold this into it or delete it"
+            else
+                fail "not an entry — every line after the header is one entry, $ENTRY"
+            fi
+            prev_entry=0; continue ;;
+    esac
+
+    if [ "$blank_at" -ne 0 ]; then
+        echo "$glossary:$blank_at: blank line between entries — delete it, so a grep for a term returns its line alone"
+        failed=1
+    fi
+    blank_at=0 seen_entry=1 prev_entry=1
+
+    rest="${line#- \*\*}"
+    word="${rest%%\*\**}"
+    if [ "$word" = "$rest" ] || [ -z "$word" ]; then
+        fail "not an entry — close the headword's ** on this line: $ENTRY"
+        continue
+    fi
+
+    key="${word,,}"
+    if [ -n "${word_line[$key]:-}" ]; then
+        fail "\"$word\" is already defined on line ${word_line[$key]} — merge the two lines into one entry"
+    else
+        word_line[$key]=$n
+    fi
+    if [ -n "$prev_key" ] && [[ "$key" < "$prev_key" ]]; then
+        fail "\"$word\" is out of order — move it above \"$prev_word\" (line $prev_line); entries are alphabetical by headword"
+    fi
+    prev_key=$key prev_word=$word prev_line=$n
+
+    pointer=$(printf '%s\n' "$line" | sed -n 's/.*→ `\([^`]*\)`[[:space:]]*$/\1/p')
+    if [ -z "$pointer" ]; then
+        fail "no pointer — end the line with → \`path:symbol\`, naming the code that defines \"$word\""
+        continue
+    fi
+    path="${pointer%:*}" symbol="${pointer##*:}"
+    if [ "$path" = "$pointer" ] || [ -z "$path" ] || [ -z "$symbol" ]; then
+        fail "malformed pointer \`$pointer\` — write it as \`path:symbol\`, a path from the repository root and the name that defines \"$word\""
+    elif [ ! -f "$root/$path" ]; then
+        fail "dead pointer \`$pointer\`: no file $path — re-point it at where \"$word\" is now defined, or delete the entry if the term is gone"
+    # Whole words: a rename to foo_v2 must not keep foo alive.
+    elif ! grep -qwF -- "$symbol" "$root/$path"; then
+        fail "dead pointer \`$pointer\`: \"$symbol\" is not in $path — re-point it at where \"$word\" is now defined, or delete the entry if the term is gone"
+    fi
+done < "$glossary"
+exit "$failed"

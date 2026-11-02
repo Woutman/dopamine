@@ -31,7 +31,7 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | `dopamine:writing-living-documents` | The slots each living document has, one schema file per document, and the rules for writing into them — including `GLOSSARY.md`, one grep-sized line per project term, each pointing at the code that defines it |
 | `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |
 | `dopamine:writing-code-comments` | What a code comment states — a why, a contract or a warning — and where a design's argument and a change's story go instead |
-| `dopamine:finishing-work` | Seal the ledger, drain it along terms derived from it, check every glossary pointer, commit, and report the line counts |
+| `dopamine:finishing-work` | Seal the ledger, drain it along terms derived from it, check the glossary's shape and pointers, commit, and report the line counts |
 
 ## Install
 
