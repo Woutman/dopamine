@@ -139,4 +139,19 @@ out=$(python3 "$B/score" "$R")
 assert_contains "a repo-wide search that came back from the glossary counts too" \
     "$(grep '^| G |' <<< "$out")" "| 1.0 | 2/2 |"
 
+echo "-- the sweep scenario"
+S="$B/sweep"
+SW=$(bash "$S/setup-sweep" "$T/sweep" t)
+assert_eq "it holds the plan's three task commits on the fixture" 4 "$(git -C "$SW" rev-list --count HEAD)"
+assert_exit "its ledger sits where superpowers leaves it" 0 \
+    test -f "$SW/.superpowers/sdd/2026-11-03-dormant/progress.md"
+assert_not_contains "every commit range in the ledger is filled in" \
+    "$(cat "$SW/.superpowers/sdd/2026-11-03-dormant/progress.md")" "{"
+out=$(bash "$REPO_ROOT/skills/finishing-work/scripts/check-glossary" "$SW/docs/GLOSSARY.md" "$SW" || true)
+assert_contains "the rename leaves cold's pointer dead" "$out" '`leadflow/engine/legacy.py:legacy_band`'
+assert_contains "the retirement leaves cooldown's pointer dead" "$out" '`leadflow/portal/cooldown.py:in_cooldown`'
+assert_eq "and nothing else is wrong with the glossary" 2 "$(printf '%s\n' "$out" | grep -c .)"
+assert_exit "the fixture's own tests still pass" 0 \
+    bash -c 'cd "$0" && python3 -m unittest discover -q' "$SW"
+
 finish

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Set up one sweep run: the fixture with the glossary overlay, then one finished
+# unit of work in three commits, and its ledger where superpowers leaves it. The
+# ledger introduces a term (dormant), renames the symbol a pointer names
+# (legacy_band) and retires a term (cooldown); the glossary still says neither.
+#
+# Usage: setup-sweep RUNS_DIR LABEL   (prints the run's directory)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 2 ] || { echo "usage: setup-sweep RUNS_DIR LABEL" >&2; exit 2; }
+run="$1/$2"
+[ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
+
+g() { git -C "$run" -c user.name=baseline -c user.email=baseline@localhost "$@"; }
+take() { local f; for f in "$@"; do mkdir -p "$run/${f%/*}"; cp "$HERE/change/$f" "$run/$f"; done; }
+
+mkdir -p "$run"
+cp -R "$HERE/../fixture/." "$HERE/../green-overlay/." "$run/"
+find "$run" -name __pycache__ -prune -exec rm -rf {} +
+printf '.superpowers/\n__pycache__/\n' > "$run/.gitignore"
+take docs/superpowers/plans/2026-11-03-dormant.md
+g init -q && g add -A && g commit -qm "fixture and the dormant plan"
+base=$(g rev-parse --short HEAD)
+
+take leadflow/engine/dormant.py leadflow/config/thresholds.py leadflow/models/lead.py
+g add -A && g commit -qm "feat: dormant leads"
+t1=$(g rev-parse --short HEAD)
+take leadflow/engine/legacy.py leadflow/jobs/backfill.py
+g add -A && g commit -qm "refactor: legacy_band is backfill_band"
+t2=$(g rev-parse --short HEAD)
+take leadflow/portal/feed.py leadflow/config/portal.py
+rm "$run/leadflow/portal/cooldown.py"
+g add -A && g commit -qm "feat: a dismissed lead leaves the feed for good"
+t3=$(g rev-parse --short HEAD)
+
+mkdir -p "$run/.superpowers/sdd/2026-11-03-dormant"
+sed -e "s/{BASE1}/$base/" -e "s/{TASK1}/$t1/g" -e "s/{TASK2}/$t2/g" -e "s/{TASK3}/$t3/" \
+    "$HERE/ledger.md" > "$run/.superpowers/sdd/2026-11-03-dormant/progress.md"
+cd "$run" && pwd

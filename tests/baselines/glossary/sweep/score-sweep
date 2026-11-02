@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Score every sweep run in RUNS_DIR: did the glossary end up saying what the
+# ledger changed, is it clean under check-glossary, and was the sweep committed.
+#
+# Usage: score-sweep RUNS_DIR
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+CHECK="$HERE/../../../../skills/finishing-work/scripts/check-glossary"
+[ $# -eq 1 ] || { echo "usage: score-sweep RUNS_DIR" >&2; exit 2; }
+runs="$1"
+# ran_check TRANSCRIPT -- a Bash call ran the script; the skill text naming it
+# is in the transcript too, so a plain grep would count every arm-G run.
+ran_check() {
+    python3 -c '
+import json, sys
+for line in open(sys.argv[1]):
+    try:
+        msg = json.loads(line).get("message") or {}
+    except ValueError:
+        continue
+    for part in msg.get("content") or []:
+        if isinstance(part, dict) and part.get("type") == "tool_use" and part.get("name") == "Bash" \
+                and "check-glossary" in part.get("input", {}).get("command", ""):
+            sys.exit(0)
+sys.exit(1)' "$1"
+}
+yn() { if "$@" >/dev/null 2>&1; then echo y; else echo n; fi; }
+
+echo "| Run | Cost | Turns | dormant added | cold re-pointed | cooldown retired | check clean | ran check | sweep commit |"
+echo "|---|---|---|---|---|---|---|---|---|"
+for json in "$runs"/*.json; do
+    label=$(basename "$json" .json) run="$runs/$label" g="$runs/$label/docs/GLOSSARY.md"
+    read -r cost turns session < <(python3 -c '
+import json, sys
+r = json.load(open(sys.argv[1]))
+print("%.4f" % r.get("total_cost_usd", 0), r.get("num_turns", 0), r.get("session_id", "-"))' "$json")
+    transcript=$(find "$runs/.claude-config/projects" -name "$session.jsonl" 2>/dev/null | head -n 1)
+    echo "| $label | \$$cost | $turns" \
+        "| $(yn grep -qiE '^- \*\*dormant\*\*.*is_dormant`$' "$g")" \
+        "| $(yn grep -qE '^- \*\*cold\*\*.*backfill_band`$' "$g")" \
+        "| $(yn bash -c '! grep -qiE "^- \*\*cooldown" "$0"' "$g")" \
+        "| $(yn bash "$CHECK" "$g" "$run")" \
+        "| $(yn ran_check "${transcript:-/dev/null}")" \
+        "| $(yn bash -c 'git -C "$0" log --format=%s | grep -q "^sweep:"' "$run") |"
+done
