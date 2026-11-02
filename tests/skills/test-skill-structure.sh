@@ -53,7 +53,10 @@ source "$REPO_ROOT/tests/helpers.sh"
 # adopting-a-repo is raised from 830 to 870: the architecture it reconstructs
 # now has an interface table, and adoption has to say which half is read, which
 # is inferred, and that the depth principle is never written. Not licence to pad.
-BUDGETS="routing-documentation-updates:600 writing-claude-md:550 finishing-work:790
+# routing-documentation-updates is raised from 600 to 640: the glossary is a
+# tier of its own, with a row for what a term means and a pointer to where its
+# entry format lives. Not licence to pad.
+BUDGETS="routing-documentation-updates:640 writing-claude-md:550 finishing-work:790
          writing-code-comments:200
          writing-living-documents:600
          brainstorm-design:700 brainstorm-architecture:600
@@ -190,6 +193,9 @@ if [ -f "$map" ]; then
     assert_not_contains "depth at a boundary is no longer routed to program design" \
         "$body" "layout, module depth"
     assert_not_contains "no reference to the deleted parser survives" "$body" "artifact-paths"
+    assert_contains "the glossary has a tier row" "$body" "GLOSSARY.md"
+    assert_contains "and every pointer in it is checked at sweep" "$body" "every pointer checked"
+    assert_contains "a term's meaning is routed to the glossary" "$body" "What a project term means"
 else
     fail "skills/routing-documentation-updates/SKILL.md exists" "not found"
 fi

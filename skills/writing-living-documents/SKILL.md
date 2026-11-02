@@ -1,6 +1,6 @@
 ---
 name: writing-living-documents
-description: Use when about to write or edit DESIGN.md, ARCHITECTURE.md, PROGRAM-DESIGN.md or ROADMAP.md — creating one, draining into one as work finishes, or reconstructing one during adoption
+description: Use when about to write or edit DESIGN.md, ARCHITECTURE.md, PROGRAM-DESIGN.md, ROADMAP.md or GLOSSARY.md — creating one, draining into one as work finishes, or reconstructing one during adoption
 ---
 
 # Writing living documents
@@ -21,6 +21,7 @@ A living document is a named set of slots, in a fixed order. Content going in cl
 | `ARCHITECTURE.md` | [architecture-schema.md](architecture-schema.md) |
 | `PROGRAM-DESIGN.md` | [program-design-schema.md](program-design-schema.md) |
 | `ROADMAP.md` | [roadmap-schema.md](roadmap-schema.md) |
+| `GLOSSARY.md` | [glossary-schema.md](glossary-schema.md) — entries, not slots |
 
 Read the schema for the document being written before writing to it. Each names its slots, what each one holds, and the order they appear in.
 

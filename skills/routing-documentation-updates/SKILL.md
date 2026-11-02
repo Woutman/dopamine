@@ -17,6 +17,7 @@ The tiers are not tidiness. They are a cost model.
 |---|---|---|
 | **Living** — describes the present | `DESIGN.md`, `ARCHITECTURE.md`, `PROGRAM-DESIGN.md`, `ROADMAP.md` | Drained **and verified** |
 | **Instructions** — highest read frequency | `CLAUDE.md` | Drained, verified, **plus an admission test** |
+| **Glossary** — the project's own terms, reached by grep | `GLOSSARY.md` | Drained along ledger terms; every pointer checked |
 | **Append-mostly** — dated observations, reached by grep | `LESSONS.md` | Drained, **never verified** |
 | **Immutable** — intent and actuality | `specs/`, `plans/`, sealed ledgers | Never touched |
 | **Consumed** — deleted when discharged | handoffs | n/a |
@@ -32,14 +33,16 @@ This repository's own paths are declared in `.dopamine/config`, one `tier: path`
 | What we decided and why | Spec (what we meant) plus the **sealed ledger** (what we actually did) | The deviation between them is the decision archive |
 | A dated observation that stays true — "we tried X, it failed because Y" | `LESSONS.md`, with the error text, symbol and version a future agent would grep for | Nothing consults it as current truth, so it never needs verifying |
 | A prescription — "do not use X" | A living document or `CLAUDE.md` | A prescription **does** go stale, so it has to sit where staleness is checked |
+| What a project term means | The glossary, never a living document's prose | One grep-sized line answers it, and its pointer is checked at every sweep |
 | A rule for how code is shaped — types, errors, effects, signatures, layout, module boundaries and admission | `PROGRAM-DESIGN.md`, never `CLAUDE.md` or `LESSONS.md` | Every plan copies it and every close checks the diff against it, so it sits where both read |
 
 ## Once the destination is decided
 
 - A living document → dopamine:writing-living-documents, which holds the slots each one has and the rules for writing into them.
 - `CLAUDE.md` → dopamine:writing-claude-md, which holds the admission test.
+- The glossary → dopamine:writing-living-documents' `glossary-schema.md`, which holds the entry format and its admission test.
 
-Routing says which document. Those two say where inside it, and in what shape.
+Routing says which document. Those say where inside it, and in what shape.
 
 ## Common mistakes
 
