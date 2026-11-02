@@ -7,7 +7,7 @@
 # The empty config directory holding only the login is run-task's, for the
 # same reason: nothing of the user's lands in either arm.
 #
-# Usage: run-sweep RUNS_DIR ARM PLUGIN REP   (model from BASELINE_MODEL, default sonnet)
+# Usage: [SCENARIO=dormant] run-sweep RUNS_DIR ARM PLUGIN REP   (model from BASELINE_MODEL, default sonnet)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -22,7 +22,8 @@ mkdir -p "$config"
 
 label="$arm-$rep"
 run=$(bash "$HERE/setup-sweep" "$runs" "$label")
-prompt="The plan docs/superpowers/plans/2026-11-03-dormant.md is finished; its ledger is .superpowers/sdd/2026-11-03-dormant/progress.md. Close it with dopamine:finishing-work."
+slug=$(basename "$(ls "$run"/.superpowers/sdd)")
+prompt="The plan docs/superpowers/plans/$slug.md is finished; its ledger is .superpowers/sdd/$slug/progress.md. Close it with dopamine:finishing-work."
 
 (cd "$run" && CLAUDE_CONFIG_DIR="$config" claude -p "$prompt" \
     --model "${BASELINE_MODEL:-sonnet}" \

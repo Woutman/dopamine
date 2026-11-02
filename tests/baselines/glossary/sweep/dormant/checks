@@ -1,0 +1,3 @@
+dormant added	grep -qiE '^- \*\*dormant\*\*.*is_dormant`$' "$G"
+cold re-pointed	grep -qE '^- \*\*cold\*\*.*backfill_band`$' "$G"
+cooldown retired	! grep -qiE '^- \*\*cooldown' "$G"

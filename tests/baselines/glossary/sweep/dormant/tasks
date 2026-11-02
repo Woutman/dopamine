@@ -1,0 +1,3 @@
+feat: dormant leads	leadflow/engine/dormant.py leadflow/config/thresholds.py leadflow/models/lead.py
+refactor: legacy_band is backfill_band	leadflow/engine/legacy.py leadflow/jobs/backfill.py
+feat: a dismissed lead leaves the feed for good	leadflow/portal/feed.py leadflow/config/portal.py -leadflow/portal/cooldown.py

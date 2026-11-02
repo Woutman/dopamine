@@ -154,4 +154,12 @@ assert_eq "and nothing else is wrong with the glossary" 2 "$(printf '%s\n' "$out
 assert_exit "the fixture's own tests still pass" 0 \
     bash -c 'cd "$0" && python3 -m unittest discover -q' "$SW"
 
+SM=$(SCENARIO=masked bash "$S/setup-sweep" "$T/sweep" m)
+assert_eq "the masked scenario is one task on the fixture" 2 "$(git -C "$SM" rev-list --count HEAD)"
+assert_exit "its glossary starts clean, so only the sweep's judgement is scored" 0 \
+    bash "$REPO_ROOT/skills/finishing-work/scripts/check-glossary" "$SM/docs/GLOSSARY.md" "$SM"
+assert_not_contains "its ledger never says withheld" \
+    "$(cat "$SM"/.superpowers/sdd/*/progress.md)" "withheld"
+assert_exit "an unknown scenario exits 2" 2 env SCENARIO=none bash "$S/setup-sweep" "$T/sweep" x
+
 finish
