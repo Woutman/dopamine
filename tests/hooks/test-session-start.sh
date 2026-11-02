@@ -96,6 +96,42 @@ else
     fail "the injection is within its 240-word budget" "got: $words words"
 fi
 
+assert_contains "the glossary waits for the sweep too" \
+    "$ctx" "living document or the glossary mid-execution"
+
+echo "-- the glossary pointer"
+# glossary_repo NAME CONFIG [FILE...] -- a repo with CONFIG and each FILE present
+glossary_repo() {
+    local dir="$TEST_ROOT/$1" config="$2" file
+    shift 2
+    mkdir -p "$dir/.dopamine"
+    git init -q "$dir"
+    printf '%b' "$config" > "$dir/.dopamine/config"
+    for file in "$@"; do
+        mkdir -p "$(dirname "$dir/$file")"
+        printf -- '- **term** — x\n' > "$dir/$file"
+    done
+    printf '%s' "$dir"
+}
+context_in() {
+    field "$( (cd "$1" && CLAUDE_PLUGIN_ROOT="$REPO_ROOT" "$UNDER_TEST") )" \
+        "hookSpecificOutput.additionalContext"
+}
+
+g=$(context_in "$(glossary_repo present 'glossary: docs/GLOSSARY.md\n' docs/GLOSSARY.md)")
+assert_contains "points at the declared glossary" "$g" 'defined one per line in `docs/GLOSSARY.md`'
+assert_contains "names the Grep tool" "$g" "with the Grep tool"
+g=$(context_in "$(glossary_repo elsewhere 'glossary: notes/TERMS.md\n' notes/TERMS.md)")
+assert_contains "uses the declared path" "$g" '`notes/TERMS.md`'
+assert_not_contains "no pointer when undeclared" "$ctx" "Grep tool"
+g=$(context_in "$(glossary_repo absent 'glossary: docs/GLOSSARY.md\n')")
+assert_not_contains "no pointer when the file is absent" "$g" "Grep tool"
+g=$(context_in "$(glossary_repo crlf 'glossary: docs/GLOSSARY.md  \r\n' docs/GLOSSARY.md)")
+assert_contains "trailing space and CR are ignored" "$g" '`docs/GLOSSARY.md`. When'
+g=$(context_in "$(glossary_repo twice 'glossary: a.md\nglossary: b.md\n' a.md b.md)")
+assert_eq "the first declaration wins, once" 1 "$(grep -o 'Grep tool' <<< "$g" | wc -l | tr -d ' ')"
+assert_contains "and it is the first" "$g" '`a.md`'
+
 echo "-- survives a SessionStart spawned with a broken PATH (anthropics/claude-code#43127)"
 WRAPPER="$REPO_ROOT/hooks/run-hook.cmd"
 BASH_ABS=$(command -v bash)
