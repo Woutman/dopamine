@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Run one task under one arm in a fresh repository, headless, and keep Claude
+# Code's JSON result beside the run as RUNS_DIR/LABEL.json for score.
+#
+# Hooks are switched off in every arm: an installed plugin's SessionStart
+# injection would add the same noise to each arm and cost money per run. With
+# ANTHROPIC_API_KEY set, --bare also drops user CLAUDE.md and auto-memory.
+#
+# Usage: run-task RUNS_DIR ARM TASK REP   (model from BASELINE_MODEL, default sonnet)
+set -euo pipefail
+
+USAGE="usage: run-task RUNS_DIR ARM TASK REP"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 4 ] || { echo "$USAGE" >&2; exit 2; }
+runs="$1" arm="$2" task="$3" rep="$4"
+kind=$(awk -F'\t' -v t="$task" '$1 == t { print $2 }' "$HERE/tasks/kinds.tsv")
+[ -n "$kind" ] || { echo "unknown task: $task" >&2; exit 2; }
+
+label="$arm-$task-$rep"
+run=$(bash "$HERE/setup-run" "$runs" "$label" "$arm")
+context=$(bash "$HERE/inject" "$arm" "$run/docs/GLOSSARY.md")
+
+if [ "$kind" = question ]; then
+    schema='{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}'
+else
+    schema='{"type":"object","properties":{"done":{"type":"boolean"}},"required":["done"],"additionalProperties":false}'
+fi
+
+args=(-p "$(cat "$HERE/tasks/$task.md")"
+      --model "${BASELINE_MODEL:-sonnet}"
+      --output-format json --json-schema "$schema"
+      --no-session-persistence --strict-mcp-config
+      --settings '{"disableAllHooks": true}'
+      --permission-mode acceptEdits
+      --allowedTools Read Grep Glob Edit Write "Bash(grep:*)" "Bash(python3:*)")
+[ -z "${ANTHROPIC_API_KEY:-}" ] || args+=(--bare)
+[ -z "$context" ] || args+=(--append-system-prompt "$context")
+
+(cd "$run" && claude "${args[@]}") > "$runs/$label.json"
+echo "$runs/$label.json"

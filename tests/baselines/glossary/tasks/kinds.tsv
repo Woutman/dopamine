@@ -1,0 +1,11 @@
+task	kind	set
+t1-koud	question	term
+t2-unresolved	question	term
+t3-withheld	question	term
+t4-excluded	question	term
+t5-warm-threshold	edit	term
+t6-withheld-label	edit	term
+t7-unresolved-cap	edit	term
+c1-python	question	control
+c2-chunk	edit	control
+c3-email	edit	control

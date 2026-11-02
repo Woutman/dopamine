@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Score the runs in RUNS_DIR: correctness beside cost, per arm and task set.
+
+Cost is the headline, not raw tokens: text injected at session start is read
+back from the prompt cache at a tenth of the input price, while a lookup's
+reads are fresh input, so equal token counts are not equal costs. The token
+columns are kept apart for the same reason.
+
+Usage: score RUNS_DIR
+"""
+import json
+import os
+import subprocess
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+
+def table(path):
+    rows = path.read_text().splitlines()[1:]
+    return [r.split("\t") for r in rows if r]
+
+
+def normalise(answer):
+    return answer.strip().strip("\"'`.").casefold()
+
+
+def correct(run_dir, task, kind, result, answers):
+    if kind == "question":
+        given = (result.get("structured_output") or {}).get("answer", "")
+        return normalise(given) == normalise(answers[task])
+    check = HERE / "checks" / f"{task}.py"
+    env = dict(os.environ, PYTHONPATH=str(run_dir), PYTHONDONTWRITEBYTECODE="1")
+    return subprocess.run([sys.executable, str(check)], cwd=run_dir, env=env,
+                          capture_output=True).returncode == 0
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit("usage: score RUNS_DIR")
+    runs = Path(sys.argv[1])
+    kinds = {t: (k, s) for t, k, s in table(HERE / "tasks" / "kinds.tsv")}
+    answers = dict(table(HERE / "tasks" / "answers.tsv"))
+    cells = defaultdict(list)
+    for path in sorted(runs.glob("*.json")):
+        arm, rest = path.stem.split("-", 1)
+        task = rest.rsplit("-", 1)[0]
+        kind, task_set = kinds[task]
+        result = json.loads(path.read_text())
+        usage = result.get("usage", {})
+        cells[arm, task_set].append({
+            "ok": correct(runs / path.stem, task, kind, result, answers),
+            "cost": result.get("total_cost_usd", 0.0),
+            "fresh": usage.get("input_tokens", 0),
+            "write": usage.get("cache_creation_input_tokens", 0),
+            "read": usage.get("cache_read_input_tokens", 0),
+            "out": usage.get("output_tokens", 0),
+            "turns": result.get("num_turns", 0),
+        })
+    print("| Arm | Set | Runs | Correct | Mean $ | Fresh in | Cache write | Cache read | Out | Turns |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
+    for (arm, task_set), rs in sorted(cells.items()):
+        mean = lambda k: sum(r[k] for r in rs) / len(rs)
+        print(f"| {arm} | {task_set} | {len(rs)} | {sum(r['ok'] for r in rs)}/{len(rs)} "
+              f"| {mean('cost'):.4f} | {mean('fresh'):.0f} | {mean('write'):.0f} "
+              f"| {mean('read'):.0f} | {mean('out'):.0f} | {mean('turns'):.1f} |")
+
+
+if __name__ == "__main__":
+    main()

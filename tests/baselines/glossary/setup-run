@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Set up one baseline run: a fresh repository holding the fixture, with the
+# glossary overlay committed on top for every arm but A.
+#
+# Usage: setup-run RUNS_DIR LABEL ARM   (prints the run's directory)
+set -euo pipefail
+
+USAGE="usage: setup-run RUNS_DIR LABEL ARM"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 3 ] || { echo "$USAGE" >&2; exit 2; }
+case "$3" in A|B|C|D) ;; *) echo "$USAGE" >&2; exit 2 ;; esac
+run="$1/$2"
+[ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
+
+commit() {
+    git -C "$run" add -A
+    git -C "$run" -c user.name=baseline -c user.email=baseline@localhost commit -qm "$1"
+}
+
+mkdir -p "$run"
+cp -R "$HERE/fixture/." "$run/"
+find "$run" -name __pycache__ -prune -exec rm -rf {} +
+git -C "$run" init -q
+commit fixture
+if [ "$3" != A ]; then
+    cp -R "$HERE/overlays/glossary/." "$run/"
+    commit "docs: glossary"
+fi
+cd "$run" && pwd
