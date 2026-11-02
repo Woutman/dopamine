@@ -129,5 +129,14 @@ printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","nam
 out=$(python3 "$B/score" "$R")
 assert_contains "a run that searched the glossary is counted" "$(grep '^| G |' <<< "$out")" "| 1.0 | 1/1 |"
 assert_contains "a run without a transcript is not" "$(grep '^| O |' <<< "$out")" "| 1.0 | 0/1 |"
+printf '{"session_id":"s2","structured_output":{"answer":"nurture"},"total_cost_usd":0.01,"num_turns":1,"usage":{}}' \
+    > "$R/G-q1-koud-2.json"
+{
+    printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep","input":{"pattern":"Koud","path":"/run"}}]}}'
+    printf '%s\n' '{"type":"user","message":{"content":[{"type":"tool_result","content":"docs/GLOSSARY.md:12:- **nurture** (UI: Koud)"}]}}'
+} > "$R/.claude-config/projects/p/s2.jsonl"
+out=$(python3 "$B/score" "$R")
+assert_contains "a repo-wide search that came back from the glossary counts too" \
+    "$(grep '^| G |' <<< "$out")" "| 1.0 | 2/2 |"
 
 finish

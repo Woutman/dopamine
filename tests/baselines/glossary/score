@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Score the runs in RUNS_DIR: correctness beside cost, per arm and per task.
 
-Searched counts the runs whose transcript shows a tool call touching
-GLOSSARY.md, so a glossary arm that misses its cost bar says whether the
+Searched counts the runs whose transcript shows a tool call naming GLOSSARY.md,
+or a tool result that came back from it (a repo-wide grep finds it too), so a glossary arm that misses its cost bar says whether the
 pointer went unused or the lookup did not help.
 
 Cost is the headline, not raw tokens: Claude Code caches nearly everything,
@@ -37,10 +37,12 @@ def searched(runs, result):
         return False
     for line in found[0].read_text().splitlines():
         entry = json.loads(line)
-        if entry.get("type") != "assistant":
-            continue
-        for block in entry["message"].get("content", []):
+        content = entry.get("message", {}).get("content", [])
+        for block in content if isinstance(content, list) else []:
             if block.get("type") == "tool_use" and "GLOSSARY.md" in json.dumps(block["input"]):
+                return True
+            # The hook's pointer names the file too, but never as "GLOSSARY.md:".
+            if block.get("type") == "tool_result" and "GLOSSARY.md:" in json.dumps(block.get("content")):
                 return True
     return False
 
