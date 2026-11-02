@@ -66,42 +66,65 @@ together:
 
 ## Give each project a glossary
 
-**The idea.** A short list of the project's own terms, one line each, each pointing at the code
-that defines it. None of dopamine's documents holds one: `DESIGN.md` says what the system is for,
+**The idea.** A list of the project's own terms, one line each, each pointing at the code that
+defines it. None of dopamine's documents holds one: `DESIGN.md` says what the system is for,
 `ARCHITECTURE.md` what its components are, `PROGRAM-DESIGN.md` how its code is shaped, and none
 says what a word the code and its users share actually means.
 
-**Why.** It came out of the 2026-10-14 review of `gls-global`, which used dopamine's documents as
-its yardstick for how ready a repository is for coding agents. Vocabulary scored only partly: the
-engine's lead bands (`hot/warm/nurture/excluded`) and the portal's (Hot/Warm/Koud/Geen
-fit/Neutraal) had drifted apart, and "withheld", "excluded" and "unresolved" were defined nowhere
-in prose. The review recommended a glossary of at most 20 terms, each pointing at its defining
-code. An agent arriving cold either guesses what a term means or coins a synonym, and every synonym
-is a drift the next agent copies. Many agents from different developers on one repository make that
-worse.
+**Why: tokens, not correctness.** An agent can usually work a term out from the code, but it pays
+for that in reads every time it meets the term. A lookup in a list is cheaper. It came out of the
+2026-10-14 review of `gls-global`: the engine's lead bands (`hot/warm/nurture/excluded`) and the
+portal's (Hot/Warm/Koud/Geen fit/Neutraal) had drifted apart, and "withheld", "excluded" and
+"unresolved" were defined nowhere in prose, so working them out took several reads per term.
 
-**What it would contain** — suggestions, none decided:
+**Agreed on 2026-11-02:**
 
-- **A home.** A **Vocabulary** slot in `DESIGN.md`, beside what the system does. Or a part of
-  `PROGRAM-DESIGN.md`'s **Types**, which already asks how domain concepts are represented. Or a
-  fifth living document.
-- **An entry**: the term, one line saying what it means, and the code that defines it: a type, an
-  enum or a constant. Pointing at code keeps an entry checkable. The sweep can confirm the
-  definition is still where the entry says.
-- **Bounded**: about 20 terms, the ones an agent would otherwise get wrong, not every noun in the
-  code. That keeps it O(system).
-- **Kept by the sweep**: a ledger entry that introduces, renames or retires a term is routed to the
-  glossary, and `finishing-work` flags a diff that names a listed concept a second way.
-- **Seeded at adoption**: `adopting-a-repo`'s survey collects the terms components use
-  inconsistently, as the review had to by hand.
+- **Its own file, `GLOSSARY.md`.** Not a slot in `DESIGN.md`: a lookup there loads the whole design
+  to learn one word.
+- **Its own config tier, `glossary: docs/GLOSSARY.md`.** The `SessionStart` hook reads it, and a
+  bash hook cannot ask which `living:` path is meant the way a recipe can. Tiers already name how
+  dopamine treats a file (`instructions:`, `lessons:`, `plans:`), and this is the only file the hook
+  reads. The sweep verifies it like a living document and counts it in the `wc -l` line. The other
+  documents keep matching by basename; this tier is the template if that Known gap is ever closed.
+- **One entry per line, headword first,** so a grep returns exactly one definition:
 
-**Revisit before building.** Still to decide together:
+  ```markdown
+  - **withheld** (UI: "Neutraal") — a hot or warm lead with no contact; shown without its score until a contact is found → `leadflow/portal/feed.py:_withheld`
+  ```
 
-- **Which home**, and whether the glossary is core or conditional. A trigger could be two
-  components naming the same concept, or a user-facing language that differs from the code's.
-- **How a term spelled differently in the code and the UI is recorded**: one term with two
-  spellings, or drift to fix.
-- **Whether the drift check is mechanical**, a grep for listed synonyms, or a judgement the sweep
+  Other spellings sit on the same line, so a grep by any of them finds it. Entries are
+  alphabetical, with no prose between them. Whatever points at the file says to grep it, not read
+  it.
+- **No cap; an admission test instead.** Length tracks repo size and subject matter, so a number is
+  arbitrary. A term earns an entry when it is the project's own, its meaning cannot be read off its
+  name, and pinning it down takes more than one read. Spelling drift between code and UI qualifies
+  on its own. This is `writing-claude-md`'s approach, and it matters more if the file is injected.
+- **Kept by the sweep:** a ledger entry that introduces, renames or retires a term is routed to the
+  glossary, and `finishing-work` flags a diff that names a listed concept a second way. Each entry
+  points at its defining code, so verifying it is a grep. **Seeded at adoption** from
+  `adopting-a-repo`'s survey.
+
+**What the hook injects is measured, not decided.** The baseline at `tests/baselines/glossary/`
+runs the same tasks under four arms:
+
+| Arm | Session start gets | Pays every session | Pays per lookup |
+|---|---|---|---|
+| A | nothing; no glossary | nothing | reads of the code |
+| B | a one-line pointer to `GLOSSARY.md` | one line | a grep |
+| C | the whole glossary | the whole file | nothing |
+| D | the headwords only | a few tokens per term | a grep |
+
+D is the favourite going in: the agent knows which words are defined without paying for every
+definition. Control tasks that need no term measure what C and D cost when the glossary is dead
+weight. Correctness is graded beside cost, because a cheaper wrong answer is no saving. Cost, not
+raw tokens, is the headline: injected text is read back from the prompt cache at a tenth of the
+price, while a lookup's reads are cache writes. The fixture is small (about a dozen files), so
+savings are a lower bound, and about 30k tokens of fixed system prompt per run mean the arms
+differ by a small margin that needs several runs per cell to see.
+
+**Still open:**
+
+- **How a term spelled differently in code and UI is recorded**: one entry with both spellings, as
+  above, or drift to fix.
+- **Whether the drift check is mechanical**, a grep for listed spellings, or a judgement the sweep
   makes.
-- **Whether RED shows the gap at all**: whether an agent without a glossary actually misreads or
-  re-coins terms in a fixture, or reads the defining code anyway.
