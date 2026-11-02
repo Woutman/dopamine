@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Run one sweep headless, with the plugin loaded from PLUGIN as an installed
+# plugin would be, and keep Claude Code's JSON result as RUNS_DIR/LABEL.json.
+# Arm C loads main's dopamine, which says nothing about a glossary; arm G loads
+# this branch's. Both get the same repository, glossary and ledger.
+#
+# The empty config directory holding only the login is run-task's, for the
+# same reason: nothing of the user's lands in either arm.
+#
+# Usage: [SCENARIO=dormant] run-sweep RUNS_DIR ARM PLUGIN REP   (model from BASELINE_MODEL, default sonnet)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 4 ] || { echo "usage: run-sweep RUNS_DIR ARM PLUGIN REP" >&2; exit 2; }
+runs="$1" arm="$2" plugin="$(cd "$3" && pwd)" rep="$4"
+
+config="$runs/.claude-config"
+login="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
+mkdir -p "$config"
+# Parallel runs race to create the link; -f makes the loser's attempt harmless.
+[ ! -e "$login" ] || ln -sfn "$login" "$config/.credentials.json"
+
+label="$arm-$rep"
+run=$(bash "$HERE/setup-sweep" "$runs" "$label")
+slug=$(basename "$(ls "$run"/.superpowers/sdd)")
+prompt="The plan docs/superpowers/plans/$slug.md is finished; its ledger is .superpowers/sdd/$slug/progress.md. Close it with dopamine:finishing-work."
+
+(cd "$run" && CLAUDE_CONFIG_DIR="$config" claude -p "$prompt" \
+    --model "${BASELINE_MODEL:-sonnet}" \
+    --output-format json --max-budget-usd 2 \
+    --strict-mcp-config --plugin-dir "$plugin" \
+    --permission-mode acceptEdits \
+    --allowedTools Read Grep Glob Edit Write Bash Skill < /dev/null) > "$runs/$label.json"
+echo "$runs/$label.json"

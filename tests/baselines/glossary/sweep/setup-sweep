@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Set up one sweep run: the fixture with the glossary overlay, then one finished
+# unit of work from a scenario directory, and its ledger where superpowers
+# leaves it. A scenario holds the plan and changed files (change/), one commit
+# per line of tasks ("message<TAB>files", a leading - deletes), and ledger.md,
+# whose {C0}..{Cn} become those commits.
+#   dormant  introduces a term, renames the symbol a pointer names, retires a term
+#   masked   names a listed concept (withheld) a second way
+#
+# Usage: [SCENARIO=dormant] setup-sweep RUNS_DIR LABEL   (prints the run's directory)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 2 ] || { echo "usage: setup-sweep RUNS_DIR LABEL" >&2; exit 2; }
+run="$1/$2"
+[ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
+scenario="$HERE/${SCENARIO:-dormant}"
+[ -f "$scenario/tasks" ] || { echo "no scenario at $scenario" >&2; exit 2; }
+
+g() { git -C "$run" -c user.name=baseline -c user.email=baseline@localhost "$@"; }
+take() { mkdir -p "$run/${1%/*}"; cp "$scenario/change/$1" "$run/$1"; }
+
+mkdir -p "$run"
+cp -R "$HERE/../fixture/." "$HERE/../green-overlay/." "$run/"
+find "$run" -name __pycache__ -prune -exec rm -rf {} +
+printf '.superpowers/\n__pycache__/\n' > "$run/.gitignore"
+for plan in "$scenario"/change/docs/superpowers/plans/*.md; do take "${plan#"$scenario/change/"}"; done
+slug=$(basename "$plan" .md)
+g init -q && g add -A && g commit -qm "fixture and the $slug plan"
+ranges=(-e "s/{C0}/$(g rev-parse --short HEAD)/g")
+
+i=0
+while IFS=$'\t' read -r message files; do
+    i=$((i + 1))
+    for f in $files; do
+        case "$f" in -*) rm "$run/${f#-}" ;; *) take "$f" ;; esac
+    done
+    g add -A && g commit -qm "$message"
+    ranges+=(-e "s/{C$i}/$(g rev-parse --short HEAD)/g")
+done < "$scenario/tasks"
+
+mkdir -p "$run/.superpowers/sdd/$slug"
+sed "${ranges[@]}" "$scenario/ledger.md" > "$run/.superpowers/sdd/$slug/progress.md"
+cd "$run" && pwd

@@ -1,0 +1,3 @@
+masked on withheld's line	grep -qiE '^- \*\*withheld\*\*.*masked' "$G"
+no separate masked entry	! grep -qiE '^- \*\*masked' "$G"
+a masked entry names withheld	grep -iE '^- \*\*masked' "$G" | grep -qi withheld

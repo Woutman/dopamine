@@ -33,6 +33,22 @@ context_file="${PLUGIN_ROOT}/hooks/session-start-context.md"
 [ -f "$context_file" ] || exit 0
 content=$(<"$context_file")
 
+# Only an existing glossary is pointed at: a pointer to a missing file is the
+# same noise as instructions about documents that do not exist.
+glossary=
+while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+        glossary:*)
+            glossary=${line#glossary:}
+            glossary=${glossary#"${glossary%%[![:space:]]*}"}
+            glossary=${glossary%"${glossary##*[![:space:]]}"}
+            break ;;
+    esac
+done < "$root/.dopamine/config"
+if [ -n "$glossary" ] && [ -f "$root/$glossary" ]; then
+    content+=$'\n\n'"This project's own terms are defined one per line in \`$glossary\`. When you meet a term whose meaning you need, search that file for it with the Grep tool before reading code to work it out."
+fi
+
 # Escape for JSON embedding using bash parameter substitution — each ${s//old/new}
 # is a single C-level pass.
 escape_for_json() {

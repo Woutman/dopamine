@@ -21,17 +21,17 @@ Dopamine seals that ledger before it dies, and drains it into the living documen
 | Piece | What it does |
 |---|---|
 | `.dopamine/config` | Declares which paths hold which artifact tier. The plugin hard-codes no project's document set |
-| `SessionStart` hook | ~230 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules. Silent in a repo with no config |
-| `dopamine:adopting-a-repo` | Writes the config, surveys existing code, and reconstructs the living documents — marking what was inferred |
+| `SessionStart` hook | ~230 words positioning dopamine relative to superpowers, and naming the skills that hold each document's rules, plus one sentence pointing at the glossary where one is declared and present. Silent in a repo with no config |
+| `dopamine:adopting-a-repo` | Writes the config, surveys existing code, and reconstructs the living documents and the glossary — marking what was inferred |
 | `dopamine:brainstorm-design` | Wraps superpowers' brainstorming at system scope and derives `DESIGN.md` |
 | `dopamine:brainstorm-architecture` | The same at assembly scope, deriving `ARCHITECTURE.md` — including what each component offers its callers, what must hold at each interface, and how deep its boundaries are |
 | `dopamine:brainstorm-program-design` | One level down again: the human picks the rules for types, errors, effects, signatures, layout, and how component boundaries are enforced and abstractions admitted, deriving `PROGRAM-DESIGN.md` |
 | `dopamine:writing-roadmaps` | Breaks the two into phases sized for one superpowers loop, producing `ROADMAP.md` once program design's Modules slot is answered |
 | `dopamine:routing-documentation-updates` | Where each kind of fact belongs, and why only two tiers are ever re-verified |
-| `dopamine:writing-living-documents` | The slots each living document has, one schema file per document, and the rules for writing into them |
+| `dopamine:writing-living-documents` | The slots each living document has, one schema file per document, and the rules for writing into them — including `GLOSSARY.md`, one grep-sized line per project term, each pointing at the code that defines it |
 | `dopamine:writing-claude-md` | The admission test, the routing table for what fails it, and the vendored standard behind both |
 | `dopamine:writing-code-comments` | What a code comment states — a why, a contract or a warning — and where a design's argument and a change's story go instead |
-| `dopamine:finishing-work` | Seal the ledger, drain it along terms derived from it, commit, and report the line counts |
+| `dopamine:finishing-work` | Seal the ledger, drain it along terms derived from it, check the glossary's shape and pointers, commit, and report the line counts |
 
 ## Install
 
@@ -44,13 +44,14 @@ The repository serves itself: `.claude-plugin/marketplace.json` lists this one p
 
 The marketplace entry deliberately carries no version: `.claude-plugin/plugin.json` holds the only one, so the two cannot drift.
 
-Then run `dopamine:adopting-a-repo` in the project you want it to work on. It writes `.dopamine/config` and, where there is already code, reconstructs the living documents from it. To adopt by hand instead, the config is seven lines:
+Then run `dopamine:adopting-a-repo` in the project you want it to work on. It writes `.dopamine/config` and, where there is already code, reconstructs the living documents from it. To adopt by hand instead, the config is eight lines:
 
 ```
 living: docs/DESIGN.md
 living: docs/ARCHITECTURE.md
 living: docs/PROGRAM-DESIGN.md
 living: docs/ROADMAP.md
+glossary: docs/GLOSSARY.md
 instructions: CLAUDE.md
 lessons: docs/LESSONS.md
 plans: docs/superpowers/plans
@@ -85,4 +86,4 @@ bash tests/run-tests.sh
 
 All three original slices were built — the spine, the `CLAUDE.md` guard, and the authoring skills — and the first two have since been replaced by rules. The design they now implement is `docs/superpowers/specs/2026-09-01-dopamine-rules-over-mechanism-design.md`, which supersedes the hooks and the sweep pipeline in `docs/superpowers/specs/2026-08-28-dopamine-design.md` while leaving its artifact model intact.
 
-This repository has not yet run its own authoring recipes on itself: `docs/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/PROGRAM-DESIGN.md` and `docs/ROADMAP.md` are declared in `.dopamine/config` and are absent, which is the mechanism working rather than a gap in it.
+This repository has not yet run its own authoring recipes on itself: `docs/DESIGN.md`, `docs/ARCHITECTURE.md`, `docs/PROGRAM-DESIGN.md`, `docs/ROADMAP.md` and `docs/GLOSSARY.md` are declared in `.dopamine/config` and are absent, which is the mechanism working rather than a gap in it.

@@ -1,0 +1,8 @@
+task	answer	needs
+q1-koud	nurture	nurture
+q2-geen-fit	excluded	excluded
+q3-withheld	a	withheld,excluded
+q4-unresolved	nurture	unresolved,nurture
+q5-opted-out	no	excluded,excluded contact,withheld
+q6-stale	30	stale
+q7-cooldown	14	cooldown

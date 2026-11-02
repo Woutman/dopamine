@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""Print the tool calls one run made, in order, from its session transcript.
+
+Usage: trace RUNS_DIR LABEL
+"""
+import json
+import sys
+from pathlib import Path
+
+if len(sys.argv) != 3:
+    sys.exit("usage: trace RUNS_DIR LABEL")
+runs, label = Path(sys.argv[1]), sys.argv[2]
+session = json.loads((runs / f"{label}.json").read_text())["session_id"]
+found = list((runs / ".claude-config" / "projects").glob(f"*/{session}.jsonl"))
+if not found:
+    sys.exit(f"no transcript for {label}; it ran without one")
+for line in found[0].read_text().splitlines():
+    entry = json.loads(line)
+    if entry.get("type") != "assistant":
+        continue
+    for block in entry["message"].get("content", []):
+        if block.get("type") == "tool_use":
+            args = block["input"]
+            detail = args.get("file_path") or args.get("pattern") or args.get("command") or ""
+            print(f"{block['name']:6} {detail}"[:160])

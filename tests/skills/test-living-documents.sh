@@ -95,6 +95,31 @@ assert_contains "pointing at How they talk rather than restating it" "$road" "*H
 assert_contains "the schema skill's trigger names the new document" \
     "$(cat "$DIR/SKILL.md")" "PROGRAM-DESIGN.md"
 
+echo "-- the glossary's shape"
+assert_contains "SKILL.md links glossary-schema.md" "$(cat "$DIR/SKILL.md")" "glossary-schema.md"
+assert_contains "the schema skill's trigger names the glossary" \
+    "$(sed -n 's/^description: //p' "$DIR/SKILL.md")" "GLOSSARY.md"
+if [ -f "$DIR/glossary-schema.md" ]; then
+    pass "glossary-schema.md exists"
+    gl=$(cat "$DIR/glossary-schema.md")
+    assert_contains "an entry is one line" "$gl" "one line"
+    assert_contains "entries are alphabetical" "$gl" "alphabetical"
+    assert_contains "other spellings sit on the same line" "$gl" '(UI: "'
+    assert_contains "an entry ends with its pointer" "$gl" "→"
+    assert_contains "an admission test decides what goes in" "$gl" "admission"
+    assert_contains "a term that takes more than one read earns an entry" "$gl" "more than one read"
+    assert_contains "spelling drift earns an entry on its own" "$gl" "spelling drift"
+    assert_contains "adoption may close the file with unconfirmed entries" \
+        "$gl" "Reconstructed, unconfirmed"
+    assert_contains "an edit is followed by the glossary check, run through bash" \
+        "$gl" 'bash ${CLAUDE_PLUGIN_ROOT}/skills/finishing-work/scripts/check-glossary <glossary> <repo root>'
+    assert_contains "a rename keeps the old spelling while it is still met" \
+        "$gl" "While the old spelling still appears"
+    assert_contains "and replaces the headword once it is not" "$gl" "Once it appears nowhere"
+else
+    fail "glossary-schema.md exists" "not found"
+fi
+
 echo "-- both consumers reach every schema through CLAUDE_PLUGIN_ROOT"
 for pair in "brainstorm-design:design-schema.md" \
             "brainstorm-architecture:architecture-schema.md" \

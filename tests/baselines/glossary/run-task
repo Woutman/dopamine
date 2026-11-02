@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Run one question under one arm in a fresh repository, headless, and keep
+# Claude Code's JSON result beside the run as RUNS_DIR/LABEL.json for score.
+# The session's transcript stays in the runs' config directory, for trace.
+#
+# Every run gets an empty Claude config directory holding only the login, so
+# user CLAUDE.md, auto-memory and installed plugins stay out: they would add
+# the same cost to each arm and shrink the margin between them. --bare would
+# do the same but accepts only ANTHROPIC_API_KEY, not a subscription login.
+#
+# Arms A and O run with no hooks. Arms C and G run with dopamine's SessionStart
+# hook and nothing else from the plugin: its other text lands in both arms, so
+# G - C is the glossary pointer and file alone.
+#
+# Usage: run-task RUNS_DIR ARM TASK REP   (model from BASELINE_MODEL, default sonnet)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 4 ] || { echo "usage: run-task RUNS_DIR ARM TASK REP" >&2; exit 2; }
+runs="$1" arm="$2" task="$3" rep="$4"
+prompt=$(bash "$HERE/prompt" "$arm" "$task")
+plugin="$(cd "$HERE/../../.." && pwd)"
+case "$arm" in
+    A|O) settings='{"disableAllHooks": true}' ;;
+    C|G) settings=$(printf '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"%s/hooks/session-start"}]}]}}' "$plugin") ;;
+    *) echo "unknown arm: $arm" >&2; exit 2 ;;
+esac
+
+config="$runs/.claude-config"
+login="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
+mkdir -p "$config"
+# Parallel runs race to create the link; -f makes the loser's attempt harmless.
+[ ! -e "$login" ] || ln -sfn "$login" "$config/.credentials.json"
+
+label="$arm-$task-$rep"
+run=$(bash "$HERE/setup-run" "$runs" "$label")
+schema='{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}'
+
+(cd "$run" && CLAUDE_CONFIG_DIR="$config" CLAUDE_PLUGIN_ROOT="$plugin" claude -p "$prompt" \
+    --model "${BASELINE_MODEL:-sonnet}" \
+    --output-format json --json-schema "$schema" \
+    --strict-mcp-config --settings "$settings" \
+    --allowedTools Read Grep Glob Bash \
+    --disallowedTools Edit Write NotebookEdit) > "$runs/$label.json"
+echo "$runs/$label.json"

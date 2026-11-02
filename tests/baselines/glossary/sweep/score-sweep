@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Score every sweep run in RUNS_DIR: the scenario's own checks on the glossary
+# (its checks file, "column<TAB>command" run with G set to the glossary), then
+# whether it is clean under check-glossary, whether the run ran that script,
+# and whether the sweep was committed.
+#
+# Usage: [SCENARIO=dormant] score-sweep RUNS_DIR
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+CHECK="$HERE/../../../../skills/finishing-work/scripts/check-glossary"
+[ $# -eq 1 ] || { echo "usage: score-sweep RUNS_DIR" >&2; exit 2; }
+runs="$1"
+checks="$HERE/${SCENARIO:-dormant}/checks"
+[ -f "$checks" ] || { echo "no checks at $checks" >&2; exit 2; }
+# ran_check TRANSCRIPT -- a Bash call ran the script; the skill text naming it
+# is in the transcript too, so a plain grep would count every arm-G run.
+ran_check() {
+    python3 -c '
+import json, sys
+for line in open(sys.argv[1]):
+    try:
+        msg = json.loads(line).get("message") or {}
+    except ValueError:
+        continue
+    for part in msg.get("content") or []:
+        if isinstance(part, dict) and part.get("type") == "tool_use" and part.get("name") == "Bash" \
+                and "check-glossary" in part.get("input", {}).get("command", ""):
+            sys.exit(0)
+sys.exit(1)' "$1"
+}
+yn() { if "$@" >/dev/null 2>&1; then echo y; else echo n; fi; }
+
+header="| Run | Cost | Turns |" rule="|---|---|---|"
+while IFS=$'\t' read -r column _; do header+=" $column |" rule+="---|"; done < "$checks"
+echo "$header check clean | ran check | sweep commit |"
+echo "$rule---|---|---|"
+for json in "$runs"/*.json; do
+    label=$(basename "$json" .json) run="$runs/$label" g="$runs/$label/docs/GLOSSARY.md"
+    read -r cost turns session < <(python3 -c '
+import json, sys
+r = json.load(open(sys.argv[1]))
+print("%.4f" % r.get("total_cost_usd", 0), r.get("num_turns", 0), r.get("session_id", "-"))' "$json")
+    transcript=$(find "$runs/.claude-config/projects" -name "$session.jsonl" 2>/dev/null | head -n 1)
+    row="| $label | \$$cost | $turns |"
+    while IFS=$'\t' read -r _ command; do
+        row+=" $(G="$g" yn bash -c "$command") |"
+    done < "$checks"
+    echo "$row" \
+        "$(yn bash "$CHECK" "$g" "$run")" \
+        "| $(yn ran_check "${transcript:-/dev/null}")" \
+        "| $(yn bash -c 'git -C "$0" log --format=%s | grep -q "^sweep:"' "$run") |"
+done

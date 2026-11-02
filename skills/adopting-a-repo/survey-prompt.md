@@ -1,6 +1,6 @@
 # Adoption survey prompt
 
-Fill the placeholders and dispatch one subagent per living document being surveyed — every absent one, and any present one the human has confirmed has drifted.
+Fill the placeholders and dispatch one subagent per living document being surveyed, or the glossary — every absent one, and any present one the human has confirmed has drifted.
 
 **Placeholders:** `{DOCUMENT}` `{FINDINGS_PATH}` `{REPO_ROOT}`
 
@@ -15,6 +15,7 @@ The document being written is **`{DOCUMENT}`**. That is what decides which parts
 | A design document | Entry points, the README, the public interface, the earliest commit messages | Internal call graphs |
 | An architecture document | Module boundaries and the imports between them — what each component's callers actually import from it, and every import that reaches past a component's public surface, each a **Read** finding with its `path:line` — where state is written, deployment and job definitions | Business rationale |
 | A program-design document | Two or three files per slot — how domain values are represented, how failures travel, where I/O happens, function signatures, which way imports point, how much each module hides — and every place two conventions for one slot coexist | Component boundaries and business rationale |
+| A glossary | UI strings and translation tables, enums and band, state or status names, predicates and constants whose names hide a rule — each term's spellings in code and UI, and its defining path:symbol | Module boundaries and business rationale |
 | A roadmap | The unfinished: TODO markers, stubs, unimplemented branches, skipped tests, configuration nothing reads yet | Anything already working |
 
 ## The two kinds of finding, which are never mixed

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Set up one baseline run: a fresh repository holding the fixture. Arm G's runs
+# also get green-overlay/, which adds the glossary and declares it; every other
+# arm gets the fixture alone. The arm is the label's prefix, as score reads it.
+#
+# Usage: setup-run RUNS_DIR LABEL   (prints the run's directory)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+[ $# -eq 2 ] || { echo "usage: setup-run RUNS_DIR LABEL" >&2; exit 2; }
+run="$1/$2"
+[ ! -e "$run" ] || { echo "$run already exists" >&2; exit 1; }
+
+mkdir -p "$run"
+cp -R "$HERE/fixture/." "$run/"
+case "$2" in G-*) cp -R "$HERE/green-overlay/." "$run/" ;; esac
+find "$run" -name __pycache__ -prune -exec rm -rf {} +
+git -C "$run" init -q
+git -C "$run" add -A
+git -C "$run" -c user.name=baseline -c user.email=baseline@localhost commit -qm fixture
+cd "$run" && pwd

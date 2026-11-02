@@ -1,0 +1,2 @@
+HOT_MIN = 0.8
+WARM_MIN = 0.6

@@ -29,6 +29,8 @@ Read the sealed ledger in full. Derive grep terms from it — the names, paths, 
 
 Use dopamine:writing-living-documents for each edit to a living document, and dopamine:writing-claude-md for anything proposed for the instructions tier.
 
+**The glossary**, where `glossary:` is declared and present, is drained along the same terms, in the shape `${CLAUDE_PLUGIN_ROOT}/skills/writing-living-documents/glossary-schema.md` holds. A ledger entry that introduces, renames or retires a project term changes its line, under that schema's admission test. Whether the diff names a listed concept a second way is a judgement, made only along terms the ledger names: a new spelling cannot be found by grepping for the old ones. Then run `bash ${CLAUDE_PLUGIN_ROOT}/skills/finishing-work/scripts/check-glossary <glossary> .` and fix every line it prints in this sweep.
+
 ### 3. Commit
 
 `sweep: <slug> — 3 edits`, or `sweep: <slug> — nothing to drain`.
@@ -37,14 +39,14 @@ The `sweep:` prefix is a commit convention, not a skill name. `git log --grep='^
 
 ### 4. Report the line counts
 
-In the same commit message, `wc -l` for each `living:` document and for the `instructions:` file. Growth in those numbers without matching growth in the system is the signal that routing is not being applied — and it is the number that was legible the whole time in the project this plugin was built from, while nobody looked.
+In the same commit message, `wc -l` for each `living:` document, the `instructions:` file and the `glossary:` file. Growth in those numbers without matching growth in the system is the signal that routing is not being applied — and it is the number that was legible the whole time in the project this plugin was built from, while nobody looked.
 
 ## Exit gate
 
 Seven checks, run with **fresh eyes** over the diff, fixed inline. No re-review and no subagent dispatch: this is the pattern superpowers uses for its own documents, where the human is the gate. A fresh-subagent review is for code, which has tests and objective failure modes.
 
 1. **Right tier.**
-2. **Changed what changed** — a paragraph appended where existing text should have been replaced is a failure even when the added text is true.
+2. **Changed what changed** — a paragraph appended where existing text should have been replaced is a failure even when the added text is true. After a glossary edit, `check-glossary` exits 0.
 3. **No number describing a run** entered a living document.
 4. **Every promotion to the instructions tier carries an admission verdict.**
 5. **Historical records untouched** — specs, plans and sealed ledgers are immutable.
