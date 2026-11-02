@@ -88,6 +88,13 @@ out=$(python3 "$B/score" "$R")
 assert_contains "a right answer counts, whatever its case and punctuation" \
     "$out" "| O | 1 | 1/1 | 0.0200 ± 0.0000 | 100 | 900 | 20 | 1.0 |"
 assert_contains "a wrong one does not" "$out" "| A | 1 | 0/1 |"
+printf '{"structured_output":{"answer":"No. It is withheld, not excluded."},"total_cost_usd":0.01,"num_turns":1,"usage":{}}' \
+    > "$R/A-q5-opted-out-1.json"
+printf '{"structured_output":{"answer":"Notably not."},"total_cost_usd":0.01,"num_turns":1,"usage":{}}' \
+    > "$R/A-q5-opted-out-2.json"
+out=$(python3 "$B/score" "$R")
+assert_contains "an answer followed by its reasoning counts, a longer word does not" \
+    "$out" "| q5-opted-out A | 2 | 1/2 |"
 assert_contains "tasks are reported per arm" "$out" "| q4-unresolved A | 1 | 0/1 |"
 
 finish

@@ -8,6 +8,7 @@ columns are kept apart for the same reason.
 Usage: score RUNS_DIR
 """
 import json
+import re
 import statistics
 import sys
 from collections import defaultdict
@@ -18,6 +19,12 @@ HERE = Path(__file__).resolve().parent
 
 def normalise(answer):
     return answer.strip().strip("\"'`.").casefold()
+
+
+def matches(given, expected):
+    # Agents often follow a one-word answer with its reasoning ("No. An opted-out ...").
+    given, expected = normalise(given), normalise(expected)
+    return given == expected or re.match(re.escape(expected) + r"\b", given) is not None
 
 
 def row(name, rs):
@@ -41,7 +48,7 @@ def main():
         usage = result.get("usage", {})
         given = (result.get("structured_output") or {}).get("answer", "")
         r = {
-            "ok": normalise(given) == normalise(answers[task]),
+            "ok": matches(given, answers[task]),
             "cost": result.get("total_cost_usd", 0.0),
             "write": usage.get("cache_creation_input_tokens", 0),
             "read": usage.get("cache_read_input_tokens", 0),
