@@ -6,6 +6,3 @@ class LeadBand(str, Enum):
     WARM = "warm"
     NURTURE = "nurture"
     EXCLUDED = "excluded"
-
-
-THRESHOLDS = {LeadBand.HOT: 0.8, LeadBand.WARM: 0.6}

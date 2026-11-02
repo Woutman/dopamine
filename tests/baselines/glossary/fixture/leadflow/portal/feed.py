@@ -1,15 +1,12 @@
 from leadflow.engine.bands import LeadBand
-from leadflow.portal.filters import hidden
-from leadflow.portal.serialize import card
+from leadflow.portal.cards import card
+from leadflow.portal.cooldown import in_cooldown
+from leadflow.portal.sort import priority
 
 
-def _withheld(lead):
-    return lead.band in (LeadBand.HOT, LeadBand.WARM) and lead.contact is None
-
-
-def portal_feed(leads, dismissed):
-    return [
-        card(lead, withheld=_withheld(lead))
-        for lead in leads
-        if not hidden(lead.id, dismissed)
+def portal_feed(leads, excluded_contacts, locale="nl", today=None):
+    shown = [
+        lead for lead in leads
+        if lead.band is not LeadBand.EXCLUDED and not in_cooldown(lead, today)
     ]
+    return [card(lead, excluded_contacts, locale) for lead in sorted(shown, key=priority)]

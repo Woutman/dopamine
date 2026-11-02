@@ -104,23 +104,20 @@ portal's (Hot/Warm/Koud/Geen fit/Neutraal) had drifted apart, and "withheld", "e
   points at its defining code, so verifying it is a grep. **Seeded at adoption** from
   `adopting-a-repo`'s survey.
 
-**What the hook injects is measured, not decided.** The baseline at `tests/baselines/glossary/`
-runs the same tasks under four arms:
+**Viability is measured before anything is built**, as RED, the way the other baselines gate their
+work. `tests/baselines/glossary/` holds a 76-file fixture modelled on what the `gls-global` review
+found: band names drifted between engine and UI, `withheld` defined only under another name, and
+`excluded` with a homonym in the privacy code. Seven term questions run under two arms: **A**
+finds each definition in the code, and **O** gets the definitions it needs in its prompt. A minus
+O is the most any glossary could save. Cost is the headline, not raw tokens, because Claude Code
+caches nearly everything. If that ceiling is small beside a session's fixed cost, the entry is
+dropped.
 
-| Arm | Session start gets | Pays every session | Pays per lookup |
-|---|---|---|---|
-| A | nothing; no glossary | nothing | reads of the code |
-| B | a one-line pointer to `GLOSSARY.md` | one line | a grep |
-| C | the whole glossary | the whole file | nothing |
-| D | the headwords only | a few tokens per term | a grep |
-
-D is the favourite going in: the agent knows which words are defined without paying for every
-definition. Control tasks that need no term measure what C and D cost when the glossary is dead
-weight. Correctness is graded beside cost, because a cheaper wrong answer is no saving. Cost, not
-raw tokens, is the headline: injected text is read back from the prompt cache at a tenth of the
-price, while a lookup's reads are cache writes. The fixture is small (about a dozen files), so
-savings are a lower bound, and a fixed system prompt of several thousand tokens per run means the arms
-differ by a small margin that needs several runs per cell to see.
+**GREEN measures the mechanism, on the same fixture and questions.** What session start injects (a
+pointer, the headwords, or the whole file), the pointer's wording, and whether the glossary is kept
+up to date mid-task are implementation questions, settled in design and measured against RED there.
+A first attempt that measured them alongside viability gave a noisy signal: the pointer's wording
+and the agents' upkeep of the glossary moved cost more than the lookups did.
 
 **Still open:**
 
